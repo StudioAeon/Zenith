@@ -1,0 +1,28 @@
+# Build / Binary Output
+build*/
+
+# CMake files
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# IDE-specific
+.vs/
+.out/
+**.sln
+**.vcxproj
+**.vcxproj.filters
+**.vcxproj.user
+**.user
+
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+
+# LFS Folders
+lfs/
+hooks/
