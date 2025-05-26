@@ -6,22 +6,31 @@ namespace Zenith {
 
 	Application* Application::s_Instance = nullptr;
 
-	Application::Application(int width, int height, const std::string& title)
+	Application::Application(const ApplicationSpecification& specification)
 	{
 		s_Instance = this;
 
-		m_Window = std::make_unique<Window>(title, width, height);
-		
-		AddEventCallback([this](Event& e) {
-			return OnWindowClose(static_cast<WindowCloseEvent&>(e));
-		});
-		AddEventCallback([this](Event& e) {
-			return OnWindowResize(static_cast<WindowResizeEvent&>(e));
-		});
+		WindowSpecification windowSpec;
+		windowSpec.Title = specification.Name;
+		windowSpec.Width = specification.WindowWidth;
+		windowSpec.Height = specification.WindowHeight;
+		windowSpec.Fullscreen = specification.Fullscreen;
+		windowSpec.VSync = specification.VSync;
+		m_Window = std::unique_ptr<Window>(Window::Create(windowSpec));
+		m_Window->Init();
+		m_Window->SetEventCallback([this](Event& e) { OnEvent(e); });
+
+		if (specification.StartMaximized)
+			m_Window->Maximize();
+		else
+			m_Window->CenterWindow();
+		m_Window->SetResizable(specification.Resizable);
 	}
 
 	Application::~Application()
-	{}
+	{
+		m_Window->SetEventCallback([](Event& e) {});
+	}
 
 	void Application::Run()
 	{
@@ -32,7 +41,7 @@ namespace Zenith {
 
 			if (!m_Minimized)
 			{
-				OnUpdate();
+				m_Window->SwapBuffers();
 			}
 		}
 		
@@ -52,13 +61,7 @@ namespace Zenith {
 
 	void Application::ProcessEvents()
 	{
-		m_Window->PollEvents();
-
-		if (m_Window->ShouldClose())
-		{
-			WindowCloseEvent e;
-			OnEvent(e);
-		}
+		m_Window->ProcessEvents();
 	}
 
 	void Application::OnEvent(Event& event)
@@ -87,6 +90,12 @@ namespace Zenith {
 			return false;
 		}
 
+		return false;
+	}
+
+	bool Application::OnWindowMinimize(WindowMinimizeEvent& e)
+	{
+		m_Minimized = e.IsMinimized();
 		return false;
 	}
 

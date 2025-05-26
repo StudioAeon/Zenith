@@ -7,11 +7,21 @@
 
 namespace Zenith {
 
+	struct ApplicationSpecification
+	{
+		std::string Name = "Zenith";
+		uint32_t WindowWidth = 1920, WindowHeight = 1080;
+		bool Fullscreen = false;
+		bool VSync = true;
+		bool StartMaximized = true;
+		bool Resizable = true;
+	};
+
 	class Application
 	{
 		using EventCallbackFn = std::function<void(Event&)>;
 	public:
-		Application(int width = 1280, int height = 720, const std::string& title = "Zenith Engine");
+		Application(const ApplicationSpecification& specification);
 		virtual ~Application();
 
 		void Run();
@@ -31,13 +41,17 @@ namespace Zenith {
 
 		static const char* GetConfigurationName();
 		static const char* GetPlatformName();
+
+		const ApplicationSpecification& GetSpecification() const { return m_Specification; }
 	private:
 		void ProcessEvents();
 
 		bool OnWindowResize(WindowResizeEvent& e);
+		bool OnWindowMinimize(WindowMinimizeEvent& e);
 		bool OnWindowClose(WindowCloseEvent& e);
 	private:
 		std::unique_ptr<Window> m_Window;
+		ApplicationSpecification m_Specification;
 		bool m_Running = true, m_Minimized = false;
 
 		std::vector<EventCallbackFn> m_EventCallbacks;

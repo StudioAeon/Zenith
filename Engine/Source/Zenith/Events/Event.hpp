@@ -58,7 +58,7 @@ namespace Zenith {
 			: m_Event(event) {}
 
 		template<typename T, typename = std::enable_if_t<std::is_base_of_v<Event, T>>>
-		[[nodiscard]] bool Dispatch(const std::function<bool(T&)>& func) {
+		bool Dispatch(const std::function<bool(T&)>& func) {
 			if (m_Event.GetEventType() == T::GetStaticType() && !m_Event.Handled) {
 				m_Event.Handled = func(static_cast<T&>(m_Event));
 				return true;
