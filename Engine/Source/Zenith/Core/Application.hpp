@@ -54,6 +54,7 @@ namespace Zenith {
 		ApplicationSpecification m_Specification;
 		bool m_Running = true, m_Minimized = false;
 
+		EventBus m_EventBus;
 		std::vector<EventCallbackFn> m_EventCallbacks;
 
 		float m_LastFrameTime = 0.0f;

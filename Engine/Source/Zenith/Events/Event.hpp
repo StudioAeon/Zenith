@@ -6,6 +6,7 @@
 #include <string>
 #include <ostream>
 #include <type_traits>
+#include <typeindex>
 
 namespace Zenith {
 
@@ -52,21 +53,37 @@ namespace Zenith {
 		}
 	};
 
-	class EventDispatcher {
-	public:
-		explicit EventDispatcher(Event& event)
-			: m_Event(event) {}
+	using EventCallbackFn = std::function<bool(Event&)>;
 
+	class EventBus {
+	public:
 		template<typename T, typename = std::enable_if_t<std::is_base_of_v<Event, T>>>
-		bool Dispatch(const std::function<bool(T&)>& func) {
-			if (m_Event.GetEventType() == T::GetStaticType() && !m_Event.Handled) {
-				m_Event.Handled = func(static_cast<T&>(m_Event));
-				return true;
-			}
-			return false;
+		void Listen(const std::function<bool(T&)>& callback)
+		{
+			auto& listeners = m_Listeners[typeid(T)];
+			listeners.emplace_back([callback](Event& e) -> bool
+			{
+				if (e.GetEventType() == T::GetStaticType())
+				{
+					return callback(static_cast<T&>(e));
+				}
+				return false;
+			});
 		}
+
+		void Dispatch(Event& event)
+		{
+			auto it = m_Listeners.find(std::type_index(typeid(event)));
+			if (it != m_Listeners.end()) {
+				for (auto& listener : it->second) {
+					if (event.Handled) break;
+					event.Handled = listener(event);
+				}
+			}
+		}
+
 	private:
-		Event& m_Event;
+		std::unordered_map<std::type_index, std::vector<EventCallbackFn>> m_Listeners;
 	};
 
 	inline std::ostream& operator<<(std::ostream& os, const Event& e)

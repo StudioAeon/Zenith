@@ -10,6 +10,10 @@ namespace Zenith {
 	{
 		s_Instance = this;
 
+		m_EventBus.Listen<WindowResizeEvent>([this](WindowResizeEvent& e) { return OnWindowResize(e); });
+		m_EventBus.Listen<WindowCloseEvent>([this](WindowCloseEvent& e) { return OnWindowClose(e); });
+		m_EventBus.Listen<WindowMinimizeEvent>([this](WindowMinimizeEvent& e) { return OnWindowMinimize(e); });
+
 		WindowSpecification windowSpec;
 		windowSpec.Title = specification.Name;
 		windowSpec.Width = specification.WindowWidth;
@@ -66,19 +70,16 @@ namespace Zenith {
 
 	void Application::OnEvent(Event& event)
 	{
-		EventDispatcher dispatcher(event);
-		dispatcher.Dispatch<WindowResizeEvent>([this](WindowResizeEvent& e) { return OnWindowResize(e); });
-		dispatcher.Dispatch<WindowCloseEvent>([this](WindowCloseEvent& e) { return OnWindowClose(e); });
+		m_EventBus.Dispatch(event);
 
-		if (event.Handled)
-			return;
-
-		for (auto& eventCallback : m_EventCallbacks)
+		if (!event.Handled)
 		{
-			eventCallback(event);
-
-			if (event.Handled)
-				break;
+				for (auto& callback : m_EventCallbacks)
+				{
+						callback(event);
+						if (event.Handled)
+								break;
+				}
 		}
 	}
 
