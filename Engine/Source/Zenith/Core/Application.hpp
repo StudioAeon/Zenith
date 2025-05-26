@@ -2,6 +2,7 @@
 
 #include "Zenith/Core/Base.hpp"
 #include "Zenith/Core/Window.hpp"
+#include "Zenith/Core/LayerStack.hpp"
 
 #include "Zenith/Events/ApplicationEvent.hpp"
 
@@ -33,6 +34,11 @@ namespace Zenith {
 
 		virtual void OnEvent(Event& event);
 
+		void PushLayer(const std::shared_ptr<Layer>& layer);
+		void PushOverlay(const std::shared_ptr<Layer>& overlay);
+		void PopLayer(const std::shared_ptr<Layer>& layer);
+		void PopOverlay(const std::shared_ptr<Layer>& overlay);
+
 		void AddEventCallback(const EventCallbackFn& eventCallback) { m_EventCallbacks.push_back(eventCallback); }
 
 		inline Window& GetWindow() { return *m_Window; }
@@ -53,6 +59,7 @@ namespace Zenith {
 		std::unique_ptr<Window> m_Window;
 		ApplicationSpecification m_Specification;
 		bool m_Running = true, m_Minimized = false;
+		LayerStack m_LayerStack;
 
 		EventBus m_EventBus;
 		std::vector<EventCallbackFn> m_EventCallbacks;

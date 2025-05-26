@@ -29,14 +29,6 @@ include(CheckIPOSupported)
 check_ipo_supported(RESULT IPO_SUPPORTED)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${IPO_SUPPORTED})
 
-# ==== Config-Specific Macros ====
-add_compile_definitions(
-		$<$<CONFIG:Debug>:ZN_DEBUG>
-		$<$<CONFIG:Release>:ZN_RELEASE>
-		$<$<CONFIG:RelWithDebInfo>:ZN_RELEASE>
-		$<$<CONFIG:MinSizeRel>:ZN_DIST>
-)
-
 # ==== Add Subsystems ====
 add_subdirectory(ThirdParty)
 add_subdirectory(Engine)

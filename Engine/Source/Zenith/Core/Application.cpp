@@ -34,6 +34,37 @@ namespace Zenith {
 	Application::~Application()
 	{
 		m_Window->SetEventCallback([](Event& e) {});
+
+		for (const auto& layer : m_LayerStack)
+		{
+			if (layer->IsEnabled())
+				layer->OnDetach();
+		}
+		m_LayerStack.Clear();
+	}
+
+	void Application::PushLayer(const std::shared_ptr<Layer>& layer)
+	{
+		m_LayerStack.PushLayer(layer);
+		layer->OnAttach();
+	}
+
+	void Application::PushOverlay(const std::shared_ptr<Layer>& overlay)
+	{
+		m_LayerStack.PushOverlay(overlay);
+		overlay->OnAttach();
+	}
+
+	void Application::PopLayer(const std::shared_ptr<Layer>& layer)
+	{
+		m_LayerStack.PopLayer(layer);
+		layer->OnDetach();
+	}
+
+	void Application::PopOverlay(const std::shared_ptr<Layer>& overlay)
+	{
+		m_LayerStack.PopOverlay(overlay);
+		overlay->OnDetach();
 	}
 
 	void Application::Run()
@@ -45,6 +76,10 @@ namespace Zenith {
 
 			if (!m_Minimized)
 			{
+				for (const auto& layer : m_LayerStack)
+					if (layer->IsEnabled())
+						layer->OnUpdate();
+
 				m_Window->SwapBuffers();
 			}
 		}
@@ -72,14 +107,22 @@ namespace Zenith {
 	{
 		m_EventBus.Dispatch(event);
 
-		if (!event.Handled)
+		for (auto it = m_LayerStack.end(); it != m_LayerStack.begin(); )
 		{
-				for (auto& callback : m_EventCallbacks)
-				{
-						callback(event);
-						if (event.Handled)
-								break;
-				}
+			(*--it)->OnEvent(event);
+			if (event.Handled)
+				break;
+		}
+
+		if (event.Handled)
+			return;
+
+		for (auto& eventCallback : m_EventCallbacks)
+		{
+			eventCallback(event);
+
+			if (event.Handled)
+				break;
 		}
 	}
 

@@ -1,4 +1,4 @@
-#include "Zenith.hpp"
+#include "EditorLayer.hpp"
 
 #include "Zenith/EntryPoint.hpp"
 
@@ -7,7 +7,11 @@ class ZenithEditorApplication : public Zenith::Application
 public:
 	ZenithEditorApplication(const Zenith::ApplicationSpecification& specification)
 		: Application(specification)
-	{}
+	{
+		auto editorLayer = std::make_shared<Zenith::EditorLayer>();
+		editorLayer->SetEnabled(true);
+		PushLayer(editorLayer);
+	}
 };
 
 Zenith::Application* Zenith::CreateApplication(int argv, char** argc)
