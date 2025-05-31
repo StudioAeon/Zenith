@@ -12,8 +12,7 @@ namespace Zenith {
 
 		virtual void OnAttach() override;
 		virtual void OnDetach() override;
-		virtual void OnUpdate() override;
-
+		virtual void OnUpdate(Timestep ts) override;
 		virtual void OnEvent(Event& e) override;
 
 		void UpdateWindowTitle(const std::string& sceneName);

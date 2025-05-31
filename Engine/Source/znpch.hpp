@@ -60,3 +60,5 @@
 #include <Zenith/Core/Base.hpp>
 #include <Zenith/Core/Assert.hpp>
 #include <Zenith/Events/Event.hpp>
+#include <Zenith/Core/Memory.hpp>
+#include <Zenith/Core/Log.hpp>

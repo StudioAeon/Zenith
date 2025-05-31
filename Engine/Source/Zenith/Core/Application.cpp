@@ -1,6 +1,14 @@
 #include "znpch.hpp"
 #include "Application.hpp"
 
+#include "Zenith/Renderer/API/Renderer.hpp"
+
+#include <SDL3/SDL.h>
+
+#include "Zenith/Debug/Profiler.hpp"
+
+#include <glm/glm.hpp>
+
 extern bool g_ApplicationRunning;
 namespace Zenith {
 
@@ -14,6 +22,8 @@ namespace Zenith {
 		m_EventBus.Listen<WindowCloseEvent>([this](WindowCloseEvent& e) { return OnWindowClose(e); });
 		m_EventBus.Listen<WindowMinimizeEvent>([this](WindowMinimizeEvent& e) { return OnWindowMinimize(e); });
 
+		m_Profiler = znew PerformanceProfiler();
+
 		WindowSpecification windowSpec;
 		windowSpec.Title = specification.Name;
 		windowSpec.Width = specification.WindowWidth;
@@ -23,6 +33,9 @@ namespace Zenith {
 		m_Window = std::unique_ptr<Window>(Window::Create(windowSpec));
 		m_Window->Init();
 		m_Window->SetEventCallback([this](Event& e) { OnEvent(e); });
+
+		Renderer::Init();
+		Renderer::WaitAndRender();
 
 		if (specification.StartMaximized)
 			m_Window->Maximize();
@@ -41,6 +54,11 @@ namespace Zenith {
 				layer->OnDetach();
 		}
 		m_LayerStack.Clear();
+
+		Renderer::Shutdown();
+
+		delete m_Profiler;
+		m_Profiler = nullptr;
 	}
 
 	void Application::PushLayer(const std::shared_ptr<Layer>& layer)
@@ -72,18 +90,34 @@ namespace Zenith {
 		OnInit();
 		while (m_Running)
 		{
+			float time = GetTime();
+			m_Frametime = time - m_LastFrameTime;
+			m_TimeStep = glm::min<float>(m_Frametime, 0.0333f);
+			m_LastFrameTime = time;
+
 			ProcessEvents();
+
+			m_Profiler->Clear();
 
 			if (!m_Minimized)
 			{
-				for (const auto& layer : m_LayerStack)
-					if (layer->IsEnabled())
-						layer->OnUpdate();
+				Renderer::BeginFrame();
+				{
+					ZN_SCOPE_PERF("Application Layer::OnUpdate");
+					for (const auto& layer : m_LayerStack)
+						if (layer->IsEnabled())
+							layer->OnUpdate(m_TimeStep);
+				}
+				Renderer::EndFrame();
 
+				m_Window->GetRenderContext()->BeginFrame();
+				Renderer::WaitAndRender();
 				m_Window->SwapBuffers();
+
+				// TODO: This should be in the render thread
+				Renderer::SwapQueues();
 			}
 		}
-		
 		OnShutdown();
 	}
 
@@ -134,6 +168,8 @@ namespace Zenith {
 			return false;
 		}
 
+		m_Window->GetRenderContext()->OnResize(width, height);
+
 		return false;
 	}
 
@@ -147,6 +183,14 @@ namespace Zenith {
 	{
 		Close();
 		return false;
+	}
+
+	float Application::GetTime() const
+	{
+		//return static_cast<float>(SDL_GetTicks()) / 1000.0f;
+
+		static const uint64_t freq = SDL_GetPerformanceFrequency();
+		return static_cast<float>(SDL_GetPerformanceCounter()) / static_cast<float>(freq);
 	}
 
 	const char* Application::GetConfigurationName()

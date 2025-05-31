@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Zenith/Core/Base.hpp"
+#include "Zenith/Core/TimeStep.hpp"
+#include "Zenith/Core/Timer.hpp"
 #include "Zenith/Core/Window.hpp"
 #include "Zenith/Core/LayerStack.hpp"
 
@@ -30,7 +32,7 @@ namespace Zenith {
 
 		virtual void OnInit() {}
 		virtual void OnShutdown();
-		virtual void OnUpdate() {}
+		virtual void OnUpdate(Timestep ts) {}
 
 		virtual void OnEvent(Event& event);
 
@@ -45,10 +47,16 @@ namespace Zenith {
 
 		static inline Application& Get() { return *s_Instance; }
 
+		Timestep GetTimestep() const { return m_TimeStep; }
+		Timestep GetFrametime() const { return m_Frametime; }
+		float GetTime() const; // TODO: This should be in "Platform"
+
 		static const char* GetConfigurationName();
 		static const char* GetPlatformName();
 
 		const ApplicationSpecification& GetSpecification() const { return m_Specification; }
+
+		PerformanceProfiler* GetPerformanceProfiler() { return m_Profiler; }
 	private:
 		void ProcessEvents();
 
@@ -60,6 +68,9 @@ namespace Zenith {
 		ApplicationSpecification m_Specification;
 		bool m_Running = true, m_Minimized = false;
 		LayerStack m_LayerStack;
+		Timestep m_Frametime;
+		Timestep m_TimeStep;
+		PerformanceProfiler* m_Profiler = nullptr; // TODO: Should be null in Dist
 
 		EventBus m_EventBus;
 		std::vector<EventCallbackFn> m_EventCallbacks;

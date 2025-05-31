@@ -45,11 +45,18 @@ namespace Zenith {
 		if (m_Specification.Fullscreen)
 			windowFlags |= SDL_WINDOW_FULLSCREEN;
 
+		if (RendererAPI::Current() == RendererAPIType::OpenGL)
+			windowFlags |= SDL_WINDOW_OPENGL;
+
 		m_Window = SDL_CreateWindow(m_Data.Title.c_str(), m_Data.Width, m_Data.Height, windowFlags);
 
 		if (!m_Window) {
 			ZN_CORE_ASSERT("Failed to create SDL Window: {}", SDL_GetError());
 		}
+
+		// Create Renderer Context
+		m_RendererContext = RendererContext::Create(m_Window);
+		m_RendererContext->Create();
 
 		SetVSync(m_Specification.VSync);
 
@@ -134,13 +141,16 @@ namespace Zenith {
 
 	void Window::SwapBuffers()
 	{
-		// TODO: Hook this up with the graphics backend's buffer swap (OpenGL/Vulkan/etc)
+		m_RendererContext->SwapBuffers();
 	}
 
 	void Window::SetVSync(bool enabled)
 	{
 		m_Specification.VSync = enabled;
-		// TODO: Wire this into the renderer's swapchain or vsync toggle logic
+		if (RendererAPI::Current() == RendererAPIType::OpenGL)
+		{
+			SDL_GL_SetSwapInterval(enabled ? 1 : 0);
+		}
 	}
 
 	bool Window::IsVSync() const

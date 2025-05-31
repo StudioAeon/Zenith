@@ -22,7 +22,7 @@ namespace Zenith {
 		Application::Get().GetWindow().SetTitle(title);
 	}
 
-	void EditorLayer::OnUpdate()
+	void EditorLayer::OnUpdate(Timestep ts)
 	{}
 
 	void EditorLayer::OnEvent(Event& e)

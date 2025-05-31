@@ -18,4 +18,4 @@ target_compile_features(Zenith PUBLIC cxx_std_20)
 target_include_directories(Zenith PUBLIC ${ZENITH_SRC_DIR})
 
 add_definitions(-DSDL_MAIN_HANDLED)
-target_link_libraries(Zenith PUBLIC SDL3::SDL3-static spdlog)
+target_link_libraries(Zenith PUBLIC SDL3::SDL3-static spdlog glm glad Tracy::TracyClient)

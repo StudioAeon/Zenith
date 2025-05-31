@@ -2,6 +2,8 @@
 
 #include "Zenith/Core/Base.hpp"
 #include "Zenith/Events/Event.hpp"
+#include "Zenith/Renderer/API/RendererContext.hpp"
+#include "Zenith/Renderer/API/RendererAPI.hpp"
 
 #include <SDL3/SDL.h>
 
@@ -47,6 +49,8 @@ namespace Zenith {
 		virtual void SetTitle(const std::string& title);
 
 		inline void* GetNativeWindow() const { return m_Window; }
+
+		virtual Ref<RendererContext> GetRenderContext() { return m_RendererContext; }
 	public:
 		static Window* Create(const WindowSpecification& specification = WindowSpecification());
 
@@ -67,6 +71,8 @@ namespace Zenith {
 
 		WindowData m_Data;
 		float m_LastFrameTime = 0.0f;
+
+		Ref<RendererContext> m_RendererContext;
 	};
 
 }
