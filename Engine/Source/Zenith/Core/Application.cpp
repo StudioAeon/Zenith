@@ -5,6 +5,8 @@
 
 #include <SDL3/SDL.h>
 
+#include "FatalSignal.hpp"
+
 #include "Zenith/Debug/Profiler.hpp"
 
 #include <glm/glm.hpp>
@@ -16,6 +18,14 @@ namespace Zenith {
 
 	Application::Application(const ApplicationSpecification& specification)
 	{
+		FatalSignal::Install(3000);
+
+		FatalSignal::AddCallback([this]() {
+			if (m_Window)
+				m_Window->SetEventCallback([](Event&) {});
+			Renderer::Shutdown();
+		});
+
 		s_Instance = this;
 
 		m_EventBus.Listen<WindowResizeEvent>([this](WindowResizeEvent& e) { return OnWindowResize(e); });
@@ -187,10 +197,11 @@ namespace Zenith {
 
 	float Application::GetTime() const
 	{
-		//return static_cast<float>(SDL_GetTicks()) / 1000.0f;
+		static const double invFreq = 1.0 / static_cast<double>(SDL_GetPerformanceFrequency());
+		return static_cast<float>(SDL_GetPerformanceCounter() * invFreq);
 
-		static const uint64_t freq = SDL_GetPerformanceFrequency();
-		return static_cast<float>(SDL_GetPerformanceCounter()) / static_cast<float>(freq);
+		// static const uint64_t freq = SDL_GetPerformanceFrequency();
+		// return static_cast<float>(SDL_GetPerformanceCounter()) / static_cast<float>(freq);
 	}
 
 	const char* Application::GetConfigurationName()

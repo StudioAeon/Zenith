@@ -27,6 +27,9 @@ namespace Zenith {
 		switch (RendererAPI::Current())
 		{
 			case RendererAPIType::OpenGL: return znew OpenGLRenderer();
+			case RendererAPIType::None:
+				ZN_CORE_ASSERT(false, "RendererAPI::None is not supported");
+				return nullptr;
 		}
 		ZN_CORE_ASSERT(false, "Unknown RendererAPI");
 		return nullptr;

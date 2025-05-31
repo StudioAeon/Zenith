@@ -25,11 +25,6 @@ namespace Zenith {
 		int status = gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress);
 		ZN_CORE_ASSERT(status, "Failed to initialize Glad!");
 
-		ZN_CORE_INFO("OpenGL Info:");
-		ZN_CORE_INFO("  Vendor: {0}", reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
-		ZN_CORE_INFO("  Renderer: {0}", reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
-		ZN_CORE_INFO("  Version: {0}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
-
 #ifdef ZN_ENABLE_ASSERTS
 		int versionMajor;
 		int versionMinor;
