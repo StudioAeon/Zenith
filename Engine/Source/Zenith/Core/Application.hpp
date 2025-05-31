@@ -49,7 +49,8 @@ namespace Zenith {
 
 		Timestep GetTimestep() const { return m_TimeStep; }
 		Timestep GetFrametime() const { return m_Frametime; }
-		float GetTime() const; // TODO: This should be in "Platform"
+
+		float GetFrameDelta();  // TODO: This should be in "Platform"
 
 		static const char* GetConfigurationName();
 		static const char* GetPlatformName();

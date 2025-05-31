@@ -100,10 +100,9 @@ namespace Zenith {
 		OnInit();
 		while (m_Running)
 		{
-			float time = GetTime();
-			m_Frametime = time - m_LastFrameTime;
+			m_Frametime = GetFrameDelta();
 			m_TimeStep = glm::min<float>(m_Frametime, 0.0333f);
-			m_LastFrameTime = time;
+			m_LastFrameTime += m_Frametime; // Keep total time
 
 			ProcessEvents();
 
@@ -195,13 +194,13 @@ namespace Zenith {
 		return false;
 	}
 
-	float Application::GetTime() const
+	float Application::GetFrameDelta()
 	{
-		static const double invFreq = 1.0 / static_cast<double>(SDL_GetPerformanceFrequency());
-		return static_cast<float>(SDL_GetPerformanceCounter() * invFreq);
-
-		// static const uint64_t freq = SDL_GetPerformanceFrequency();
-		// return static_cast<float>(SDL_GetPerformanceCounter()) / static_cast<float>(freq);
+		static uint64_t last = SDL_GetTicksNS();
+		uint64_t now = SDL_GetTicksNS();
+		uint64_t delta = now - last;
+		last = now;
+		return static_cast<float>(delta * 1e-9f);
 	}
 
 	const char* Application::GetConfigurationName()
