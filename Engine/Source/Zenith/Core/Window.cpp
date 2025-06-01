@@ -4,6 +4,7 @@
 #include "Zenith/Events/ApplicationEvent.hpp"
 #include "Zenith/Events/KeyEvent.hpp"
 #include "Zenith/Events/MouseEvent.hpp"
+#include "Zenith/Core/Input.hpp"
 
 namespace Zenith {
 
@@ -86,7 +87,17 @@ namespace Zenith {
 
 	void Window::ProcessEvents()
 	{
-		while (SDL_PollEvent(&m_Event)) {
+		PollEvents();
+		Input::Update();
+	}
+
+	void Window::PollEvents()
+	{
+		while (SDL_PollEvent(&m_Event)) 
+		{
+			// Let the Input system process input-related events first
+			Input::ProcessEvent(m_Event);
+
 			switch (m_Event.type) {
 				case SDL_EVENT_QUIT: {
 					WindowCloseEvent e;
@@ -101,12 +112,13 @@ namespace Zenith {
 					break;
 				}
 				case SDL_EVENT_KEY_DOWN: {
-					KeyPressedEvent e(m_Event.key.key, 0);
+					int repeatCount = m_Event.key.repeat ? 1 : 0;
+					KeyPressedEvent e(m_Event.key.scancode, repeatCount);
 					m_Data.EventCallback(e);
 					break;
 				}
 				case SDL_EVENT_KEY_UP: {
-					KeyReleasedEvent e(m_Event.key.key);
+					KeyReleasedEvent e(m_Event.key.scancode);
 					m_Data.EventCallback(e);
 					break;
 				}
@@ -135,6 +147,9 @@ namespace Zenith {
 					m_Data.EventCallback(e);
 					break;
 				}
+				// Input system will handle these automatically via ProcessEvent():
+				// SDL_EVENT_GAMEPAD_ADDED, SDL_EVENT_GAMEPAD_REMOVED,
+				// SDL_EVENT_GAMEPAD_BUTTON_DOWN, SDL_EVENT_GAMEPAD_BUTTON_UP
 			}
 		}
 	}

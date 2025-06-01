@@ -5,6 +5,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "Input.hpp"
 #include "FatalSignal.hpp"
 
 #include "Zenith/Debug/Profiler.hpp"
@@ -126,6 +127,8 @@ namespace Zenith {
 				// TODO: This should be in the render thread
 				Renderer::SwapQueues();
 			}
+
+			Input::ClearReleasedKeys();
 		}
 		OnShutdown();
 	}
@@ -143,6 +146,9 @@ namespace Zenith {
 
 	void Application::ProcessEvents()
 	{
+		Input::TransitionPressedKeys();
+		Input::TransitionPressedButtons();
+
 		m_Window->ProcessEvents();
 	}
 

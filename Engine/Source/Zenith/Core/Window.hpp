@@ -56,6 +56,7 @@ namespace Zenith {
 
 	private:
 		virtual void Shutdown();
+		virtual void PollEvents();
 	private:
 		SDL_Window* m_Window = nullptr;
 		SDL_Event m_Event{};
