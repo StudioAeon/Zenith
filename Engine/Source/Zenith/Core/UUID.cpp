@@ -124,7 +124,7 @@ namespace Zenith {
 	void UUID::generateV4()
 	{
 		auto& gen = getRandomGenerator();
-		std::uniform_int_distribution<uint8_t> dis(0, 255);
+		std::uniform_int_distribution<uint32_t> dis(0, 255);
 		for (auto& byte : m_data)
 		{
 			byte = dis(gen);

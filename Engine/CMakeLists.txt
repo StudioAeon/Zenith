@@ -15,6 +15,10 @@ target_precompile_headers(Zenith PRIVATE ${ZENITH_SRC_DIR}/znpch.hpp)
 
 target_compile_features(Zenith PUBLIC cxx_std_20)
 
+if (MSVC)
+		target_compile_options(Zenith PRIVATE /Zc:preprocessor)
+endif()
+
 target_include_directories(Zenith PUBLIC ${ZENITH_SRC_DIR})
 
 add_definitions(-DSDL_MAIN_HANDLED)
