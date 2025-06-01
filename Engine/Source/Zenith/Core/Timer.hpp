@@ -36,7 +36,7 @@ namespace Zenith {
 
 		~ScopedTimer() {
 			float ms = m_Timer.ElapsedMillis();
-			ZN_CORE_TRACE("{} - {:.3f}ms", m_Name, ms);
+			ZN_CORE_TRACE_TAG("Timer", "{} - {:.3f}ms", m_Name, ms);
 		}
 
 	private:

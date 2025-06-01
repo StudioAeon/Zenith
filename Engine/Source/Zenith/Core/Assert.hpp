@@ -4,28 +4,47 @@
 #include "Log.hpp"
 
 #ifdef ZN_PLATFORM_WINDOWS
-#define ZN_DEBUG_BREAK __debugbreak()
+	#define ZN_DEBUG_BREAK __debugbreak()
 #elif defined(ZN_COMPILER_CLANG)
-#define ZN_DEBUG_BREAK __builtin_debugtrap()
+	#define ZN_DEBUG_BREAK __builtin_debugtrap()
 #else
-#define ZN_DEBUG_BREAK
+	#define ZN_DEBUG_BREAK
 #endif
 
 #ifdef ZN_DEBUG
-#define ZN_ENABLE_ASSERTS
-#define ZN_EXPAND_VARGS(x) x
+	#define ZN_ENABLE_ASSERTS
 #endif
 
+#define ZN_ENABLE_VERIFY
+
 #ifdef ZN_ENABLE_ASSERTS
-#define ZN_ASSERT_NO_MESSAGE(condition) { if(!(condition)) { ZN_ERROR("Assertion Failed"); __debugbreak(); } }
-#define ZN_ASSERT_MESSAGE(condition, ...) { if(!(condition)) { ZN_ERROR("Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
+	#ifdef ZN_COMPILER_CLANG
+		#define ZN_CORE_ASSERT_MESSAGE_INTERNAL(...)  ::Zenith::Log::PrintAssertMessage(::Zenith::Log::Type::Core, "Assertion Failed", ##__VA_ARGS__)
+		#define ZN_ASSERT_MESSAGE_INTERNAL(...)  ::Zenith::Log::PrintAssertMessage(::Zenith::Log::Type::Client, "Assertion Failed", ##__VA_ARGS__)
+	#else
+		#define ZN_CORE_ASSERT_MESSAGE_INTERNAL(...)  ::Zenith::Log::PrintAssertMessage(::Zenith::Log::Type::Core, "Assertion Failed" __VA_OPT__(,) __VA_ARGS__)
+		#define ZN_ASSERT_MESSAGE_INTERNAL(...)  ::Zenith::Log::PrintAssertMessage(::Zenith::Log::Type::Client, "Assertion Failed" __VA_OPT__(,) __VA_ARGS__)
+	#endif
 
-#define ZN_ASSERT_RESOLVE(arg1, arg2, macro, ...) macro
-#define ZN_GET_ASSERT_MACRO(...) ZN_EXPAND_VARGS(ZN_ASSERT_RESOLVE(__VA_ARGS__, ZN_ASSERT_MESSAGE, ZN_ASSERT_NO_MESSAGE))
-
-#define ZN_ASSERT(...) ZN_EXPAND_VARGS( ZN_GET_ASSERT_MACRO(__VA_ARGS__)(__VA_ARGS__) )
-#define ZN_CORE_ASSERT(...) ZN_EXPAND_VARGS( ZN_GET_ASSERT_MACRO(__VA_ARGS__)(__VA_ARGS__) )
+	#define ZN_CORE_ASSERT(condition, ...) do { if(!(condition)) { ZN_CORE_ASSERT_MESSAGE_INTERNAL(__VA_ARGS__); ZN_DEBUG_BREAK; } } while(0)
+	#define ZN_ASSERT(condition, ...) do { if(!(condition)) { ZN_ASSERT_MESSAGE_INTERNAL(__VA_ARGS__); ZN_DEBUG_BREAK; } } while(0)
 #else
-#define ZN_ASSERT(...)
-#define ZN_CORE_ASSERT(...)
+	#define ZN_CORE_ASSERT(condition, ...) ((void) (condition))
+	#define ZN_ASSERT(condition, ...) ((void) (condition))
+#endif
+
+#ifdef ZN_ENABLE_VERIFY
+	#ifdef ZN_COMPILER_CLANG
+		#define ZN_CORE_VERIFY_MESSAGE_INTERNAL(...)  ::Zenith::Log::PrintAssertMessage(::Zenith::Log::Type::Core, "Verify Failed", ##__VA_ARGS__)
+		#define ZN_VERIFY_MESSAGE_INTERNAL(...)  ::Zenith::Log::PrintAssertMessage(::Zenith::Log::Type::Client, "Verify Failed", ##__VA_ARGS__)
+	#else
+		#define ZN_CORE_VERIFY_MESSAGE_INTERNAL(...)  ::Zenith::Log::PrintAssertMessage(::Zenith::Log::Type::Core, "Verify Failed" __VA_OPT__(,) __VA_ARGS__)
+		#define ZN_VERIFY_MESSAGE_INTERNAL(...)  ::Zenith::Log::PrintAssertMessage(::Zenith::Log::Type::Client, "Verify Failed" __VA_OPT__(,) __VA_ARGS__)
+	#endif
+
+	#define ZN_CORE_VERIFY(condition, ...) do { if(!(condition)) { ZN_CORE_VERIFY_MESSAGE_INTERNAL(__VA_ARGS__); ZN_DEBUG_BREAK; } } while(0)
+	#define ZN_VERIFY(condition, ...) do { if(!(condition)) { ZN_VERIFY_MESSAGE_INTERNAL(__VA_ARGS__); ZN_DEBUG_BREAK; } } while(0)
+#else
+	#define ZN_CORE_VERIFY(condition, ...) ((void) (condition))
+	#define ZN_VERIFY(condition, ...) ((void) (condition))
 #endif

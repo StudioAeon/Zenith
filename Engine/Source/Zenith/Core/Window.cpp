@@ -29,13 +29,13 @@ namespace Zenith {
 		m_Data.Width = m_Specification.Width;
 		m_Data.Height = m_Specification.Height;
 
-		ZN_CORE_INFO("Creating window {} ({}x{})", m_Data.Title, m_Data.Width, m_Data.Height);
+		ZN_CORE_INFO_TAG("SDL", "Creating window {} ({}x{})", m_Data.Title, m_Data.Width, m_Data.Height);
 
 		if (!s_SDLInitialized)
 		{
 			if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0)
 			{
-				ZN_CORE_ASSERT("Could not initialize SDL: {}", SDL_GetError());
+				ZN_CORE_ASSERT(SDL_Init(SDL_INIT_VIDEO), "Could not initialize SDL: {}", SDL_GetError());
 			}
 			s_SDLInitialized = true;
 		}
@@ -51,7 +51,7 @@ namespace Zenith {
 		m_Window = SDL_CreateWindow(m_Data.Title.c_str(), m_Data.Width, m_Data.Height, windowFlags);
 
 		if (!m_Window) {
-			ZN_CORE_ASSERT("Failed to create SDL Window: {}", SDL_GetError());
+			ZN_CORE_ASSERT(m_Window != nullptr, "Failed to create SDL Window: {}", SDL_GetError());
 		}
 
 		// Create Renderer Context
@@ -175,7 +175,7 @@ namespace Zenith {
 
 		if (!mode)
 		{
-			ZN_CORE_ERROR("Failed to get current display mode: {}", SDL_GetError());
+			ZN_CORE_ERROR_TAG("SDL","Failed to get current display mode: {}", SDL_GetError());
 			return;
 		}
 

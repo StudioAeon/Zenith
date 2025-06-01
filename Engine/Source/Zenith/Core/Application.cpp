@@ -11,7 +11,7 @@
 
 #include <glm/glm.hpp>
 
-extern bool g_ApplicationRunning;
+bool g_ApplicationRunning = true;
 namespace Zenith {
 
 	Application* Application::s_Instance = nullptr;

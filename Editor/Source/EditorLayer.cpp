@@ -1,5 +1,7 @@
 #include "EditorLayer.hpp"
 
+#include <iostream>
+
 namespace Zenith {
 
 	EditorLayer::EditorLayer()
@@ -11,6 +13,9 @@ namespace Zenith {
 	void EditorLayer::OnAttach()
 	{
 		UpdateWindowTitle("Untitled Project");
+
+		auto uuid = Zenith::UUID::generate();
+		ZN_INFO("Generated UUID: {}", uuid);
 	}
 
 	void EditorLayer::OnDetach()

@@ -134,7 +134,7 @@ namespace Zenith {
 
 #ifndef ZN_DIST
 			if (!found)
-				ZN_CORE_WARN("Memory block {0} not present in alloc map", memory);
+				ZN_CORE_WARN_TAG("Memory", "Memory block {0} not present in alloc map", memory);
 #endif
 		}
 

@@ -7,7 +7,8 @@
 
 #include <backward.hpp>
 
-namespace Zenith {
+namespace Zenith
+{
 	FatalSignal FatalSignal::s_Instance;
 
 	void FatalSignal::Die()
@@ -42,7 +43,7 @@ namespace Zenith {
 #ifndef ZN_PLATFORM_WINDOWS
 		ualarm(static_cast<useconds_t>(m_TimeoutMs * 1000), 0);
 #else
-		std::thread([=]() {
+		std::thread([this]() {
 			std::this_thread::sleep_for(std::chrono::milliseconds(m_TimeoutMs));
 			OnTimeout();
 		}).detach();
@@ -94,7 +95,7 @@ namespace Zenith {
 		signal(SIGTERM, signalHandler);
 
 #ifndef ZN_PLATFORM_WINDOWS
-		signal(SIGALRM, [](int) { OnTimeout(); });
+		signal(SIGALRM, [](int) { s_Instance.OnTimeout(); });
 #endif
 	}
 

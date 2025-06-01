@@ -67,7 +67,7 @@ namespace Zenith {
 			caps.Vendor = (const char*)glGetString(GL_VENDOR);
 			caps.Device = (const char*)glGetString(GL_RENDERER);
 			caps.Version = (const char*)glGetString(GL_VERSION);
-			ZN_CORE_TRACE("OpenGLRendererData::Init");
+			ZN_CORE_TRACE_TAG("Renderer", "OpenGLRendererData::Init");
 			Utils::DumpGPUInfo();
 
 			//unsigned int vao;
@@ -82,7 +82,7 @@ namespace Zenith {
 			GLenum error = glGetError();
 			while (error != GL_NO_ERROR)
 			{
-				ZN_CORE_ERROR("OpenGL Error {0}", error);
+				ZN_CORE_ERROR_TAG("Renderer", "OpenGL Error {0}", error);
 				error = glGetError();
 			}
 		});

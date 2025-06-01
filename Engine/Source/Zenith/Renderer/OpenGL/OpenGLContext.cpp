@@ -16,7 +16,7 @@ namespace Zenith {
 
 	void OpenGLContext::Create()
 	{
-		ZN_CORE_INFO("OpenGLContext::Create");
+		ZN_CORE_INFO_TAG("Renderer", "OpenGLContext::Create");
 
 		m_GLContext = SDL_GL_CreateContext(m_WindowHandle);
 		ZN_CORE_ASSERT(m_GLContext, "Failed to create OpenGL context!");
