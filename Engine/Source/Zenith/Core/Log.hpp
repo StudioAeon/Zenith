@@ -164,22 +164,23 @@ namespace Zenith {
 		if (detail.Enabled && detail.LevelFilter <= level)
 		{
 			auto logger = (type == Type::Core) ? GetCoreLogger() : GetClientLogger();
+			std::string formatted = std::format(format, std::forward<Args>(args)...);
 			switch (level)
 			{
 			case Level::Trace:
-				logger->trace(format, std::forward<Args>(args)...);
+				logger->trace(formatted);
 				break;
 			case Level::Info:
-				logger->info(format, std::forward<Args>(args)...);
+				logger->info(formatted);
 				break;
 			case Level::Warn:
-				logger->warn(format, std::forward<Args>(args)...);
+				logger->warn(formatted);
 				break;
 			case Level::Error:
-				logger->error(format, std::forward<Args>(args)...);
+				logger->error(formatted);
 				break;
 			case Level::Fatal:
-				logger->critical(format, std::forward<Args>(args)...);
+				logger->critical(formatted);
 				break;
 			}
 		}
