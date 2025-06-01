@@ -16,6 +16,7 @@
 #include "Zenith/Core/TimeStep.hpp"
 #include "Zenith/Core/Version.hpp"
 #include "Zenith/Core/Timer.hpp"
+#include "Zenith/Core/FastRandom.hpp" // temp for testing
 
 #include "Zenith/Events/Event.hpp"
 #include "Zenith/Events/ApplicationEvent.hpp"
