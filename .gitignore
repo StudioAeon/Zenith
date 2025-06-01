@@ -19,9 +19,8 @@ compile_commands.json
 .vscode/
 .idea/
 
-# Python
-__pycache__/
-*.pyc
+# Log files
+**.log
 
 # LFS Folders
 lfs/

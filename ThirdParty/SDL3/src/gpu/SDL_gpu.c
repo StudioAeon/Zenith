@@ -195,7 +195,7 @@ static bool TextureFormatIsComputeWritable[] = {
     true,  // R16_UNORM
     true,  // R16G16_UNORM
     true,  // R16G16B16A16_UNORM
-    false, // R10G10B10A2_UNORM
+    true,  // R10G10B10A2_UNORM
     false, // B5G6R5_UNORM
     false, // B5G5R5A1_UNORM
     false, // B4G4R4A4_UNORM
@@ -220,7 +220,7 @@ static bool TextureFormatIsComputeWritable[] = {
     true,  // R32_FLOAT
     true,  // R32G32_FLOAT
     true,  // R32G32B32A32_FLOAT
-    false, // R11G11B10_UFLOAT
+    true,  // R11G11B10_UFLOAT
     true,  // R8_UINT
     true,  // R8G8_UINT
     true,  // R8G8B8A8_UINT
@@ -517,32 +517,12 @@ void SDL_GPU_BlitCommon(
 static const SDL_GPUBootstrap * SDL_GPUSelectBackend(SDL_PropertiesID props)
 {
     Uint32 i;
-    SDL_GPUShaderFormat format_flags = 0;
     const char *gpudriver;
     SDL_VideoDevice *_this = SDL_GetVideoDevice();
 
     if (_this == NULL) {
         SDL_SetError("Video subsystem not initialized");
         return NULL;
-    }
-
-    if (SDL_GetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_PRIVATE_BOOLEAN, false)) {
-        format_flags |= SDL_GPU_SHADERFORMAT_PRIVATE;
-    }
-    if (SDL_GetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, false)) {
-        format_flags |= SDL_GPU_SHADERFORMAT_SPIRV;
-    }
-    if (SDL_GetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_DXBC_BOOLEAN, false)) {
-        format_flags |= SDL_GPU_SHADERFORMAT_DXBC;
-    }
-    if (SDL_GetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_DXIL_BOOLEAN, false)) {
-        format_flags |= SDL_GPU_SHADERFORMAT_DXIL;
-    }
-    if (SDL_GetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_MSL_BOOLEAN, false)) {
-        format_flags |= SDL_GPU_SHADERFORMAT_MSL;
-    }
-    if (SDL_GetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_METALLIB_BOOLEAN, false)) {
-        format_flags |= SDL_GPU_SHADERFORMAT_METALLIB;
     }
 
     gpudriver = SDL_GetHint(SDL_HINT_GPU_DRIVER);
@@ -554,10 +534,6 @@ static const SDL_GPUBootstrap * SDL_GPUSelectBackend(SDL_PropertiesID props)
     if (gpudriver != NULL) {
         for (i = 0; backends[i]; i += 1) {
             if (SDL_strcasecmp(gpudriver, backends[i]->name) == 0) {
-                if (!(backends[i]->shader_formats & format_flags)) {
-                    SDL_SetError("Required shader format for backend %s not provided!", gpudriver);
-                    return NULL;
-                }
                 if (backends[i]->PrepareDriver(_this, props)) {
                     return backends[i];
                 }
@@ -569,10 +545,6 @@ static const SDL_GPUBootstrap * SDL_GPUSelectBackend(SDL_PropertiesID props)
     }
 
     for (i = 0; backends[i]; i += 1) {
-        if ((backends[i]->shader_formats & format_flags) == 0) {
-            // Don't select a backend which doesn't support the app's shaders.
-            continue;
-        }
         if (backends[i]->PrepareDriver(_this, props)) {
             return backends[i];
         }
@@ -672,7 +644,6 @@ SDL_GPUDevice *SDL_CreateGPUDeviceWithProperties(SDL_PropertiesID props)
         result = selectedBackend->CreateDevice(debug_mode, preferLowPower, props);
         if (result != NULL) {
             result->backend = selectedBackend->name;
-            result->shader_formats = selectedBackend->shader_formats;
             result->debug_mode = debug_mode;
         }
     }
@@ -868,7 +839,7 @@ bool SDL_GPUTextureSupportsFormat(
         CHECK_TEXTUREFORMAT_ENUM_INVALID(format, false)
     }
 
-    if ((usage & SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE) || 
+    if ((usage & SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE) ||
         (usage & SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_SIMULTANEOUS_READ_WRITE)) {
         if (!TextureFormatIsComputeWritable[format]) {
             return false;

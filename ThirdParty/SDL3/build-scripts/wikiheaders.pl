@@ -825,21 +825,23 @@ sub print_big_ascii_string {
             die("Don't have a big ascii entry for '$ch'!\n") if not defined $rowsref;
             my $row = @$rowsref[$rownum];
 
+            my $outstr = '';
             if ($lowascii) {
                 my @x = split //, $row;
                 foreach (@x) {
-                    my $v = ($_ eq "\x{2588}") ? 'X' : ' ';
-                    print $fh $v;
+                    $outstr .= ($_ eq "\x{2588}") ? 'X' : ' ';
                 }
             } else {
-                print $fh $row;
+                $outstr = $row;
             }
 
             $charidx++;
-
-            if ($charidx < $charcount) {
-                print $fh " ";
+            if ($charidx == $charcount) {
+                $outstr =~ s/\s*\Z//;  # dump extra spaces at the end of the line.
+            } else {
+                $outstr .= ' ';   # space between glyphs.
             }
+            print $fh $outstr;
         }
         print $fh "\n";
     }
@@ -2972,10 +2974,12 @@ __EOF__
         }
 
         if (defined $returns) {
+            # Check for md link in return type: ([SDL_Renderer](SDL_Renderer) *)
+            # This would've prevented the next regex from working properly (it'd leave " *)")
+            $returns =~ s/\A\(\[.*?\]\((.*?)\)/\($1/ms;
             # Chop datatype in parentheses off the front.
-            if(!($returns =~ s/\A\([^\[]*\[[^\]]*\]\([^\)]*\)[^\)]*\) //ms)) {
-                $returns =~ s/\A\([^\)]*\) //ms;
-            }
+            $returns =~ s/\A\(.*?\) //;
+
             $returns = dewikify($wikitype, $returns);
             $str .= ".SH RETURN VALUE\n";
             $str .= "$returns\n";
