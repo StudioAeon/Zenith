@@ -29,6 +29,12 @@ include(CheckIPOSupported)
 check_ipo_supported(RESULT IPO_SUPPORTED)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${IPO_SUPPORTED})
 
+find_package(Vulkan REQUIRED)
+
+# ==== Distribution Options ====
+option(ZENITH_TRACK_MEMORY "Enable memory tracking (disabled in Dist builds)" ON)
+option(ZENITH_INSTALL_THIRD_PARTY "Install third-party libraries (development only)" OFF)
+
 # ==== Add Subsystems ====
 add_subdirectory(ThirdParty)
 add_subdirectory(Engine)
