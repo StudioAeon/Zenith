@@ -48,7 +48,6 @@ namespace Zenith {
 
 		static uint32_t GetRenderQueueIndex();
 		static uint32_t GetRenderQueueSubmissionIndex();
-
 	private:
 		static RenderCommandQueue& GetRenderCommandQueue();
 	};

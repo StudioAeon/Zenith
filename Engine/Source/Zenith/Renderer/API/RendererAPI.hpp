@@ -8,7 +8,8 @@ namespace Zenith {
 	enum class RendererAPIType
 	{
 		None,
-		OpenGL
+		OpenGL,
+		Vulkan
 	};
 
 	class RendererAPI

@@ -1,8 +1,6 @@
 #include "znpch.hpp"
 #include "Renderer.hpp"
 
-#include <glad/glad.h>
-
 #include "RendererAPI.hpp"
 
 #include "Zenith/Renderer/OpenGL/OpenGLRenderer.hpp"
@@ -14,7 +12,8 @@ namespace Zenith {
 	void RendererAPI::SetAPI(RendererAPIType api)
 	{
 		// TODO: make sure this is called at a valid time
-		ZN_CORE_ASSERT(api == RendererAPIType::OpenGL, "OpenGL is currently the only supported Renderer API");
+		ZN_CORE_ASSERT(api == RendererAPIType::OpenGL || api == RendererAPIType::Vulkan,
+			"Only OpenGL and Vulkan are currently supported");
 		s_CurrentRendererAPI = api;
 	}
 

@@ -46,8 +46,18 @@ namespace Zenith {
 		if (m_Specification.Fullscreen)
 			windowFlags |= SDL_WINDOW_FULLSCREEN;
 
-		if (RendererAPI::Current() == RendererAPIType::OpenGL)
-			windowFlags |= SDL_WINDOW_OPENGL;
+		switch (RendererAPI::Current())
+		{
+			case RendererAPIType::OpenGL:
+				windowFlags |= SDL_WINDOW_OPENGL;
+				break;
+			case RendererAPIType::Vulkan:
+				windowFlags |= SDL_WINDOW_VULKAN;
+				break;
+			case RendererAPIType::None:
+				ZN_CORE_ASSERT(false, "RendererAPI::None is not supported");
+				break;
+		}
 
 		m_Window = SDL_CreateWindow(m_Data.Title.c_str(), m_Data.Width, m_Data.Height, windowFlags);
 
