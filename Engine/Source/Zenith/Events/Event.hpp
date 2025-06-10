@@ -5,6 +5,7 @@
 #include <functional>
 #include <string>
 #include <ostream>
+#include <queue>
 #include <type_traits>
 #include <typeindex>
 
@@ -51,39 +52,119 @@ namespace Zenith {
 		{
 			return GetCategoryFlags() & category;
 		}
+
+		void StopPropagation() { m_PropagationStopped = true; }
+		bool IsPropagationStopped() const { return m_PropagationStopped; }
+	private:
+		bool m_PropagationStopped = false;
 	};
 
 	using EventCallbackFn = std::function<bool(Event&)>;
 
 	class EventBus {
 	public:
-		template<typename T, typename = std::enable_if_t<std::is_base_of_v<Event, T>>>
-		void Listen(const std::function<bool(T&)>& callback)
+		using ListenerID = uint64_t;
+
+	private:
+		struct Listener
 		{
-			auto& listeners = m_Listeners[typeid(T)];
-			listeners.emplace_back([callback](Event& e) -> bool
-			{
-				if (e.GetEventType() == T::GetStaticType())
-				{
-					return callback(static_cast<T&>(e));
+			ListenerID ID;
+			int Priority;
+			EventCallbackFn Callback;
+			std::function<bool(const Event&)> Filter;
+		};
+
+		std::unordered_map<std::type_index, std::vector<Listener>> m_Listeners;
+		std::queue<std::unique_ptr<Event>> m_EventQueue;
+		ListenerID m_NextListenerID = 1;
+
+	public:
+		template<typename T, typename = std::enable_if_t<std::is_base_of_v<Event, T>>>
+		ListenerID Listen(const std::function<bool(T&)>& callback, int priority = 0, std::function<bool(const T&)> filter = [](const T&) { return true; })
+		{
+			auto& vec = m_Listeners[typeid(T)];
+			ListenerID id = m_NextListenerID++;
+			vec.push_back({
+				id,
+				priority,
+				[callback](Event& e) -> bool {
+					if (e.GetEventType() == T::GetStaticType()) {
+						return callback(static_cast<T&>(e));
+					}
+					return false;
+				},
+				[filter](const Event& e) -> bool {
+					return filter(static_cast<const T&>(e));
 				}
-				return false;
 			});
+
+			std::sort(vec.begin(), vec.end(), [](const Listener& a, const Listener& b) {
+				return a.Priority > b.Priority;
+			});
+
+			return id;
+		}
+
+		bool RemoveListener(ListenerID id)
+		{
+			for (auto& [type, vec] : m_Listeners) {
+				auto it = std::remove_if(vec.begin(), vec.end(),
+					[id](const Listener& l) { return l.ID == id; });
+				if (it != vec.end()) {
+					vec.erase(it, vec.end());
+					return true;
+				}
+			}
+			return false;
 		}
 
 		void Dispatch(Event& event)
 		{
 			auto it = m_Listeners.find(std::type_index(typeid(event)));
-			if (it != m_Listeners.end()) {
-				for (auto& listener : it->second) {
-					if (event.Handled) break;
-					event.Handled = listener(event);
+			if (it == m_Listeners.end()) {
+				ZN_CORE_TRACE("No listeners registered for event '{}'", event.GetName());
+				return;
+			}
+
+			ZN_CORE_TRACE("Dispatching event '{}'", event.GetName());
+
+			for (const auto& listener : it->second) {
+				if (event.Handled || event.IsPropagationStopped()) {
+					ZN_CORE_TRACE("Event '{}' propagation stopped or already handled at listener ID {}", event.GetName(), listener.ID);
+					break;
+				}
+
+				if (!listener.Filter(event)) {
+					ZN_CORE_TRACE("Event '{}' filtered out by listener ID {}", event.GetName(), listener.ID);
+					continue;
+				}
+
+				ZN_CORE_TRACE("Calling listener ID {} for event '{}'", listener.ID, event.GetName());
+				bool handled = listener.Callback(event);
+
+				if (handled) {
+					event.Handled = true;
+					ZN_CORE_TRACE("Event '{}' was handled by listener ID {}", event.GetName(), listener.ID);
+				} else {
+					ZN_CORE_TRACE("Listener ID {} did not handle event '{}'", listener.ID, event.GetName());
 				}
 			}
 		}
 
-	private:
-		std::unordered_map<std::type_index, std::vector<EventCallbackFn>> m_Listeners;
+		void QueueEvent(std::unique_ptr<Event> event)
+		{
+			m_EventQueue.push(std::move(event));
+		}
+
+		void DispatchQueued()
+		{
+			while (!m_EventQueue.empty())
+			{
+				auto event = std::move(m_EventQueue.front());
+				m_EventQueue.pop();
+				Dispatch(*event);
+			}
+		}
 	};
 
 	inline std::ostream& operator<<(std::ostream& os, const Event& e)

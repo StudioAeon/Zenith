@@ -29,9 +29,7 @@ namespace Zenith {
 
 		s_Instance = this;
 
-		m_EventBus.Listen<WindowResizeEvent>([this](WindowResizeEvent& e) { return OnWindowResize(e); });
-		m_EventBus.Listen<WindowCloseEvent>([this](WindowCloseEvent& e) { return OnWindowClose(e); });
-		m_EventBus.Listen<WindowMinimizeEvent>([this](WindowMinimizeEvent& e) { return OnWindowMinimize(e); });
+		RegisterEventListeners();
 
 		m_Profiler = znew PerformanceProfiler();
 
@@ -43,6 +41,7 @@ namespace Zenith {
 		windowSpec.VSync = specification.VSync;
 		m_Window = std::unique_ptr<Window>(Window::Create(windowSpec));
 		m_Window->Init();
+
 		m_Window->SetEventCallback([this](Event& e) { OnEvent(e); });
 
 		Renderer::Init();
@@ -124,8 +123,7 @@ namespace Zenith {
 				Renderer::WaitAndRender();
 				m_Window->SwapBuffers();
 
-				// TODO: This should be in the render thread
-				Renderer::SwapQueues();
+				Renderer::SwapQueues(); // TODO: Should be render thread later
 			}
 
 			Input::ClearReleasedKeys();
@@ -150,27 +148,60 @@ namespace Zenith {
 		Input::TransitionPressedButtons();
 
 		m_Window->ProcessEvents();
+
+		m_EventBus.DispatchQueued();
 	}
+
+	void Application::RegisterEventListeners()
+	{
+		// Window Events
+		m_EventBus.Listen<WindowResizeEvent>([this](WindowResizeEvent& e) { return OnWindowResize(e); });
+		m_EventBus.Listen<WindowCloseEvent>([this](WindowCloseEvent& e) { return OnWindowClose(e); });
+		m_EventBus.Listen<WindowMinimizeEvent>([this](WindowMinimizeEvent& e) { return OnWindowMinimize(e); });
+
+		// Keyboard Events
+		m_EventBus.Listen<KeyPressedEvent>([this](KeyPressedEvent& e) {
+			return false;
+		});
+		m_EventBus.Listen<KeyReleasedEvent>([this](KeyReleasedEvent& e) {
+			return false;
+		});
+		m_EventBus.Listen<KeyTypedEvent>([this](KeyTypedEvent& e) {
+			return false;
+		});
+
+		// Mouse Events
+		m_EventBus.Listen<MouseButtonPressedEvent>([this](MouseButtonPressedEvent& e) {
+			return false;
+		});
+		m_EventBus.Listen<MouseButtonReleasedEvent>([this](MouseButtonReleasedEvent& e) {
+			return false;
+		});
+		m_EventBus.Listen<MouseMovedEvent>([this](MouseMovedEvent& e) {
+			return false;
+		});
+		m_EventBus.Listen<MouseScrolledEvent>([this](MouseScrolledEvent& e) {
+			return false;
+		});
+	}
+
 
 	void Application::OnEvent(Event& event)
 	{
 		m_EventBus.Dispatch(event);
 
-		for (auto it = m_LayerStack.end(); it != m_LayerStack.begin(); )
-		{
+		for (auto it = m_LayerStack.end(); it != m_LayerStack.begin(); ) {
 			(*--it)->OnEvent(event);
-			if (event.Handled)
+			if (event.Handled || event.IsPropagationStopped())
 				break;
 		}
 
-		if (event.Handled)
+		if (event.Handled || event.IsPropagationStopped())
 			return;
 
-		for (auto& eventCallback : m_EventCallbacks)
-		{
+		for (auto& eventCallback : m_EventCallbacks) {
 			eventCallback(event);
-
-			if (event.Handled)
+			if (event.Handled || event.IsPropagationStopped())
 				break;
 		}
 	}
@@ -184,8 +215,7 @@ namespace Zenith {
 		}
 
 		m_Window->GetRenderContext()->OnResize(width, height);
-
-		return false;
+		return true;
 	}
 
 	bool Application::OnWindowMinimize(WindowMinimizeEvent& e)

@@ -7,6 +7,8 @@
 #include "Zenith/Core/LayerStack.hpp"
 
 #include "Zenith/Events/ApplicationEvent.hpp"
+#include "Zenith/Events/KeyEvent.hpp"
+#include "Zenith/Events/MouseEvent.hpp"
 
 namespace Zenith {
 
@@ -42,6 +44,7 @@ namespace Zenith {
 		void PopOverlay(const std::shared_ptr<Layer>& overlay);
 
 		void AddEventCallback(const EventCallbackFn& eventCallback) { m_EventCallbacks.push_back(eventCallback); }
+		EventBus& GetEventBus() { return m_EventBus; }
 
 		inline Window& GetWindow() { return *m_Window; }
 
@@ -60,6 +63,7 @@ namespace Zenith {
 		PerformanceProfiler* GetPerformanceProfiler() { return m_Profiler; }
 	private:
 		void ProcessEvents();
+		void RegisterEventListeners();
 
 		bool OnWindowResize(WindowResizeEvent& e);
 		bool OnWindowMinimize(WindowMinimizeEvent& e);
