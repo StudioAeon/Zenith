@@ -4,6 +4,7 @@
 #include "RendererAPI.hpp"
 
 #include "Zenith/Renderer/OpenGL/OpenGLRenderer.hpp"
+#include "Zenith/Renderer/Vulkan/VulkanRenderer.hpp"
 
 namespace Zenith {
 
@@ -26,6 +27,7 @@ namespace Zenith {
 		switch (RendererAPI::Current())
 		{
 			case RendererAPIType::OpenGL: return znew OpenGLRenderer();
+			case RendererAPIType::Vulkan: return znew VulkanRenderer();
 			case RendererAPIType::None:
 				ZN_CORE_ASSERT(false, "RendererAPI::None is not supported");
 				return nullptr;

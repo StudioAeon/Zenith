@@ -212,10 +212,15 @@ namespace Zenith {
 		const uint32_t width = e.GetWidth(), height = e.GetHeight();
 		if (width == 0 || height == 0)
 		{
+			m_Minimized = true;
 			return false;
 		}
 
+		m_Minimized = false;
+
+		Renderer::WaitAndRender();
 		m_Window->GetRenderContext()->OnResize(width, height);
+
 		return true;
 	}
 
