@@ -1,26 +1,52 @@
-# Build / Binary Output
+# Build Output
 build*/
+bin*/
+out*/
 
 # CMake files
 CMakeCache.txt
 cmake_install.cmake
+CMakeFiles/
 Makefile
 compile_commands.json
+*.cmake
 
-# IDE-specific
+# Compiled Objects & Libraries
+*.o
+*.obj
+*.lib
+*.a
+*.so
+*.dll
+*.dylib
+*.exp
+*.pdb
+
+# Executables
+*.exe
+Zenith-Editor
+Zenith-Editor.exe
+
+# IDE Files
 .vs/
-.out/
-**.sln
-**.vcxproj
-**.vcxproj.filters
-**.vcxproj.user
-**.user
-
 .vscode/
 .idea/
+*.sln
+*.vcxproj*
+*.user
 
-# Log files
-**.log
+# Logs
+*.log
+logs/
+
+# Temporary Files
+*.tmp
+*.swp
+*~
+
+# OS Files
+.DS_Store
+Thumbs.db
 
 # LFS Folders
 lfs/
