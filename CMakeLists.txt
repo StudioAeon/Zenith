@@ -25,9 +25,11 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(BUILD_SHARED_LIBS OFF)
 
 # ==== Interprocedural Optimization ====
-include(CheckIPOSupported)
-check_ipo_supported(RESULT IPO_SUPPORTED)
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${IPO_SUPPORTED})
+if(NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION)
+	include(CheckIPOSupported)
+	check_ipo_supported(RESULT IPO_SUPPORTED)
+	set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${IPO_SUPPORTED})
+endif()
 
 find_package(Vulkan REQUIRED)
 

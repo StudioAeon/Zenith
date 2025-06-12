@@ -38,6 +38,7 @@ target_link_libraries(Zenith
 		glad
 		stb
 		Vulkan::Vulkan
+		VulkanMemoryAllocator
 		Tracy::TracyClient
 		backward
 )

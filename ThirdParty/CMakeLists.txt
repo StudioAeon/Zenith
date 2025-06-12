@@ -19,6 +19,14 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/glad SYSTEM)
 add_library(stb INTERFACE)
 target_include_directories(stb INTERFACE ${CMAKE_CURRENT_LIST_DIR}/stb/include)
 
+set(VMA_STATIC_VULKAN_FUNCTIONS OFF)
+set(VMA_DYNAMIC_VULKAN_FUNCTIONS ON)
+add_subdirectory(VulkanMemoryAllocator)
+
+include(CheckIPOSupported)
+check_ipo_supported(RESULT IPO_SUPPORTED)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${IPO_SUPPORTED})
+
 if(ZENITH_TRACK_MEMORY)
 	set(TRACY_ENABLE ON)
 	set(TRACY_ON_DEMAND OFF)

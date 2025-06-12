@@ -122,31 +122,21 @@ namespace Zenith {
 		{
 			auto it = m_Listeners.find(std::type_index(typeid(event)));
 			if (it == m_Listeners.end()) {
-				ZN_CORE_TRACE("No listeners registered for event '{}'", event.GetName());
 				return;
 			}
 
-			ZN_CORE_TRACE("Dispatching event '{}'", event.GetName());
-
 			for (const auto& listener : it->second) {
 				if (event.Handled || event.IsPropagationStopped()) {
-					ZN_CORE_TRACE("Event '{}' propagation stopped or already handled at listener ID {}", event.GetName(), listener.ID);
 					break;
 				}
 
 				if (!listener.Filter(event)) {
-					ZN_CORE_TRACE("Event '{}' filtered out by listener ID {}", event.GetName(), listener.ID);
 					continue;
 				}
 
-				ZN_CORE_TRACE("Calling listener ID {} for event '{}'", listener.ID, event.GetName());
 				bool handled = listener.Callback(event);
-
 				if (handled) {
 					event.Handled = true;
-					ZN_CORE_TRACE("Event '{}' was handled by listener ID {}", event.GetName(), listener.ID);
-				} else {
-					ZN_CORE_TRACE("Listener ID {} did not handle event '{}'", listener.ID, event.GetName());
 				}
 			}
 		}
