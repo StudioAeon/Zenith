@@ -20,6 +20,7 @@ namespace Zenith {
 		bool VSync = true;
 		bool StartMaximized = true;
 		bool Resizable = true;
+		std::filesystem::path IconPath;
 	};
 
 	class Application

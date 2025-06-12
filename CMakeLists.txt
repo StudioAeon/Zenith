@@ -33,9 +33,15 @@ find_package(Vulkan REQUIRED)
 
 # ==== Distribution Options ====
 option(ZENITH_TRACK_MEMORY "Enable memory tracking (disabled in Dist builds)" ON)
-option(ZENITH_INSTALL_THIRD_PARTY "Install third-party libraries (development only)" OFF)
 
 # ==== Add Subsystems ====
 add_subdirectory(ThirdParty)
 add_subdirectory(Engine)
 add_subdirectory(Editor)
+
+option(ZENITH_TESTS "Build Zenith tests" ON)
+
+if(ZENITH_TESTS)
+	enable_testing()
+	add_subdirectory(Tests)
+endif()

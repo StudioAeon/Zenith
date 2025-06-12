@@ -5,6 +5,8 @@
 #include "Zenith/Renderer/API/RendererContext.hpp"
 #include "Zenith/Renderer/API/RendererAPI.hpp"
 
+#include <filesystem>
+
 #include <SDL3/SDL.h>
 
 namespace Zenith {
@@ -16,6 +18,7 @@ namespace Zenith {
 		uint32_t Height = 900;
 		bool Fullscreen = false;
 		bool VSync = true;
+		std::filesystem::path IconPath;
 	};
 
 	class Window

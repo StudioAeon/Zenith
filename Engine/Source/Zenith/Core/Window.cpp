@@ -8,7 +8,11 @@
 #include "Zenith/Events/MouseEvent.hpp"
 #include "Zenith/Core/Input.hpp"
 
+#include <stb_image.h>
+
 namespace Zenith {
+
+#include "Zenith/Embed/ZenithIcon.embed"
 
 	static bool s_SDLInitialized = false;
 
@@ -65,6 +69,51 @@ namespace Zenith {
 
 		if (!m_Window) {
 			ZN_CORE_ASSERT(m_Window != nullptr, "Failed to create SDL Window: {}", SDL_GetError());
+		}
+
+		// Set icon
+		{
+			int width, height, channels;
+			unsigned char* pixels = nullptr;
+
+			bool useEmbedded = m_Specification.IconPath.empty();
+
+			if (!useEmbedded)
+			{
+				std::string iconPathStr = m_Specification.IconPath.string();
+				pixels = stbi_load(iconPathStr.c_str(), &width, &height, &channels, 4);
+				if (!pixels)
+				{
+					ZN_CORE_WARN_TAG("SDL", "Failed to load custom icon from: {}", iconPathStr);
+					useEmbedded = true;
+				}
+			}
+
+			if (useEmbedded)
+			{
+				pixels = stbi_load_from_memory(g_ZenithIconPNG, sizeof(g_ZenithIconPNG), &width, &height, &channels, 4);
+			}
+
+			if (pixels)
+			{
+				SDL_Surface* iconSurface = SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_RGBA32, (void*)pixels, width * 4);
+
+				if (iconSurface)
+				{
+					SDL_SetWindowIcon(m_Window, iconSurface);
+					SDL_DestroySurface(iconSurface);
+				}
+				else
+				{
+					ZN_CORE_ERROR_TAG("SDL", "Failed to create icon surface: {}", SDL_GetError());
+				}
+
+				stbi_image_free(pixels);
+			}
+			else
+			{
+				ZN_CORE_WARN_TAG("SDL", "No icon could be loaded");
+			}
 		}
 
 		// Create Renderer Context

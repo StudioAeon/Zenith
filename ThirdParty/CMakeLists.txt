@@ -16,6 +16,9 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/glm SYSTEM)
 
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/glad SYSTEM)
 
+add_library(stb INTERFACE)
+target_include_directories(stb INTERFACE ${CMAKE_CURRENT_LIST_DIR}/stb/include)
+
 if(ZENITH_TRACK_MEMORY)
 	set(TRACY_ENABLE ON)
 	set(TRACY_ON_DEMAND OFF)

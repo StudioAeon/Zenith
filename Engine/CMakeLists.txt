@@ -36,6 +36,7 @@ target_link_libraries(Zenith
 		spdlog
 		glm
 		glad
+		stb
 		Vulkan::Vulkan
 		Tracy::TracyClient
 		backward

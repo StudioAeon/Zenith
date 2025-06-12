@@ -39,6 +39,7 @@ namespace Zenith {
 		windowSpec.Height = specification.WindowHeight;
 		windowSpec.Fullscreen = specification.Fullscreen;
 		windowSpec.VSync = specification.VSync;
+		windowSpec.IconPath = specification.IconPath;
 		m_Window = std::unique_ptr<Window>(Window::Create(windowSpec));
 		m_Window->Init();
 
