@@ -21,6 +21,7 @@ namespace Zenith {
 		bool StartMaximized = true;
 		bool Resizable = true;
 		std::filesystem::path IconPath;
+		std::string WorkingDirectory;
 	};
 
 	class Application

@@ -8,7 +8,13 @@
 #include "Input.hpp"
 #include "FatalSignal.hpp"
 
+#include "Zenith/Utilities/StringUtils.hpp"
 #include "Zenith/Debug/Profiler.hpp"
+
+#include <filesystem>
+#include <nfd.hpp>
+
+#include "Memory.hpp"
 
 #include <glm/glm.hpp>
 
@@ -29,9 +35,12 @@ namespace Zenith {
 
 		s_Instance = this;
 
-		RegisterEventListeners();
+		if (!specification.WorkingDirectory.empty())
+			std::filesystem::current_path(specification.WorkingDirectory);
 
 		m_Profiler = znew PerformanceProfiler();
+
+		RegisterEventListeners();
 
 		WindowSpecification windowSpec;
 		windowSpec.Title = specification.Name;
@@ -42,8 +51,9 @@ namespace Zenith {
 		windowSpec.IconPath = specification.IconPath;
 		m_Window = std::unique_ptr<Window>(Window::Create(windowSpec));
 		m_Window->Init();
-
 		m_Window->SetEventCallback([this](Event& e) { OnEvent(e); });
+
+		ZN_CORE_VERIFY(NFD::Init() == NFD_OKAY);
 
 		Renderer::Init();
 		Renderer::WaitAndRender();
@@ -57,6 +67,8 @@ namespace Zenith {
 
 	Application::~Application()
 	{
+		NFD::Quit();
+
 		m_Window->SetEventCallback([](Event& e) {});
 
 		for (const auto& layer : m_LayerStack)

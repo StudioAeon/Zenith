@@ -23,6 +23,13 @@ set(VMA_STATIC_VULKAN_FUNCTIONS OFF)
 set(VMA_DYNAMIC_VULKAN_FUNCTIONS ON)
 add_subdirectory(VulkanMemoryAllocator)
 
+set(JSON_BuildTests OFF)
+set(JSON_Install OFF)
+add_subdirectory(json)
+
+set(NFD_BUILD_TESTS OFF)
+add_subdirectory(nfd)
+
 include(CheckIPOSupported)
 check_ipo_supported(RESULT IPO_SUPPORTED)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${IPO_SUPPORTED})

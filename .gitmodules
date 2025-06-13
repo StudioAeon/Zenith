@@ -19,3 +19,9 @@
 [submodule "ThirdParty/VulkanMemoryAllocator"]
 	path = ThirdParty/VulkanMemoryAllocator
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "ThirdParty/json"]
+	path = ThirdParty/json
+	url = https://github.com/nlohmann/json.git
+[submodule "ThirdParty/nfd"]
+	path = ThirdParty/nfd
+	url = https://github.com/btzy/nativefiledialog-extended.git
