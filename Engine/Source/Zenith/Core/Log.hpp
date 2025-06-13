@@ -58,15 +58,9 @@ namespace Zenith {
 		}
 		static void SetDefaultTagSettings();
 
-	#if defined(ZN_PLATFORM_WINDOWS)
 		template <typename... Args>
 		static void PrintMessage(Log::Type type, Log::Level level,
-														 std::format_string<Args...> format, Args &&...args);
-	#else
-		template <typename... Args>
-		static void PrintMessage(Log::Type type, Log::Level level,
-														 const std::string_view format, Args &&...args);
-	#endif
+										std::format_string<Args...> format, Args &&...args);
 
 		template <typename... Args>
 		static void
@@ -220,36 +214,30 @@ namespace Zenith {
 
 namespace Zenith {
 
-	#if defined(ZN_PLATFORM_WINDOWS)
 	template <typename... Args>
 	void Log::PrintMessage(Log::Type type, Log::Level level,
-												 std::format_string<Args...> format, Args &&...args)
-	#else
-	template <typename... Args>
-	void Log::PrintMessage(Log::Type type, Log::Level level,
-												 const std::string_view format, Args &&...args)
-	#endif
+											 std::format_string<Args...> format, Args &&...args)
 	{
 		auto detail = s_EnabledTags[""];
 		if (detail.Enabled && detail.LevelFilter <= level) {
 			auto logger = (type == Type::Core) ? GetCoreLogger() : GetClientLogger();
-			std::string formatted = std::vformat(format.get(), std::make_format_args(args...));
+			std::string formatted = std::format(format, std::forward<Args>(args)...);
 			switch (level) {
-			case Level::Trace:
-				logger->trace(formatted);
-				break;
-			case Level::Info:
-				logger->info(formatted);
-				break;
-			case Level::Warn:
-				logger->warn(formatted);
-				break;
-			case Level::Error:
-				logger->error(formatted);
-				break;
-			case Level::Fatal:
-				logger->critical(formatted);
-				break;
+				case Level::Trace:
+					logger->trace(formatted);
+					break;
+				case Level::Info:
+					logger->info(formatted);
+					break;
+				case Level::Warn:
+					logger->warn(formatted);
+					break;
+				case Level::Error:
+					logger->error(formatted);
+					break;
+				case Level::Fatal:
+					logger->critical(formatted);
+					break;
 			}
 		}
 	}
