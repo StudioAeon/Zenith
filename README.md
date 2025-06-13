@@ -34,8 +34,8 @@ Make sure you have the following installed:
 ### Build Steps
 1. **Clone the repository:**
 	```bash
-	git clone --recursive https://github.com/yourusername/zenith-engine.git
-	cd zenith-engine
+	git clone --recursive https://github.com/StudioAeon/Zenith.git
+	cd Zenith
 	```
 2. **Configure and build:**
 	```bash
