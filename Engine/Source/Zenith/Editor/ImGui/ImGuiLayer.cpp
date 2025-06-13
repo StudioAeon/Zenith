@@ -4,6 +4,7 @@
 #include "Zenith/Renderer/API/Renderer.hpp"
 
 #include "Zenith/Renderer/OpenGL/OpenGLImGuiLayer.hpp"
+#include "Zenith/Renderer/Vulkan/VulkanImGuiLayer.hpp"
 
 #include "Zenith/Renderer/API/RendererAPI.hpp"
 
@@ -21,6 +22,7 @@ namespace Zenith {
 		{
 			case RendererAPIType::None:    return nullptr;
 			case RendererAPIType::OpenGL:  return std::make_shared<OpenGLImGuiLayer>();
+			case RendererAPIType::Vulkan:  return std::make_shared<VulkanImGuiLayer>();
 		}
 		ZN_CORE_ASSERT(false, "Unknown RendererAPI");
 		return nullptr;

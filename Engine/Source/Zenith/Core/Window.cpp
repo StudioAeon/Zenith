@@ -158,7 +158,10 @@ namespace Zenith {
 	{
 		while (SDL_PollEvent(&m_Event))
 		{
-			ImGui_ImplSDL3_ProcessEvent(&m_Event); // Let ImGui process SDL events first
+			if (ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().BackendPlatformUserData != nullptr)
+			{
+				ImGui_ImplSDL3_ProcessEvent(&m_Event);
+			}
 
 			Input::ProcessEvent(m_Event);
 
