@@ -4,9 +4,12 @@
 #include "Zenith/Renderer/API/Renderer.hpp"
 
 #include <SDL3/SDL.h>
+#include <imgui.h>
 
 #include "Input.hpp"
 #include "FatalSignal.hpp"
+
+#include <imgui_internal.h>
 
 #include "Zenith/Utilities/StringUtils.hpp"
 #include "Zenith/Debug/Profiler.hpp"
@@ -19,6 +22,7 @@
 #include <glm/glm.hpp>
 
 bool g_ApplicationRunning = true;
+extern ImGuiContext* GImGui;
 namespace Zenith {
 
 	Application* Application::s_Instance = nullptr;
@@ -63,6 +67,12 @@ namespace Zenith {
 		else
 			m_Window->CenterWindow();
 		m_Window->SetResizable(specification.Resizable);
+
+		if (m_Specification.EnableImGui)
+		{
+			m_ImGuiLayer = ImGuiLayer::Create();
+			PushOverlay(m_ImGuiLayer);
+		}
 	}
 
 	Application::~Application()
@@ -108,6 +118,25 @@ namespace Zenith {
 		overlay->OnDetach();
 	}
 
+	void Application::RenderImGui()
+	{
+		ZN_PROFILE_FUNC();
+		ZN_SCOPE_PERF("Application::RenderImGui");
+
+		m_ImGuiLayer->Begin();
+
+		ImGui::Begin("Renderer");
+		auto& caps = Renderer::GetCapabilities();
+		ImGui::Text("Vendor: %s", caps.Vendor.c_str());
+		ImGui::Text("Renderer: %s", caps.Device.c_str());
+		ImGui::Text("Version: %s", caps.Version.c_str());
+		ImGui::Text("Frame Time: %.2fms\n", m_TimeStep.GetMilliseconds());
+		ImGui::End();
+
+		for (int i = 0; i < m_LayerStack.Size(); i++)
+			m_LayerStack[i]->OnImGuiRender();
+	}
+
 	void Application::Run()
 	{
 		OnInit();
@@ -129,6 +158,14 @@ namespace Zenith {
 					for (const auto& layer : m_LayerStack)
 						if (layer->IsEnabled())
 							layer->OnUpdate(m_TimeStep);
+				}
+
+				// Render ImGui on render thread
+				Application* app = this;
+				if (m_Specification.EnableImGui)
+				{
+					Renderer::Submit([app]() { app->RenderImGui(); });
+					Renderer::Submit([=]() { m_ImGuiLayer->End(); });
 				}
 				Renderer::EndFrame();
 

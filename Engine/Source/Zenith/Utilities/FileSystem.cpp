@@ -210,7 +210,18 @@ namespace Zenith {
 	std::filesystem::path FileSystem::OpenFileDialog(const std::initializer_list<FileDialogFilterItem> inFilters)
 	{
 		NFD::UniquePath filePath;
-		nfdresult_t result = NFD::OpenDialog(filePath, (const nfdfilteritem_t*)inFilters.begin(), inFilters.size());
+
+		std::vector<nfdfilteritem_t> nfdFilters;
+		nfdFilters.reserve(inFilters.size());
+
+		for (const auto& filter : inFilters)
+		{
+			nfdFilters.push_back({filter.Name, filter.Spec});
+		}
+
+		nfdresult_t result = NFD::OpenDialog(filePath,
+											nfdFilters.empty() ? nullptr : nfdFilters.data(),
+											nfdFilters.size());
 
 		switch (result)
 		{
@@ -222,6 +233,8 @@ namespace Zenith {
 				return "";
 			}
 		}
+		ZN_CORE_VERIFY(false, "Unexpected NFD result");
+		return "";
 	}
 
 	std::filesystem::path FileSystem::OpenFolderDialog(const char* initialFolder)
@@ -244,7 +257,18 @@ namespace Zenith {
 	std::filesystem::path FileSystem::SaveFileDialog(const std::initializer_list<FileDialogFilterItem> inFilters)
 	{
 		NFD::UniquePath filePath;
-		nfdresult_t result = NFD::SaveDialog(filePath, (const nfdfilteritem_t*)inFilters.begin(), inFilters.size());
+
+		std::vector<nfdfilteritem_t> nfdFilters;
+		nfdFilters.reserve(inFilters.size());
+
+		for (const auto& filter : inFilters)
+		{
+			nfdFilters.push_back({filter.Name, filter.Spec});
+		}
+
+		nfdresult_t result = NFD::SaveDialog(filePath,
+											nfdFilters.empty() ? nullptr : nfdFilters.data(),
+											nfdFilters.size());
 
 		switch (result)
 		{
@@ -256,6 +280,7 @@ namespace Zenith {
 				return "";
 			}
 		}
+		return "";
 	}
 
 }

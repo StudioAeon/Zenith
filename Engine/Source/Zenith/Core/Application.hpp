@@ -10,6 +10,8 @@
 #include "Zenith/Events/KeyEvent.hpp"
 #include "Zenith/Events/MouseEvent.hpp"
 
+#include "Zenith/Editor/ImGui/ImGuiLayer.hpp"
+
 namespace Zenith {
 
 	struct ApplicationSpecification
@@ -20,6 +22,7 @@ namespace Zenith {
 		bool VSync = true;
 		bool StartMaximized = true;
 		bool Resizable = true;
+		bool EnableImGui = true;
 		std::filesystem::path IconPath;
 		std::string WorkingDirectory;
 	};
@@ -44,6 +47,7 @@ namespace Zenith {
 		void PushOverlay(const std::shared_ptr<Layer>& overlay);
 		void PopLayer(const std::shared_ptr<Layer>& layer);
 		void PopOverlay(const std::shared_ptr<Layer>& overlay);
+		void RenderImGui();
 
 		void AddEventCallback(const EventCallbackFn& eventCallback) { m_EventCallbacks.push_back(eventCallback); }
 		EventBus& GetEventBus() { return m_EventBus; }
@@ -63,6 +67,8 @@ namespace Zenith {
 		const ApplicationSpecification& GetSpecification() const { return m_Specification; }
 
 		PerformanceProfiler* GetPerformanceProfiler() { return m_Profiler; }
+
+		ImGuiLayer* GetImGuiLayer() { return m_ImGuiLayer.get(); }
 	private:
 		void ProcessEvents();
 		void RegisterEventListeners();
@@ -75,6 +81,7 @@ namespace Zenith {
 		ApplicationSpecification m_Specification;
 		bool m_Running = true, m_Minimized = false;
 		LayerStack m_LayerStack;
+		std::shared_ptr<ImGuiLayer> m_ImGuiLayer;
 		Timestep m_Frametime;
 		Timestep m_TimeStep;
 		PerformanceProfiler* m_Profiler = nullptr; // TODO: Should be null in Dist

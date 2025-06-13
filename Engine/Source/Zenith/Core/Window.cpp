@@ -10,6 +10,8 @@
 
 #include <stb_image.h>
 
+#include <imgui_impl_sdl3.h>
+
 namespace Zenith {
 
 #include "Zenith/Embed/ZenithIcon.embed"
@@ -156,7 +158,8 @@ namespace Zenith {
 	{
 		while (SDL_PollEvent(&m_Event))
 		{
-			// Let the Input system process input-related events first
+			ImGui_ImplSDL3_ProcessEvent(&m_Event); // Let ImGui process SDL events first
+
 			Input::ProcessEvent(m_Event);
 
 			switch (m_Event.type) {

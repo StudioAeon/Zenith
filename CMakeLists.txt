@@ -36,6 +36,20 @@ find_package(Vulkan REQUIRED)
 # ==== Distribution Options ====
 option(ZENITH_TRACK_MEMORY "Enable memory tracking (disabled in Dist builds)" ON)
 
+function(copy_resources target)
+	add_custom_command(TARGET ${target} POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_directory
+			${CMAKE_SOURCE_DIR}/Resources
+			$<TARGET_FILE_DIR:${target}>/Resources
+			COMMENT "Copying Resources to ${target}"
+			VERBATIM
+	)
+endfunction()
+
+if (MSVC)
+	add_compile_options(/Gy /Zc:preprocessor)
+endif()
+
 # ==== Add Subsystems ====
 add_subdirectory(ThirdParty)
 add_subdirectory(Engine)

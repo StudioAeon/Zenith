@@ -12,6 +12,8 @@ message(STATUS "Zenith Editor sources:\n    ${ZENITH_EDITOR_PRINT}")
 
 add_executable(Zenith-Editor ${ZENITH_EDITOR_SOURCES})
 
+copy_resources(Zenith-Editor)
+
 target_compile_features(Zenith-Editor PRIVATE cxx_std_20)
 
 if (MSVC)

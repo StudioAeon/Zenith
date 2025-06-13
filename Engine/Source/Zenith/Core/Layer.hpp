@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Base.hpp"
+#include "Zenith/Events/Event.hpp"
 #include "TimeStep.hpp"
 
 namespace Zenith {
@@ -13,10 +13,12 @@ namespace Zenith {
 
 		virtual void OnAttach() {}
 		virtual void OnDetach() {}
+		virtual void OnImGuiRender() {}
 		virtual void OnUpdate(Timestep ts) {}
 		virtual void OnEvent(Event& event) {}
 
 		inline const std::string& GetName() const { return m_DebugName; }
+
 		bool IsEnabled() const { return m_Enabled; }
 		void SetEnabled(bool enabled) { m_Enabled = enabled; }
 	protected:

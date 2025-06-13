@@ -25,3 +25,7 @@
 [submodule "ThirdParty/nfd"]
 	path = ThirdParty/nfd
 	url = https://github.com/btzy/nativefiledialog-extended.git
+[submodule "ThirdParty/imgui"]
+	path = ThirdParty/imgui
+	url = https://github.com/ocornut/imgui.git
+	branch = docking
