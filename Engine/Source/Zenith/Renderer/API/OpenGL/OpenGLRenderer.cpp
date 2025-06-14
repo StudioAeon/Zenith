@@ -1,7 +1,7 @@
 #include "znpch.hpp"
 #include "OpenGLRenderer.hpp"
 
-#include "Zenith/Renderer/API/Renderer.hpp"
+#include "Zenith/Renderer/Renderer.hpp"
 
 #include <glad/glad.h>
 

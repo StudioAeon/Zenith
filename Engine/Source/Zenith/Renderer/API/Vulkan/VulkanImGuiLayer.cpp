@@ -10,9 +10,9 @@
 
 #include <SDL3/SDL.h>
 
-#include "Zenith/Renderer/API/Renderer.hpp"
+#include "Zenith/Renderer/Renderer.hpp"
 
-#include "Zenith/Renderer/Vulkan/VulkanContext.hpp"
+#include "Zenith/Renderer/API/Vulkan/VulkanContext.hpp"
 
 namespace Zenith {
 

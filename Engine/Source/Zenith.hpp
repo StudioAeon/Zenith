@@ -15,14 +15,16 @@
 #include "Zenith/Core/Log.hpp"
 #include "Zenith/Core/Input.hpp"
 #include "Zenith/Core/TimeStep.hpp"
-#include "Zenith/Core/Version.hpp"
 #include "Zenith/Core/Timer.hpp"
-
-#include "Zenith/Core/FastRandom.hpp" // temp for testing
+#include "Zenith/Core/Version.hpp"
 
 #include "Zenith/Events/Event.hpp"
 #include "Zenith/Events/ApplicationEvent.hpp"
 #include "Zenith/Events/KeyEvent.hpp"
 #include "Zenith/Events/MouseEvent.hpp"
 
-#include "Zenith/Renderer/API/Renderer.hpp"
+#include <imgui.h>
+
+// ==== Zenith Renderer API ==============================
+#include "Zenith/Renderer/Renderer.hpp"
+// =======================================================

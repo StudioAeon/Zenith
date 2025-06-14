@@ -2,8 +2,8 @@
 
 #include "Zenith/Core/Base.hpp"
 #include "Zenith/Events/Event.hpp"
-#include "Zenith/Renderer/API/RendererContext.hpp"
-#include "Zenith/Renderer/API/RendererAPI.hpp"
+#include "Zenith/Renderer/RendererContext.hpp"
+#include "Zenith/Renderer/RendererAPI.hpp"
 
 #include <filesystem>
 

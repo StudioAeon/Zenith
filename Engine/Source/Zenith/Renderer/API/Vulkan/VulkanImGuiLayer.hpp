@@ -1,15 +1,15 @@
 #pragma once
 
-#include "Zenith/Editor/ImGui/ImGuiLayer.hpp"
+#include "Zenith/ImGui/ImGuiLayer.hpp"
 
 namespace Zenith {
 
-	class OpenGLImGuiLayer : public ImGuiLayer
+	class VulkanImGuiLayer : public ImGuiLayer
 	{
 	public:
-		OpenGLImGuiLayer();
-		OpenGLImGuiLayer(const std::string& name);
-		virtual ~OpenGLImGuiLayer();
+		VulkanImGuiLayer();
+		VulkanImGuiLayer(const std::string& name);
+		virtual ~VulkanImGuiLayer();
 
 		virtual void Begin() override;
 		virtual void End() override;

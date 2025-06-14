@@ -3,8 +3,8 @@
 
 #include "RendererAPI.hpp"
 
-#include "Zenith/Renderer/OpenGL/OpenGLContext.hpp"
-#include "Zenith/Renderer/Vulkan/VulkanContext.hpp"
+#include "Zenith/Renderer/API/OpenGL/OpenGLContext.hpp"
+#include "Zenith/Renderer/API/Vulkan/VulkanContext.hpp"
 
 namespace Zenith {
 

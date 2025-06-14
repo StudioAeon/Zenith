@@ -11,7 +11,7 @@
 #include <SDL3/SDL.h>
 
 
-#include "Zenith/Renderer/API/Renderer.hpp"
+#include "Zenith/Renderer/Renderer.hpp"
 
 namespace Zenith {
 

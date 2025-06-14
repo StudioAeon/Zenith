@@ -1,8 +1,6 @@
 #pragma once
 
-#include "Assert.hpp"
-
-#include <intrin.h>
+#include "Zenith/Core/Assert.hpp"
 
 namespace Zenith {
 
@@ -14,8 +12,7 @@ namespace Zenith {
 		Buffer() = default;
 
 		Buffer(const void* data, uint64_t size = 0)
-			: Data((void*)data), Size(size)
-		{}
+			: Data((void*)data), Size(size) { }
 
 		static Buffer Copy(const Buffer& other)
 		{
@@ -29,13 +26,13 @@ namespace Zenith {
 		{
 			Buffer buffer;
 			buffer.Allocate(size);
-			if (size) memcpy(buffer.Data, data, size);
+			if(size) memcpy(buffer.Data, data, size);
 			return buffer;
 		}
 
 		void Allocate(uint64_t size)
 		{
-			delete[](byte*)Data;
+			delete[] (byte*)Data;
 			Data = nullptr;
 			Size = size;
 
@@ -47,7 +44,7 @@ namespace Zenith {
 
 		void Release()
 		{
-			delete[](byte*)Data;
+			delete[] (byte*)Data;
 			Data = nullptr;
 			Size = 0;
 		}
@@ -123,5 +120,4 @@ namespace Zenith {
 			return buffer;
 		}
 	};
-
 }

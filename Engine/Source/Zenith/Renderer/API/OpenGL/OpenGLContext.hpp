@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Zenith/Renderer/API/RendererContext.hpp"
+#include "Zenith/Renderer/RendererContext.hpp"
 
 #include <SDL3/SDL.h>
 

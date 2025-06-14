@@ -1,7 +1,8 @@
 #include "znpch.hpp"
 #include "Application.hpp"
 
-#include "Zenith/Renderer/API/Renderer.hpp"
+#include "Zenith/Renderer/Renderer.hpp"
+#include "Zenith/Renderer/Font.hpp"
 
 #include <SDL3/SDL.h>
 #include <imgui.h>
@@ -73,6 +74,8 @@ namespace Zenith {
 			m_ImGuiLayer = ImGuiLayer::Create();
 			PushOverlay(m_ImGuiLayer);
 		}
+
+		Font::Init();
 	}
 
 	Application::~Application()
@@ -87,6 +90,8 @@ namespace Zenith {
 				layer->OnDetach();
 		}
 		m_LayerStack.Clear();
+
+		Font::Shutdown();
 
 		Renderer::Shutdown();
 

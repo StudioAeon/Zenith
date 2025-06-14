@@ -10,7 +10,7 @@
 #include "Zenith/Events/KeyEvent.hpp"
 #include "Zenith/Events/MouseEvent.hpp"
 
-#include "Zenith/Editor/ImGui/ImGuiLayer.hpp"
+#include "Zenith/ImGui/ImGuiLayer.hpp"
 
 namespace Zenith {
 

@@ -1,7 +1,7 @@
 #include "znpch.hpp"
 #include "VulkanContext.hpp"
 #include "Vulkan.hpp"
-#include "Zenith/Renderer/API/Renderer.hpp"
+#include "Zenith/Renderer/Renderer.hpp"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>

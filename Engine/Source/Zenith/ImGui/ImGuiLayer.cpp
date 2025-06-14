@@ -1,12 +1,12 @@
 #include "znpch.hpp"
 #include "ImGuiLayer.hpp"
 
-#include "Zenith/Renderer/API/Renderer.hpp"
+#include "Zenith/Renderer/Renderer.hpp"
 
-#include "Zenith/Renderer/OpenGL/OpenGLImGuiLayer.hpp"
-#include "Zenith/Renderer/Vulkan/VulkanImGuiLayer.hpp"
+#include "Zenith/Renderer/API/OpenGL/OpenGLImGuiLayer.hpp"
+#include "Zenith/Renderer/API/Vulkan/VulkanImGuiLayer.hpp"
 
-#include "Zenith/Renderer/API/RendererAPI.hpp"
+#include "Zenith/Renderer/RendererAPI.hpp"
 
 #include <imgui.h>
 
