@@ -226,15 +226,14 @@ namespace Zenith {
 		switch (result)
 		{
 			case NFD_OKAY: return filePath.get();
-			case NFD_CANCEL: return "";
+			case NFD_CANCEL: return std::filesystem::path();
 			case NFD_ERROR:
-			{
 				ZN_CORE_VERIFY(false, "NFD-Extended threw an error: {}", NFD::GetError());
-				return "";
-			}
+				return std::filesystem::path();
 		}
+
 		ZN_CORE_VERIFY(false, "Unexpected NFD result");
-		return "";
+		return std::filesystem::path();
 	}
 
 	std::filesystem::path FileSystem::OpenFolderDialog(const char* initialFolder)
@@ -245,13 +244,14 @@ namespace Zenith {
 		switch (result)
 		{
 			case NFD_OKAY: return filePath.get();
-			case NFD_CANCEL: return "";
+			case NFD_CANCEL: return std::filesystem::path();
 			case NFD_ERROR:
-			{
 				ZN_CORE_VERIFY(false, "NFD-Extended threw an error: {}", NFD::GetError());
-				return "";
-			}
+				return std::filesystem::path();
 		}
+
+		ZN_CORE_VERIFY(false, "Unexpected NFD result");
+		return std::filesystem::path();
 	}
 
 	std::filesystem::path FileSystem::SaveFileDialog(const std::initializer_list<FileDialogFilterItem> inFilters)
@@ -273,14 +273,15 @@ namespace Zenith {
 		switch (result)
 		{
 			case NFD_OKAY: return filePath.get();
-			case NFD_CANCEL: return "";
+			case NFD_CANCEL: return std::filesystem::path();
 			case NFD_ERROR:
 			{
 				ZN_CORE_VERIFY(false, "NFD-Extended threw an error: {}", NFD::GetError());
 				return "";
 			}
 		}
-		return "";
+		ZN_CORE_VERIFY(false, "Unexpected NFD result");
+		return std::filesystem::path();
 	}
 
 }

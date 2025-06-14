@@ -83,7 +83,7 @@ namespace Zenith {
 			s_PersistentStoragePath = std::string(home) + "/.config";
 		}
 
-		s_PersistentStoragePath /= "Zenith-Editor";
+		s_PersistentStoragePath /= "Zenith";
 
 		if (!std::filesystem::exists(s_PersistentStoragePath))
 			std::filesystem::create_directories(s_PersistentStoragePath);
@@ -91,8 +91,29 @@ namespace Zenith {
 		return s_PersistentStoragePath;
 	}
 
+	static void EnsureConfigFileExists()
+	{
+		auto configPath = FileSystem::GetPersistentStoragePath() / "zenith.conf";
+
+		if (!std::filesystem::exists(configPath))
+		{
+			try {
+				std::ofstream file(configPath);
+				if (file.is_open()) {
+					file << "{}";
+					file.close();
+					ZN_CORE_INFO("Created default zenith.conf at '{}'", configPath.string());
+				}
+			}
+			catch (const std::exception& e) {
+				ZN_CORE_ERROR("Failed to create zenith.conf: {}", e.what());
+			}
+		}
+	}
+
 	bool FileSystem::HasConfigValue(const std::string& key)
 	{
+		EnsureConfigFileExists();
 		auto configPath = GetPersistentStoragePath() / "zenith.conf";
 		if (!std::filesystem::exists(configPath))
 			return false;
@@ -115,6 +136,7 @@ namespace Zenith {
 
 	bool FileSystem::SetConfigValue(const std::string& key, const std::string& value)
 	{
+		EnsureConfigFileExists();
 		auto configPath = GetPersistentStoragePath() / "zenith.conf";
 
 		nlohmann::json config;
@@ -150,6 +172,7 @@ namespace Zenith {
 
 	std::string FileSystem::GetConfigValue(const std::string& key)
 	{
+		EnsureConfigFileExists();
 		auto configPath = GetPersistentStoragePath() / "zenith.conf";
 		if (!std::filesystem::exists(configPath))
 			return {};

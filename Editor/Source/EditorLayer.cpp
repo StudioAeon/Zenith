@@ -36,70 +36,70 @@ namespace Zenith {
 	}
 
 	void EditorLayer::OnImGuiRender()
-{
-	ZN_PROFILE_FUNC();
-
-	if (ImGui::Begin("Settings"))
 	{
-		ImGui::SeparatorText("Graphics");
+		ZN_PROFILE_FUNC();
 
-		Application& app = Application::Get();
-		bool vsync = app.GetWindow().IsVSync();
-		if (ImGui::Checkbox("VSync", &vsync))
-			app.GetWindow().SetVSync(vsync);
-
-		ImGui::SeparatorText("File Operations");
-
-		if (ImGui::Button("Open File Dialog", ImVec2(-1, 0)))
+		if (ImGui::Begin("Settings"))
 		{
-			std::initializer_list<FileSystem::FileDialogFilterItem> filters = {
-				{"Text Files", "txt"},
-				{"Images", "png,jpg,jpeg,bmp,tga"},
-			};
+			ImGui::SeparatorText("Graphics");
 
-			std::filesystem::path filePath = Zenith::FileSystem::OpenFileDialog(filters);
+			Application& app = Application::Get();
+			bool vsync = app.GetWindow().IsVSync();
+			if (ImGui::Checkbox("VSync", &vsync))
+				app.GetWindow().SetVSync(vsync);
 
-			if (!filePath.empty())
-				ZN_INFO("Selected file: {0}", filePath.string());
+			ImGui::SeparatorText("File Operations");
+
+			if (ImGui::Button("Open File Dialog", ImVec2(-1, 0)))
+			{
+				std::initializer_list<FileSystem::FileDialogFilterItem> filters = {
+					{"Text Files", "txt"},
+					{"Images", "png,jpg,jpeg,bmp,tga"},
+				};
+
+				std::filesystem::path filePath = Zenith::FileSystem::OpenFileDialog(filters);
+
+				if (!filePath.empty())
+					ZN_INFO("Selected file: {0}", filePath.string());
+				else
+					ZN_INFO("No file selected or dialog cancelled.");
+			}
+		}
+		ImGui::End();
+
+		if (ImGui::Begin("Controller Test"))
+		{
+			static int controllerID_UI = 1;
+			static int buttonID = 0;
+			static int axisID = 0;
+
+			ImGui::SliderInt("Controller ID", &controllerID_UI, 1, 4);
+			ImGui::SliderInt("Button ID", &buttonID, 0, 15);
+			ImGui::SliderInt("Axis ID", &axisID, 0, 5);
+
+			int controllerID = controllerID_UI - 1;
+
+			ImGui::Separator();
+
+			if (Input::IsControllerPresent(controllerID))
+			{
+				ImGui::TextColored(ImVec4(0.5f, 1, 0.5f, 1), "Controller %d: Connected", controllerID_UI);
+
+				bool isDown = Input::IsControllerButtonDown(controllerID, buttonID);
+				float axisValue = Input::GetControllerAxis(controllerID, axisID);
+
+				ImGui::Text("Button %d: %s", buttonID, isDown ? "Pressed" : "Released");
+				ImGui::Text("Axis %d: %.3f", axisID, axisValue);
+
+				ImGui::ProgressBar((axisValue + 1.0f) * 0.5f, ImVec2(-1, 0), "");
+			}
 			else
-				ZN_INFO("No file selected or dialog cancelled.");
+			{
+				ImGui::TextColored(ImVec4(1, 0.5f, 0.5f, 1), "Controller %d: Not Connected", controllerID_UI);
+			}
 		}
+		ImGui::End();
 	}
-	ImGui::End();
-
-	if (ImGui::Begin("Controller Test"))
-	{
-		static int controllerID_UI = 1;
-		static int buttonID = 0;
-		static int axisID = 0;
-
-		ImGui::SliderInt("Controller ID", &controllerID_UI, 1, 4);
-		ImGui::SliderInt("Button ID", &buttonID, 0, 15);
-		ImGui::SliderInt("Axis ID", &axisID, 0, 5);
-
-		int controllerID = controllerID_UI - 1;
-
-		ImGui::Separator();
-
-		if (Input::IsControllerPresent(controllerID))
-		{
-			ImGui::TextColored(ImVec4(0.5f, 1, 0.5f, 1), "Controller %d: Connected", controllerID_UI);
-
-			bool isDown = Input::IsControllerButtonDown(controllerID, buttonID);
-			float axisValue = Input::GetControllerAxis(controllerID, axisID);
-
-			ImGui::Text("Button %d: %s", buttonID, isDown ? "Pressed" : "Released");
-			ImGui::Text("Axis %d: %.3f", axisID, axisValue);
-
-			ImGui::ProgressBar((axisValue + 1.0f) * 0.5f, ImVec2(-1, 0), "");
-		}
-		else
-		{
-			ImGui::TextColored(ImVec4(1, 0.5f, 0.5f, 1), "Controller %d: Not Connected", controllerID_UI);
-		}
-	}
-	ImGui::End();
-}
 
 	void EditorLayer::OnEvent(Event& e)
 	{}
