@@ -12,6 +12,8 @@
 
 #include "Zenith/ImGui/ImGuiLayer.hpp"
 
+#include <filewatch/FileWatch.hpp> // testing
+
 namespace Zenith {
 
 	struct ApplicationSpecification
@@ -23,6 +25,7 @@ namespace Zenith {
 		bool StartMaximized = true;
 		bool Resizable = true;
 		bool EnableImGui = true;
+		bool ShowSplashScreen = true;
 		std::filesystem::path IconPath;
 		std::string WorkingDirectory;
 	};
@@ -92,6 +95,8 @@ namespace Zenith {
 		float m_LastFrameTime = 0.0f;
 
 		static Application* s_Instance;
+
+		std::unique_ptr<filewatch::FileWatch<std::string>> m_FileWatcher; // testing
 	};
 
 	// Implemented by CLIENT

@@ -1,5 +1,6 @@
 #include "znpch.hpp"
 #include "Application.hpp"
+#include "SplashScreen.hpp"
 
 #include "Zenith/Renderer/Renderer.hpp"
 #include "Zenith/Renderer/Font.hpp"
@@ -29,6 +30,7 @@ namespace Zenith {
 	Application* Application::s_Instance = nullptr;
 
 	Application::Application(const ApplicationSpecification& specification)
+		: m_Specification(specification)
 	{
 		FatalSignal::Install(3000);
 
@@ -44,6 +46,30 @@ namespace Zenith {
 			std::filesystem::current_path(specification.WorkingDirectory);
 
 		m_Profiler = znew PerformanceProfiler();
+
+		bool showSplash = specification.ShowSplashScreen;
+#ifdef ZN_DEBUG
+		showSplash = false;
+#endif
+
+		std::unique_ptr<SplashScreen> splash;
+
+		if (showSplash)
+		{
+			SplashScreen::Config splashConfig;
+			splashConfig.ImagePath = "Resources/Editor/Zenith_Splash.png";
+			splashConfig.WindowWidth = 448;
+			splashConfig.WindowHeight = 448;
+			splashConfig.DisplayTime = 1.8f;
+			splashConfig.AllowSkip = true;
+			splashConfig.BackgroundColor = { 20, 20, 25, 255 };
+
+			SplashScreen splash(splashConfig);
+			if (splash.Initialize())
+			{
+				splash.Show();
+			}
+		}
 
 		RegisterEventListeners();
 
@@ -76,6 +102,7 @@ namespace Zenith {
 		}
 
 		Font::Init();
+
 	}
 
 	Application::~Application()

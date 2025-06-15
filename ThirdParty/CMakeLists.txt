@@ -79,6 +79,13 @@ target_compile_definitions(imgui PUBLIC
 		$<$<CONFIG:Release>:IMGUI_DISABLE_DEMO_WINDOWS>
 )
 
+# ==== FileWatch ====
+add_library(filewatch INTERFACE)
+target_include_directories(filewatch INTERFACE
+		${CMAKE_CURRENT_SOURCE_DIR}/filewatch/include
+)
+target_compile_features(filewatch INTERFACE cxx_std_17)
+
 # ==== Tracy Profiler ====
 include(CheckIPOSupported)
 check_ipo_supported(RESULT IPO_SUPPORTED)

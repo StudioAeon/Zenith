@@ -73,7 +73,7 @@ target_compile_definitions(Zenith
 )
 
 target_link_libraries(Zenith
-	PUBLIC
+		PUBLIC
 		SDL3::SDL3-static
 		spdlog
 		glm
@@ -86,4 +86,5 @@ target_link_libraries(Zenith
 		nfd::nfd
 		nlohmann_json::nlohmann_json
 		imgui
+		filewatch
 )

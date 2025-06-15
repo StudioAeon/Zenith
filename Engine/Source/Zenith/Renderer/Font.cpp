@@ -114,9 +114,6 @@ namespace Zenith {
 		{
 			m_FontBuffer = BufferSafe::Copy(buffer.Data, buffer.Size);
 		}
-
-		ZN_CORE_INFO("Successfully created font atlas for '{}': {}x{} with {} characters",
-			m_Name, m_AtlasData->Width, m_AtlasData->Height, FontAtlasData::NumChars);
 	}
 
 	glm::vec2 Font::MeasureText(const std::string& text, float scale) const
@@ -177,8 +174,6 @@ namespace Zenith {
 			return;
 		}
 
-		ZN_CORE_INFO_TAG("Font", "Initializing Font system");
-
 		s_FontRegistry.clear();
 		s_DefaultFont.reset();
 		s_DefaultMonoSpacedFont.reset();
@@ -186,7 +181,6 @@ namespace Zenith {
 		LoadDefaultFonts();
 
 		s_Initialized = true;
-		ZN_CORE_INFO_TAG("Font", "Font system initialized successfully");
 	}
 
 	void Font::Shutdown()
@@ -197,14 +191,10 @@ namespace Zenith {
 			return;
 		}
 
-		ZN_CORE_INFO_TAG("Font", "Shutting down Font system");
-
 		s_FontRegistry.clear();
 		s_DefaultFont.reset();
 		s_DefaultMonoSpacedFont.reset();
 		s_Initialized = false;
-
-		ZN_CORE_INFO_TAG("Font", "Font system shutdown complete");
 	}
 
 	void Font::LoadDefaultFonts()
@@ -244,7 +234,6 @@ namespace Zenith {
 				{
 					s_DefaultFont = font;
 					s_FontRegistry["default"] = font;
-					ZN_CORE_INFO_TAG("Font", "Loaded default font: {}", fontPath.string());
 					break;
 				}
 			}
@@ -259,7 +248,6 @@ namespace Zenith {
 				{
 					s_DefaultMonoSpacedFont = font;
 					s_FontRegistry["monospace"] = font;
-					ZN_CORE_INFO_TAG("Font", "Loaded default monospace font: {}", fontPath.string());
 					break;
 				}
 			}
