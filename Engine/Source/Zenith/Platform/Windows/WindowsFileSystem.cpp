@@ -10,7 +10,7 @@
 #include <filesystem>
 #include <thread>
 
-constexpr const char* ZENITH_REGISTRY_PATH = "Software\\ZenithEngine";
+constexpr const char* ZENITH_REGISTRY_PATH = "Software\\Zenith Engine";
 
 namespace Zenith {
 

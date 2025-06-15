@@ -47,6 +47,7 @@ namespace Zenith {
 	{
 	public:
 		static void Update();
+		static void Shutdown();
 
 		static bool IsKeyPressed(KeyCode keycode);
 		static bool IsKeyHeld(KeyCode keycode);

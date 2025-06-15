@@ -1,5 +1,6 @@
 #include "EditorLayer.hpp"
 #include "Zenith/Utilities/FileSystem.hpp"
+#include "Zenith/Utilities/CommandLineParser.hpp"
 
 #include "Zenith/EntryPoint.hpp"
 
@@ -37,8 +38,15 @@ private:
 	std::filesystem::path m_PersistentStoragePath;
 };
 
-Zenith::Application* Zenith::CreateApplication(int argv, char** argc)
+Zenith::Application* Zenith::CreateApplication(int argc, char** argv)
 {
+	Zenith::CommandLineParser cli(argc, argv);
+
+	auto cd = cli.GetOptionValue("C");
+	if(!cd.empty()) {
+		Zenith::FileSystem::SetWorkingDirectory(cd);
+	}
+
 	ApplicationSpecification specification;
 	specification.Name = "Zenith-Editor";
 	specification.WindowWidth = 1920;

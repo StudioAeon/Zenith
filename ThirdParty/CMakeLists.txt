@@ -98,10 +98,6 @@ endif()
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/tracy SYSTEM)
 
 # ==== Backward-cpp ====
-if(ZENITH_TRACK_MEMORY)
 	set(BACKWARD_ENABLE TRUE)
 	add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/backward-cpp SYSTEM)
-else()
-	set(BACKWARD_ENABLE FALSE)
-endif()
 

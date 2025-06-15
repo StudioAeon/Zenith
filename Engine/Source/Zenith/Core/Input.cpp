@@ -8,6 +8,52 @@ namespace Zenith {
 
 	void Input::Update()
 	{
+		// Detect controllers on first run
+		static bool hasDetectedControllers = false;
+		if (!hasDetectedControllers && SDL_WasInit(SDL_INIT_JOYSTICK))
+		{
+			int numJoysticks = 0;
+			SDL_JoystickID* joysticks = SDL_GetJoysticks(&numJoysticks);
+
+			if (numJoysticks > 0)
+			{
+				for (int i = 0; i < numJoysticks; i++)
+				{
+					SDL_JoystickID instanceId = joysticks[i];
+
+					if (s_Controllers.find(instanceId) != s_Controllers.end())
+					{
+						continue;
+					}
+
+					if (SDL_IsGamepad(instanceId))
+					{
+						SDL_Gamepad* gamepad = SDL_OpenGamepad(instanceId);
+						if (gamepad)
+						{
+							Controller& controller = s_Controllers[instanceId];
+							controller.ID = instanceId;
+							controller.GamepadHandle = gamepad;
+							controller.Name = SDL_GetGamepadName(gamepad) ? SDL_GetGamepadName(gamepad) : "Unknown Gamepad";
+
+							for (int j = 0; j < SDL_GAMEPAD_AXIS_COUNT; j++)
+								controller.DeadZones[j] = 0.1f;
+						}
+					}
+				}
+			}
+
+			if (joysticks)
+				SDL_free(joysticks);
+
+			hasDetectedControllers = true;
+		}
+
+		if (!SDL_WasInit(SDL_INIT_JOYSTICK))
+		{
+			return;
+		}
+
 		int numKeys = 0;
 		const bool* keyboardState = SDL_GetKeyboardState(&numKeys);
 		s_KeyboardState = keyboardState;
@@ -17,13 +63,15 @@ namespace Zenith {
 		s_MouseX = static_cast<int>(mouseXFloat);
 		s_MouseY = static_cast<int>(mouseYFloat);
 
-		// Cleanup disconnected controllers
 		for (auto it = s_Controllers.begin(); it != s_Controllers.end(); )
 		{
 			int id = it->first;
 			Controller& controller = it->second;
-			
-			if (!controller.GamepadHandle || !SDL_GamepadConnected(controller.GamepadHandle))
+
+			bool isDisconnected = !controller.GamepadHandle ||
+								 !SDL_GamepadConnected(controller.GamepadHandle);
+
+			if (isDisconnected)
 			{
 				if (controller.GamepadHandle)
 				{
@@ -36,7 +84,6 @@ namespace Zenith {
 				it++;
 		}
 
-		// Update controller states
 		for (auto& [id, controller] : s_Controllers)
 		{
 			if (!controller.GamepadHandle)
@@ -45,7 +92,7 @@ namespace Zenith {
 			for (int i = 0; i < SDL_GAMEPAD_BUTTON_COUNT; i++)
 			{
 				bool isPressed = SDL_GetGamepadButton(controller.GamepadHandle, static_cast<SDL_GamepadButton>(i));
-				
+
 				if (isPressed && !controller.ButtonDown[i])
 					controller.ButtonStates[i].State = KeyState::Pressed;
 				else if (!isPressed && controller.ButtonDown[i])
@@ -75,11 +122,21 @@ namespace Zenith {
 		case SDL_EVENT_MOUSE_MOTION:
 			ProcessMouseEvent(event);
 			break;
+		case SDL_EVENT_JOYSTICK_ADDED:
+		case SDL_EVENT_JOYSTICK_REMOVED:
+			ProcessGamepadEvent(event);
+			break;
 		case SDL_EVENT_GAMEPAD_ADDED:
 		case SDL_EVENT_GAMEPAD_REMOVED:
 		case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
 		case SDL_EVENT_GAMEPAD_BUTTON_UP:
 			ProcessGamepadEvent(event);
+			break;
+		default:
+			if (event.type >= 0x650 && event.type <= 0x6FF)
+			{
+				ZN_CORE_WARN("Unhandled controller event: {} (0x{:X})", event.type, event.type);
+			}
 			break;
 		}
 	}
@@ -104,7 +161,7 @@ namespace Zenith {
 		{
 		case SDL_EVENT_MOUSE_BUTTON_DOWN:
 		{
-			MouseButton button = static_cast<MouseButton>(event.button.button - 1); // SDL3 buttons are 1-indexed
+			MouseButton button = static_cast<MouseButton>(event.button.button - 1);
 			UpdateButtonState(button, KeyState::Pressed);
 			break;
 		}
@@ -125,9 +182,59 @@ namespace Zenith {
 	{
 		switch (event.type)
 		{
+		case SDL_EVENT_JOYSTICK_ADDED:
+		{
+			SDL_JoystickID instanceId = event.jdevice.which;
+			if (SDL_IsGamepad(instanceId))
+			{
+				// Check if we already have this controller
+				if (s_Controllers.find(instanceId) != s_Controllers.end())
+				{
+					break;
+				}
+
+				SDL_Gamepad* gamepad = SDL_OpenGamepad(instanceId);
+				if (gamepad)
+				{
+					Controller& controller = s_Controllers[instanceId];
+					controller.ID = instanceId;
+					controller.GamepadHandle = gamepad;
+					controller.Name = SDL_GetGamepadName(gamepad) ? SDL_GetGamepadName(gamepad) : "Unknown Gamepad";
+
+					for (int i = 0; i < SDL_GAMEPAD_AXIS_COUNT; i++)
+						controller.DeadZones[i] = 0.1f;
+				}
+				else
+				{
+					ZN_CORE_ERROR("Failed to open gamepad {}: {}", instanceId, SDL_GetError());
+				}
+			}
+			break;
+		}
+		case SDL_EVENT_JOYSTICK_REMOVED:
+		{
+			SDL_JoystickID instanceId = event.jdevice.which;
+			auto it = s_Controllers.find(instanceId);
+			if (it != s_Controllers.end())
+			{
+				if (it->second.GamepadHandle)
+					SDL_CloseGamepad(it->second.GamepadHandle);
+				s_Controllers.erase(it);
+			}
+			else
+			{
+				ZN_CORE_WARN("Tried to remove controller {} but it wasn't found", instanceId);
+			}
+			break;
+		}
 		case SDL_EVENT_GAMEPAD_ADDED:
 		{
 			SDL_JoystickID instanceId = event.gdevice.which;
+			if (s_Controllers.find(instanceId) != s_Controllers.end())
+			{
+				break;
+			}
+
 			SDL_Gamepad* gamepad = SDL_OpenGamepad(instanceId);
 			if (gamepad)
 			{
@@ -138,6 +245,10 @@ namespace Zenith {
 
 				for (int i = 0; i < SDL_GAMEPAD_AXIS_COUNT; i++)
 					controller.DeadZones[i] = 0.1f;
+			}
+			else
+			{
+				ZN_CORE_ERROR("Failed to open gamepad {}: {}", instanceId, SDL_GetError());
 			}
 			break;
 		}
@@ -150,6 +261,10 @@ namespace Zenith {
 				if (it->second.GamepadHandle)
 					SDL_CloseGamepad(it->second.GamepadHandle);
 				s_Controllers.erase(it);
+			}
+			else
+			{
+				ZN_CORE_WARN("Tried to remove controller {} but it wasn't found", instanceId);
 			}
 			break;
 		}
@@ -462,4 +577,32 @@ namespace Zenith {
 			}
 		}
 	}
+
+	void Input::Shutdown()
+	{
+		if (!s_Controllers.empty())
+		{
+			for (auto& [id, controller] : s_Controllers)
+			{
+				if (controller.GamepadHandle)
+				{
+					SDL_CloseGamepad(controller.GamepadHandle);
+					controller.GamepadHandle = nullptr;
+				}
+			}
+
+			s_Controllers.clear();
+		}
+
+		// Clear other input states
+		s_KeyData.clear();
+		s_MouseData.clear();
+		s_KeyboardState = nullptr;
+		s_MouseState = 0;
+		s_MouseX = 0;
+		s_MouseY = 0;
+		s_CursorHidden = false;
+		s_CursorLocked = false;
+	}
+
 }

@@ -34,7 +34,8 @@ endif()
 find_package(Vulkan REQUIRED)
 
 # ==== Distribution Options ====
-option(ZENITH_TRACK_MEMORY "Enable memory tracking (disabled in Dist builds)" ON)
+option(ZENITH_TRACK_MEMORY "Enable memory tracking" ON)
+option(ZENITH_TESTS "Build Zenith tests" ON)
 
 function(copy_resources target)
 	add_custom_command(TARGET ${target} POST_BUILD
@@ -54,8 +55,6 @@ endif()
 add_subdirectory(ThirdParty)
 add_subdirectory(Engine)
 add_subdirectory(Editor)
-
-option(ZENITH_TESTS "Build Zenith tests" ON)
 
 if(ZENITH_TESTS)
 	enable_testing()

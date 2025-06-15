@@ -69,11 +69,11 @@ namespace Zenith {
 
 		if (ImGui::Begin("Controller Test"))
 		{
-			static int controllerID_UI = 1;
+			static int controllerID_UI = 4;
 			static int buttonID = 0;
 			static int axisID = 0;
 
-			ImGui::SliderInt("Controller ID", &controllerID_UI, 1, 4);
+			ImGui::SliderInt("Controller ID", &controllerID_UI, 1, 10);
 			ImGui::SliderInt("Button ID", &buttonID, 0, 15);
 			ImGui::SliderInt("Axis ID", &axisID, 0, 5);
 

@@ -43,9 +43,14 @@ Make sure you have the following installed:
 	cmake --build build --config Release
 	```
 3. **Run the editor**
-	```bash
-	./build/Editor/Zenith-Editor
-	```
+	- On Linux
+		```bash
+		./build/Editor/Zenith-Editor
+		```
+	- On Windows (CMD or PowerShell)
+		```bash
+		.\build\Editor\Release\Zenith-Editor.exe
+		```
 
 ### Build Options
 - ```ZENITH_TRACK_MEMORY=ON/OFF``` - Enable memory tracking (default: ON, disabled in Release)

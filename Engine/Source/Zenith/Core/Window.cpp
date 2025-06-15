@@ -42,7 +42,7 @@ namespace Zenith {
 
 		if (!s_SDLInitialized)
 		{
-			if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0)
+			if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_JOYSTICK) != 0)
 			{
 				ZN_CORE_ASSERT(SDL_Init(SDL_INIT_VIDEO), "Could not initialize SDL: {}", SDL_GetError());
 			}
@@ -133,6 +133,8 @@ namespace Zenith {
 
 	void Window::Shutdown()
 	{
+		Input::Shutdown();
+
 		if (m_Window) {
 			SDL_DestroyWindow(m_Window);
 			m_Window = nullptr;
