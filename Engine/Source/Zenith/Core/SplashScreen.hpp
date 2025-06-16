@@ -20,7 +20,8 @@ namespace Zenith {
 			SDL_Color BackgroundColor = { 0, 0, 0, 255 }; // Fallback if image fails
 		};
 
-		explicit SplashScreen(const Config& config = {});
+		explicit SplashScreen();
+		explicit SplashScreen(const Config& config);
 		~SplashScreen();
 
 		bool Initialize();

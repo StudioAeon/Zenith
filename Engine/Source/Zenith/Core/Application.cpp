@@ -191,7 +191,7 @@ namespace Zenith {
 				if (m_Specification.EnableImGui)
 				{
 					Renderer::Submit([app]() { app->RenderImGui(); });
-					Renderer::Submit([=]() { m_ImGuiLayer->End(); });
+					Renderer::Submit([this]() { m_ImGuiLayer->End(); });
 				}
 				Renderer::EndFrame();
 

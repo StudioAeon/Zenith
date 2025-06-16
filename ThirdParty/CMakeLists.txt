@@ -56,11 +56,7 @@ set(NFD_BUILD_TESTS OFF)
 add_subdirectory(nfd SYSTEM)
 
 # ==== GLAD (OpenGL loader) ====
-set(GLAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/glad)
-add_library(glad STATIC
-		${GLAD_DIR}/src/glad.c
-)
-target_include_directories(glad PUBLIC ${GLAD_DIR}/include)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/glad SYSTEM)
 
 # ==== ImGui ====
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/imgui)

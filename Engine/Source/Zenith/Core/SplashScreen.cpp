@@ -5,10 +5,9 @@
 
 namespace Zenith {
 
-	SplashScreen::SplashScreen(const Config& config)
-		: m_Config(config)
-	{
-	}
+	SplashScreen::SplashScreen() : SplashScreen({}) {}
+
+	SplashScreen::SplashScreen(const Config& config) : m_Config(config) {}
 
 	SplashScreen::~SplashScreen()
 	{
