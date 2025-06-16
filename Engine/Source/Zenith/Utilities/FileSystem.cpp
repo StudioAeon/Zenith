@@ -2,7 +2,7 @@
 #include "FileSystem.hpp"
 #include "StringUtils.hpp"
 
-#ifdef ZN_PLATFORM_LINUX
+#ifdef ZN_PLATFORM_UNIX
 #include <libgen.h>
 #endif
 
@@ -122,7 +122,7 @@ namespace Zenith {
 
 #ifdef ZN_PLATFORM_WINDOWS
 		std::string cmd = std::format("explorer.exe /select,\"{0}\"", absolutePath.string());
-#elif defined(ZN_PLATFORM_LINUX)
+#elif defined(ZN_PLATFORM_UNIX)
 		std::string cmd = std::format("xdg-open \"{0}\"", dirname(absolutePath.string().data()));
 #endif
 		system(cmd.c_str());
@@ -139,7 +139,7 @@ namespace Zenith {
 		// Use ShellExecuteW explicitly to match wide character strings
 		ShellExecuteW(NULL, L"explore", absolutePath.c_str(), NULL, NULL, SW_SHOWNORMAL);
 		return true;
-#elif defined(ZN_PLATFORM_LINUX)
+#elif defined(ZN_PLATFORM_UNIX)
 		return ShowFileInExplorer(path);
 #endif
 	}
@@ -153,7 +153,7 @@ namespace Zenith {
 #ifdef ZN_PLATFORM_WINDOWS
 		ShellExecuteW(NULL, L"open", absolutePath.c_str(), NULL, NULL, SW_SHOWNORMAL);
 		return true;
-#elif defined(ZN_PLATFORM_LINUX)
+#elif defined(ZN_PLATFORM_UNIX)
 		std::string cmd = std::format("xdg-open \"{0}\"", absolutePath.string().data());
 		system(cmd.c_str());
 		return true;

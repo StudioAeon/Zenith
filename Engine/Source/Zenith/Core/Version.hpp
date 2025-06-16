@@ -28,6 +28,10 @@
 	#define ZN_BUILD_PLATFORM_NAME "Windows x64"
 #elif defined(ZN_PLATFORM_LINUX)
 	#define ZN_BUILD_PLATFORM_NAME "Linux"
+#elif defined(ZN_PLATFORM_BSD)
+	#define ZN_BUILD_PLATFORM_NAME "BSD"
+#elif defined(ZN_PLATFORM_UNIX)
+	#define ZN_BUILD_PLATFORM_NAME "Unix"
 #else
 	#define ZN_BUILD_PLATFORM_NAME "Unknown"
 #endif

@@ -1,16 +1,3 @@
-cmake_minimum_required(VERSION 3.16)
-
-if(POLICY CMP0069)
-	cmake_policy(SET CMP0069 NEW)
-endif()
-
-if(POLICY CMP0077)
-	cmake_policy(SET CMP0077 NEW)
-endif()
-
-set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
-set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
-
 include(FetchContent)
 
 set(CMAKE_WARN_DEPRECATED OFF)
@@ -27,11 +14,10 @@ FetchContent_Declare(
 		GIT_TAG v1.9.4
 )
 
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "Disable benchmark testing")
-
-set(BUILD_GMOCK ON CACHE BOOL "")
-set(INSTALL_GTEST OFF CACHE BOOL "")
+set(gtest_force_shared_crt ON)
+set(BENCHMARK_ENABLE_TESTING OFF)
+set(BUILD_GMOCK ON)
+set(INSTALL_GTEST OFF)
 
 FetchContent_MakeAvailable(googletest benchmark)
 

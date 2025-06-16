@@ -12,9 +12,15 @@ namespace Zenith
 #if defined(_WIN64) || defined(_WIN32)
 		#define ZN_PLATFORM_WINDOWS
 #elif defined(__linux__)
-		#define ZN_PLATFORM_LINUX
+	#define ZN_PLATFORM_LINUX
+	#define ZN_PLATFORM_UNIX
+#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+	#define ZN_PLATFORM_BSD
+	#define ZN_PLATFORM_UNIX
+#elif defined(__unix__) || defined(__unix)
+	#define ZN_PLATFORM_UNIX
 #else
-		#error "Unsupported platform! Zenith only supports Windows and Linux."
+	#error "Unsupported platform! Zenith supports Windows, Linux, and BSD."
 #endif
 
 #define BIT(x) (1u << x)

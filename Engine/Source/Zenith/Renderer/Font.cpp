@@ -211,7 +211,7 @@ namespace Zenith {
 			"C:/Windows/Fonts/courbd.ttf",
 			"C:/Windows/Fonts/cour.ttf"
 		};
-#elif defined(ZN_PLATFORM_LINUX)
+#elif defined(ZN_PLATFORM_UNIX)
 		std::vector<std::filesystem::path> defaultFonts = {
 			"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 			"/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
