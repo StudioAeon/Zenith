@@ -16,6 +16,7 @@ namespace Zenith {
 		virtual void OnUpdate(Timestep ts) override;
 		virtual void OnEvent(Event& e) override;
 
+	private:
 		void UpdateWindowTitle(const std::string& sceneName);
 	};
 

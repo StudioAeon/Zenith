@@ -7,12 +7,8 @@
 #include "Zenith/Core/LayerStack.hpp"
 
 #include "Zenith/Events/ApplicationEvent.hpp"
-#include "Zenith/Events/KeyEvent.hpp"
-#include "Zenith/Events/MouseEvent.hpp"
 
 #include "Zenith/ImGui/ImGuiLayer.hpp"
-
-#include <filewatch/FileWatch.hpp> // testing
 
 namespace Zenith {
 
@@ -95,8 +91,6 @@ namespace Zenith {
 		float m_LastFrameTime = 0.0f;
 
 		static Application* s_Instance;
-
-		std::unique_ptr<filewatch::FileWatch<std::string>> m_FileWatcher; // testing
 	};
 
 	// Implemented by CLIENT

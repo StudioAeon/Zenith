@@ -5,6 +5,9 @@
 #include "Zenith/Renderer/Renderer.hpp"
 #include "Zenith/Renderer/Font.hpp"
 
+#include "Zenith/Events/KeyEvent.hpp"
+#include "Zenith/Events/MouseEvent.hpp"
+
 #include <SDL3/SDL.h>
 #include <imgui.h>
 
@@ -20,8 +23,6 @@
 #include <nfd.hpp>
 
 #include "Memory.hpp"
-
-#include <glm/glm.hpp>
 
 bool g_ApplicationRunning = true;
 extern ImGuiContext* GImGui;
@@ -48,12 +49,6 @@ namespace Zenith {
 		m_Profiler = znew PerformanceProfiler();
 
 		bool showSplash = specification.ShowSplashScreen;
-#ifdef ZN_DEBUG
-		showSplash = false;
-#endif
-
-		std::unique_ptr<SplashScreen> splash;
-
 		if (showSplash)
 		{
 			SplashScreen::Config splashConfig;
@@ -64,10 +59,10 @@ namespace Zenith {
 			splashConfig.AllowSkip = true;
 			splashConfig.BackgroundColor = { 20, 20, 25, 255 };
 
-			SplashScreen splash(splashConfig);
-			if (splash.Initialize())
+			auto splash = std::make_unique<SplashScreen>(splashConfig);
+			if (splash->Initialize())
 			{
-				splash.Show();
+				splash->Show();
 			}
 		}
 
@@ -102,7 +97,6 @@ namespace Zenith {
 		}
 
 		Font::Init();
-
 	}
 
 	Application::~Application()
@@ -201,14 +195,21 @@ namespace Zenith {
 				}
 				Renderer::EndFrame();
 
+				// TODO: Clean up this frame render flowww
 				m_Window->GetRenderContext()->BeginFrame();
 				Renderer::WaitAndRender();
-				m_Window->SwapBuffers();
 
-				Renderer::SwapQueues(); // TODO: Should be render thread later
+				Renderer::Submit([&]()
+				{
+					m_Window->SwapBuffers();
+				});
+
+				Renderer::SwapQueues();
 			}
 
 			Input::ClearReleasedKeys();
+
+			ZN_PROFILE_MARK_FRAME;
 		}
 		OnShutdown();
 	}

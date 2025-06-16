@@ -6,8 +6,6 @@
 
 #include <imgui_internal.h>
 
-#include <filesystem>
-
 namespace Zenith {
 
 	EditorLayer::EditorLayer()
@@ -57,7 +55,7 @@ namespace Zenith {
 					{"Images", "png,jpg,jpeg,bmp,tga"},
 				};
 
-				std::filesystem::path filePath = Zenith::FileSystem::OpenFileDialog(filters);
+				std::filesystem::path filePath = FileSystem::OpenFileDialog(filters);
 
 				if (!filePath.empty())
 					ZN_INFO("Selected file: {0}", filePath.string());

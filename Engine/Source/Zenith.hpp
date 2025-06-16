@@ -16,6 +16,7 @@
 #include "Zenith/Core/Input.hpp"
 #include "Zenith/Core/TimeStep.hpp"
 #include "Zenith/Core/Timer.hpp"
+#include "Zenith/Core/Platform.hpp"
 #include "Zenith/Core/Version.hpp"
 
 #include "Zenith/Events/Event.hpp"

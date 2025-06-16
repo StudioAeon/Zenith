@@ -17,6 +17,7 @@ namespace Zenith {
 		WindowClose, WindowMinimize, WindowResize, WindowFocus, WindowLostFocus, WindowMoved,
 		AppTick, AppUpdate, AppRender,
 		KeyPressed, KeyReleased, KeyTyped,
+		EditorExitPlayMode, AssetReloaded,
 		MouseButtonPressed, MouseButtonReleased, MouseButtonDown, MouseMoved, MouseScrolled
 	};
 
@@ -28,6 +29,7 @@ namespace Zenith {
 		EventCategoryKeyboard = BIT(2),
 		EventCategoryMouse = BIT(3),
 		EventCategoryMouseButton = BIT(4),
+		EventCategoryEditor = BIT(5)
 	};
 
 #define EVENT_CLASS_TYPE(type) static EventType GetStaticType() { return EventType::type; }\
@@ -41,6 +43,7 @@ namespace Zenith {
 	public:
 		virtual ~Event() = default;
 		bool Handled = false;
+		bool Synced = false;
 
 		virtual EventType GetEventType() const = 0;
 		virtual const char* GetName() const = 0;

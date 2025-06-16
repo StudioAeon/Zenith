@@ -1,8 +1,10 @@
 #include "znpch.hpp"
 #include "Zenith/Core/Input.hpp"
+
 #include "Window.hpp"
 
 #include "Zenith/Core/Application.hpp"
+#include "Zenith/ImGui/ImGuiCore.hpp"
 
 namespace Zenith {
 
@@ -299,9 +301,37 @@ namespace Zenith {
 
 	bool Input::IsKeyDown(KeyCode keycode)
 	{
-		if (!s_KeyboardState)
-			return false;
-		return s_KeyboardState[static_cast<SDL_Scancode>(keycode)];
+		bool enableImGui = Application::Get().GetSpecification().EnableImGui;
+		if (!enableImGui || !ImGui::GetCurrentContext())
+		{
+			if (!s_KeyboardState)
+				return false;
+			SDL_Scancode scancode = static_cast<SDL_Scancode>(keycode);
+			return s_KeyboardState[scancode];
+		}
+
+		// Check input across all ImGui viewports (multi-window support)
+		ImGuiContext* context = ImGui::GetCurrentContext();
+		for (ImGuiViewport* viewport : context->Viewports)
+		{
+			if (!viewport->PlatformUserData)
+				continue;
+
+			SDL_Window* windowHandle = static_cast<SDL_Window*>(viewport->PlatformUserData);
+			if (!windowHandle)
+				continue;
+
+			SDL_Window* currentFocus = SDL_GetKeyboardFocus();
+			if (currentFocus == windowHandle)
+			{
+				if (!s_KeyboardState)
+					return false;
+				SDL_Scancode scancode = static_cast<SDL_Scancode>(keycode);
+				return s_KeyboardState[scancode];
+			}
+		}
+
+		return false;
 	}
 
 	bool Input::IsKeyReleased(KeyCode key)
@@ -321,8 +351,33 @@ namespace Zenith {
 
 	bool Input::IsMouseButtonDown(MouseButton button)
 	{
-		int sdlButton = static_cast<int>(button) + 1;
-		return (s_MouseState & SDL_BUTTON_MASK(sdlButton)) != 0;
+		bool enableImGui = Application::Get().GetSpecification().EnableImGui;
+		if (!enableImGui || !ImGui::GetCurrentContext())
+		{
+			int sdlButton = static_cast<int>(button) + 1;
+			return (s_MouseState & SDL_BUTTON_MASK(sdlButton)) != 0;
+		}
+
+		// Check input across all ImGui viewports (multi-window support)
+		ImGuiContext* context = ImGui::GetCurrentContext();
+		for (ImGuiViewport* viewport : context->Viewports)
+		{
+			if (!viewport->PlatformUserData)
+				continue;
+
+			SDL_Window* windowHandle = static_cast<SDL_Window*>(viewport->PlatformUserData);
+			if (!windowHandle)
+				continue;
+
+			SDL_Window* mouseFocus = SDL_GetMouseFocus();
+			if (mouseFocus == windowHandle)
+			{
+				int sdlButton = static_cast<int>(button) + 1;
+				return (s_MouseState & SDL_BUTTON_MASK(sdlButton)) != 0;
+			}
+		}
+
+		return false;
 	}
 
 	bool Input::IsMouseButtonReleased(MouseButton button)
@@ -352,25 +407,28 @@ namespace Zenith {
 
 		switch (mode)
 		{
-		case CursorMode::Normal:
-			SDL_SetWindowRelativeMouseMode(sdlWindow, false);
-			SDL_ShowCursor();
-			s_CursorHidden = false;
-			s_CursorLocked = false;
-			break;
-		case CursorMode::Hidden:
-			SDL_SetWindowRelativeMouseMode(sdlWindow, false);
-			SDL_HideCursor();
-			s_CursorHidden = true;
-			s_CursorLocked = false;
-			break;
-		case CursorMode::Locked:
-			SDL_SetWindowRelativeMouseMode(sdlWindow, true);
-			SDL_HideCursor();
-			s_CursorHidden = true;
-			s_CursorLocked = true;
-			break;
+			case CursorMode::Normal:
+				SDL_SetWindowRelativeMouseMode(sdlWindow, false);
+				SDL_ShowCursor();
+				s_CursorHidden = false;
+				s_CursorLocked = false;
+				break;
+			case CursorMode::Hidden:
+				SDL_SetWindowRelativeMouseMode(sdlWindow, false);
+				SDL_HideCursor();
+				s_CursorHidden = true;
+				s_CursorLocked = false;
+				break;
+			case CursorMode::Locked:
+				SDL_SetWindowRelativeMouseMode(sdlWindow, true);
+				SDL_HideCursor();
+				s_CursorHidden = true;
+				s_CursorLocked = true;
+				break;
 		}
+
+		if (Application::Get().GetSpecification().EnableImGui)
+			IMGUI::SetInputEnabled(mode == CursorMode::Normal);
 	}
 
 	CursorMode Input::GetCursorMode()
