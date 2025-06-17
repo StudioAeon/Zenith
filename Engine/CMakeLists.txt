@@ -65,3 +65,5 @@ target_link_libraries(Zenith
 		imgui
 		filewatch
 )
+
+zenith_enable_lto(Zenith)

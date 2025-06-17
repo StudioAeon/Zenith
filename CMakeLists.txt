@@ -24,35 +24,24 @@ set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(BUILD_SHARED_LIBS OFF)
 
-# ==== Interprocedural Optimization ====
-if(NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION)
-	include(CheckIPOSupported)
-	check_ipo_supported(RESULT IPO_SUPPORTED)
+# ==== Interprocedural Optimization (Per-target approach) ====
+include(CheckIPOSupported)
+check_ipo_supported(RESULT IPO_SUPPORTED)
 
-	if(IPO_SUPPORTED)
-		message(STATUS "Interprocedural Optimization (LTO): Enabled for Release builds")
-	else()
-		message(WARNING "Interprocedural Optimization (LTO): Not supported by compiler")
-	endif()
-
-	set(CMAKE_INTERPROCEDURAL_OPTIMIZATION $<$<CONFIG:Release>:${IPO_SUPPORTED}>)
+if(IPO_SUPPORTED)
+	message(STATUS "Interprocedural Optimization (LTO): Available for per-target use")
+else()
+	message(WARNING "Interprocedural Optimization (LTO): Not supported by compiler")
 endif()
+
+# ==== CMake Utilities ====
+include(BuildSystem/CMake/CMakeUtils/znUtilsTarget.cmake)
 
 find_package(Vulkan REQUIRED)
 
 # ==== Distribution Options ====
 option(ZENITH_TRACK_MEMORY "Enable memory tracking" ON)
 option(ZENITH_TESTS "Build Zenith tests" ON)
-
-function(copy_resources target)
-	add_custom_command(TARGET ${target} POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_directory
-			${CMAKE_SOURCE_DIR}/Resources
-			$<TARGET_FILE_DIR:${target}>/Resources
-			COMMENT "Copying Resources to ${target}"
-			VERBATIM
-	)
-endfunction()
 
 add_compile_options(
 		$<$<CXX_COMPILER_ID:MSVC>:/Gy>

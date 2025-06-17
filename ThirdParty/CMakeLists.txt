@@ -39,6 +39,10 @@ else()
 endif()
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/tracy SYSTEM)
 
+if(TARGET TracyClient AND ZENITH_TRACK_MEMORY)
+	zenith_enable_lto(TracyClient)
+endif()
+
 # ==== VulkanMemoryAllocator ====
 add_subdirectory(VulkanMemoryAllocator SYSTEM)
 
