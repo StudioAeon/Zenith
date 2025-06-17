@@ -64,6 +64,7 @@ target_link_libraries(Zenith
 		nlohmann_json::nlohmann_json
 		imgui
 		filewatch
+		miniaudio
 )
 
 zenith_enable_lto(Zenith)

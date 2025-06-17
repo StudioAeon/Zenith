@@ -102,5 +102,4 @@ namespace Zenith {
 	void EditorLayer::OnEvent(Event& e)
 	{}
 
-
 }

@@ -5,6 +5,8 @@
 #include "Zenith/Renderer/Renderer.hpp"
 #include "Zenith/Renderer/Font.hpp"
 
+// #include "Zenith/Audio/AudioEngine.hpp"
+
 #include "Zenith/Events/KeyEvent.hpp"
 #include "Zenith/Events/MouseEvent.hpp"
 
@@ -96,6 +98,7 @@ namespace Zenith {
 			PushOverlay(m_ImGuiLayer);
 		}
 
+		// AudioEngine::Init();
 		Font::Init();
 	}
 
@@ -112,6 +115,7 @@ namespace Zenith {
 		}
 		m_LayerStack.Clear();
 
+		// AudioEngine::Shutdown();
 		Font::Shutdown();
 
 		Renderer::Shutdown();

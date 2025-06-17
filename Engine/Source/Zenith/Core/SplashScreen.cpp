@@ -1,7 +1,7 @@
 #include "znpch.hpp"
 #include "SplashScreen.hpp"
 
-#include <stb_image.h>
+#include <stb/stb_image.h>
 
 namespace Zenith {
 

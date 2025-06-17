@@ -1,4 +1,30 @@
-cmake_minimum_required(VERSION 3.25...3.31 FATAL_ERROR)
+# CMake Version-Feature Compatibility Table
+# ===========================================
+# `cmake_minimum_required(VERSION x.y...z.w)`: 3.12
+# `cmake_policy(CMP0069)`/`check_ipo_supported()`: 3.9
+# `cmake_policy(CMP0077)`: 3.13
+# `cmake_policy(CMP0118)`: 3.20
+# `cmake_policy(CMP0163)`: 3.30
+# `cmake_policy(CMP0171)`: 3.31
+# `CMAKE_POLICY_DEFAULT_CMP0077`: 3.13
+# `CMAKE_POSITION_INDEPENDENT_CODE`: 3.4
+# `BUILD_SHARED_LIBS`: 3.4
+# `file(GLOB_RECURSE ... CONFIGURE_DEPENDS)`: 3.12
+# `target_precompile_headers()`: 3.16
+# `target_compile_features(... cxx_std_20)`: 3.12 (C++20: 3.20)
+# `list(FILTER ... EXCLUDE REGEX)`: 3.6
+# `list(JOIN)`: 3.12
+# `list(APPEND)`: 3.0
+# `target_compile_definitions(... PUBLIC/PRIVATE)`: 3.0
+# `target_link_libraries(... PUBLIC/PRIVATE)`: 3.0
+# `target_include_directories(... PUBLIC/PRIVATE)`: 3.0
+# `add_compile_options($<$<CXX_COMPILER_ID:MSVC>:...>)`: 3.5
+# `$<$<BOOL:...>:...>` generator expressions: 3.8
+# `FetchContent_Declare/MakeAvailable`: 3.14
+# `enable_testing()`/`gtest_discover_tests()`: 3.10
+# `include(GoogleTest)`: 3.10
+
+cmake_minimum_required(VERSION 3.25...4.0 FATAL_ERROR)
 project(Zenith CXX)
 
 # ==== Modern CMake Policies ====

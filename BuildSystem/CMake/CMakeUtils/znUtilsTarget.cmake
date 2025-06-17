@@ -19,3 +19,16 @@ function(zenith_copy_resources target)
 			VERBATIM
 	)
 endfunction()
+
+function(zenith_add_sanitizers target)
+	if(MSVC)
+		target_compile_options(${target} PRIVATE /fsanitize=address)
+	else()
+		target_compile_options(${target} PRIVATE
+				-fsanitize=address
+				-fno-omit-frame-pointer
+				-g
+		)
+		target_link_options(${target} PRIVATE -fsanitize=address)
+	endif()
+endfunction()

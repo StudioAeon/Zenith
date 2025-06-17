@@ -3,7 +3,7 @@
 #include "Zenith/Core/Buffer.hpp"
 #include <glm/glm.hpp>
 
-#include <stb_truetype.h>
+#include <stb/stb_truetype.h>
 
 #include <filesystem>
 #include <string>

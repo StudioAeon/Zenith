@@ -62,6 +62,25 @@ add_subdirectory(nfd SYSTEM)
 # ==== GLAD (OpenGL loader) ====
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/glad SYSTEM)
 
+# ==== miniaudio (Header-only audio library) ====
+add_library(miniaudio INTERFACE)
+target_include_directories(miniaudio INTERFACE ${CMAKE_CURRENT_LIST_DIR}/miniaudio/include)
+
+if(WIN32)
+	target_compile_definitions(miniaudio INTERFACE
+			MA_ENABLE_WASAPI=1
+			MA_ENABLE_DSOUND=1
+			MA_ENABLE_WINMM=1
+	)
+	target_link_libraries(miniaudio INTERFACE winmm ole32)
+elseif(UNIX)
+	target_compile_definitions(miniaudio INTERFACE
+			MA_ENABLE_ALSA=1
+			MA_ENABLE_PULSEAUDIO=1
+			MA_ENABLE_JACK=1
+	)
+endif()
+
 # ==== ImGui ====
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/imgui)
 file(GLOB IMGUI_SOURCES

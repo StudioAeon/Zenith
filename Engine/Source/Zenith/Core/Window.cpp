@@ -8,7 +8,7 @@
 #include "Zenith/Events/MouseEvent.hpp"
 #include "Zenith/Core/Input.hpp"
 
-#include <stb_image.h>
+#include <stb/stb_image.h>
 
 #include <imgui_impl_sdl3.h>
 
