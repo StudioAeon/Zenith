@@ -48,7 +48,7 @@ namespace Zenith {
 		{
 			CloseHandle(processInformation.hThread);
 			CloseHandle(processInformation.hProcess);
-			return 0;
+			return UUID::null();
 		}
 
 		UUID processID = UUID();
