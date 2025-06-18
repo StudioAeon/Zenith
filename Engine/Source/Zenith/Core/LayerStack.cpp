@@ -32,7 +32,6 @@ namespace Zenith {
 			m_Layers.erase(it);
 			m_LayerInsertIndex--;
 		}
-
 	}
 
 	void LayerStack::PopOverlay(const std::shared_ptr<Layer>& overlay)

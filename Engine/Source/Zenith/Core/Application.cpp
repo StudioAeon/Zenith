@@ -199,7 +199,7 @@ namespace Zenith {
 				}
 				Renderer::EndFrame();
 
-				// TODO: Clean up this frame render flowww
+				// TODO: Clean up this frame render flow
 				m_Window->GetRenderContext()->BeginFrame();
 				Renderer::WaitAndRender();
 

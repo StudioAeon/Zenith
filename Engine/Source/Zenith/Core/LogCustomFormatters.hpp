@@ -10,12 +10,12 @@
 namespace std {
 
 	template <>
-	struct formatter<Zenith::UUID> : formatter<string>
+	struct formatter<Zenith::UUID> : formatter<uint64_t>
 	{
 		template <typename FormatContext>
-		FormatContext::iterator format(const Zenith::UUID& id, FormatContext& ctx) const
+		FormatContext::iterator format(const Zenith::UUID id, FormatContext& ctx) const
 		{
-			return formatter<string>::format(id.toString(), ctx);
+			return formatter<uint64_t>::format(static_cast<uint64_t>(id), ctx);
 		}
 	};
 
