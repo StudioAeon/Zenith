@@ -1,0 +1,30 @@
+{
+    "Project": {
+        "AutoSave": true,
+        "AutoSaveInterval": 300,
+        "Log": {
+            "Core": {
+                "Enabled": true,
+                "LevelFilter": "Trace"
+            },
+            "Memory": {
+                "Enabled": true,
+                "LevelFilter": "Error"
+            },
+            "Renderer": {
+                "Enabled": true,
+                "LevelFilter": "Info"
+            },
+            "SDL": {
+                "Enabled": true,
+                "LevelFilter": "Error"
+            },
+            "Timer": {
+                "Enabled": false,
+                "LevelFilter": "Trace"
+            }
+        },
+        "Name": "Project Apex",
+        "StartScene": "Resources/Scenes/Showcase.scene"
+    }
+}
