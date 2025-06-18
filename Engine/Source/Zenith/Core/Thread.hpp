@@ -31,6 +31,7 @@ namespace Zenith {
 	{
 	public:
 		ThreadSignal(const std::string& name, bool manualReset = false);
+		~ThreadSignal();
 
 		void Wait();
 		void Signal();

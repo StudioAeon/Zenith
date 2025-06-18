@@ -12,7 +12,8 @@ message(STATUS "Zenith Editor sources:\n    ${ZENITH_EDITOR_PRINT}")
 
 add_executable(Zenith-Editor ${ZENITH_EDITOR_SOURCES})
 
-zenith_copy_resources(Zenith-Editor)
+zenith_copy_directory(Zenith-Editor Editor/Resources Resources)
+zenith_copy_directory(Zenith-Editor Editor/ProjectApex ProjectApex)
 
 target_compile_features(Zenith-Editor PRIVATE cxx_std_20)
 
