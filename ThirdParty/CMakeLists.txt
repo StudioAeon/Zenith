@@ -94,7 +94,7 @@ file(GLOB IMGUI_SOURCES
 add_library(imgui STATIC ${IMGUI_SOURCES})
 
 target_include_directories(imgui PUBLIC
-		${CMAKE_CURRENT_SOURCE_DIR}/UIe
+		${CMAKE_CURRENT_SOURCE_DIR}/UI
 		${IMGUI_DIR}
 )
 

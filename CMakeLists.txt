@@ -25,7 +25,7 @@
 # `include(GoogleTest)`: 3.10
 
 cmake_minimum_required(VERSION 3.25...4.0 FATAL_ERROR)
-project(Zenith CXX)
+project(Zenith CXX C)
 
 # ==== Modern CMake Policies ====
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.31")

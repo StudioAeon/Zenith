@@ -107,7 +107,7 @@ namespace Zenith {
 		}
 		else
 		{
-			Renderer::WaitAndRender(this);
+			// Renderer::WaitAndRender(this);
 		}
 	}
 
