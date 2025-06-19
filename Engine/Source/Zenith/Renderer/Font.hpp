@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Zenith/Asset/Asset.hpp"
+#include "Zenith/Asset/AssetManager.hpp"
 #include "Zenith/Core/Buffer.hpp"
 #include <glm/glm.hpp>
 
@@ -34,15 +36,20 @@ namespace Zenith {
 		uint32_t TextureID = 0;
 	};
 
-	class Font : public std::enable_shared_from_this<Font>
+	class Font : public Asset
 	{
 	public:
+		Font() = default;
 		Font(const std::filesystem::path& filepath);
 		Font(const std::string& name, Buffer buffer);
 		virtual ~Font();
 
 		Font(const Font&) = delete;
 		Font& operator=(const Font&) = delete;
+
+		// Asset interface
+		virtual AssetType GetAssetType() const override { return AssetType::Font; }
+		static AssetType GetStaticType() { return AssetType::Font; }
 
 		const FontAtlasData* GetFontAtlas() const { return m_AtlasData.get(); }
 		uint32_t GetAtlasTextureID() const { return m_AtlasData ? m_AtlasData->TextureID : 0; }
@@ -57,15 +64,20 @@ namespace Zenith {
 		const stbtt_packedchar* GetPackedChar(char c) const;
 		bool IsCharacterSupported(char c) const;
 
+		// Static asset management methods (AssetManager pattern)
 		static void Init();
 		static void Shutdown();
 
-		static std::shared_ptr<Font> GetDefaultFont();
-		static std::shared_ptr<Font> GetDefaultMonoSpacedFont();
+		static Ref<Font> GetDefaultFont();
+		static Ref<Font> GetDefaultMonoSpacedFont();
 
-		static std::shared_ptr<Font> LoadFont(const std::filesystem::path& filepath, float fontSize = 48.0f);
-		static std::shared_ptr<Font> LoadFont(const std::string& name, const std::filesystem::path& filepath, float fontSize = 48.0f);
-		static std::shared_ptr<Font> GetFont(const std::string& name);
+		static AssetHandle CreateFont(const std::filesystem::path& filepath, float fontSize = 48.0f);
+		static AssetHandle CreateFont(const std::string& name, const std::filesystem::path& filepath, float fontSize = 48.0f);
+		static Ref<Font> GetFont(AssetHandle handle) { return AssetManager::GetAsset<Font>(handle); }
+		static Ref<Font> GetFont(const std::string& name);
+
+		// Find font by name in loaded assets
+		static AssetHandle FindFontByName(const std::string& name);
 
 	private:
 		void CreateAtlas(Buffer buffer, float fontSize = 48.0f);
@@ -79,9 +91,11 @@ namespace Zenith {
 		std::unique_ptr<stbtt_fontinfo> m_FontInfo;
 		std::unique_ptr<FontAtlasData> m_AtlasData;
 
-		inline static std::unordered_map<std::string, std::shared_ptr<Font>> s_FontRegistry;
-		inline static std::shared_ptr<Font> s_DefaultFont;
-		inline static std::shared_ptr<Font> s_DefaultMonoSpacedFont;
+		// Static registry for name-to-handle mapping
+		inline static std::unordered_map<AssetHandle, Ref<Font>> s_InitializationFonts;
+		inline static std::unordered_map<std::string, AssetHandle> s_FontNameRegistry;
+		inline static AssetHandle s_DefaultFontHandle = AssetHandle::null();
+		inline static AssetHandle s_DefaultMonoSpacedFontHandle = AssetHandle::null();
 		inline static bool s_Initialized = false;
 	};
 

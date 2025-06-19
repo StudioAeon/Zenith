@@ -9,6 +9,7 @@
 #include "Zenith/Events/ApplicationEvent.hpp"
 
 #include "Zenith/ImGui/ImGuiLayer.hpp"
+#include <deque>
 
 namespace Zenith {
 
@@ -51,6 +52,42 @@ namespace Zenith {
 		void AddEventCallback(const EventCallbackFn& eventCallback) { m_EventCallbacks.push_back(eventCallback); }
 		EventBus& GetEventBus() { return m_EventBus; }
 
+		template<typename Func>
+		void QueueEvent(Func&& func)
+		{
+			std::scoped_lock<std::mutex> lock(m_EventQueueMutex);
+			m_EventQueue.emplace_back(true, func);
+		}
+
+		// Creates & Dispatches an event either immediately, or adds it to an event queue which will be processed after the next call
+		// to SyncEvents().
+		// Waiting until after next sync gives the application some control over _when_ the events will be processed.
+		// An example of where this is useful:
+		// Suppose an asset thread is loading assets and dispatching "AssetReloaded" events.
+		// We do not want those events to be processed until the asset thread has synced its assets back to the main thread.
+		template<typename TEvent, bool DispatchImmediately = false, typename... TEventArgs>
+		void DispatchEvent(TEventArgs&&... args)
+		{
+#ifndef ZN_COMPILER_GCC
+			static_assert(std::is_assignable_v<Event, TEvent>);
+#endif
+
+			std::shared_ptr<TEvent> event = std::make_shared<TEvent>(std::forward<TEventArgs>(args)...);
+			if constexpr (DispatchImmediately)
+			{
+				OnEvent(*event);
+			}
+			else
+			{
+				std::scoped_lock<std::mutex> lock(m_EventQueueMutex);
+				m_EventQueue.emplace_back(false, [event](){ Application::Get().OnEvent(*event); });
+			}
+		}
+
+		// Mark all waiting events as sync'd.
+		// Thus allowing them to be processed on next call to ProcessEvents()
+		void SyncEvents();
+
 		inline Window& GetWindow() { return *m_Window; }
 
 		static inline Application& Get() { return *s_Instance; }
@@ -59,6 +96,9 @@ namespace Zenith {
 		Timestep GetFrametime() const { return m_Frametime; }
 
 		float GetFrameDelta();  // TODO: This should be in "Platform"
+
+		static std::thread::id GetMainThreadID();
+		static bool IsMainThread();
 
 		static const char* GetConfigurationName();
 		static const char* GetPlatformName();
@@ -86,6 +126,8 @@ namespace Zenith {
 		PerformanceProfiler* m_Profiler = nullptr; // TODO: Should be null in Dist
 
 		EventBus m_EventBus;
+		std::mutex m_EventQueueMutex;
+		std::deque<std::pair<bool, std::function<void()>>> m_EventQueue;
 		std::vector<EventCallbackFn> m_EventCallbacks;
 
 		float m_LastFrameTime = 0.0f;

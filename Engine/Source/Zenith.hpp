@@ -24,7 +24,7 @@
 #include "Zenith/Events/KeyEvent.hpp"
 #include "Zenith/Events/MouseEvent.hpp"
 
-#include <imgui.h>
+#include <imgui/imgui.h>
 
 // ==== Zenith Renderer API ==============================
 #include "Zenith/Renderer/Renderer.hpp"

@@ -10,7 +10,7 @@
 
 #include <stb/stb_image.h>
 
-#include <imgui_impl_sdl3.h>
+#include <backends/imgui_impl_sdl3.h>
 
 namespace Zenith {
 

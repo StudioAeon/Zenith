@@ -1,31 +1,43 @@
-[submodule "ThirdParty/vendor/glm"]
-	path = ThirdParty/vendor/glm
-	url = https://github.com/g-truc/glm
-[submodule "ThirdParty/glm"]
-	path = ThirdParty/glm
-	url = https://github.com/g-truc/glm
-[submodule "ThirdParty/SDL"]
-	path = ThirdParty/SDL
-	url = https://github.com/libsdl-org/SDL
-[submodule "ThirdParty/backward-cpp"]
-	path = ThirdParty/backward-cpp
-	url = https://github.com/bombela/backward-cpp
-[submodule "ThirdParty/tracy"]
-	path = ThirdParty/tracy
-	url = https://github.com/wolfpld/tracy
-[submodule "ThirdParty/spdlog"]
-	path = ThirdParty/spdlog
-	url = https://github.com/gabime/spdlog
-[submodule "ThirdParty/VulkanMemoryAllocator"]
-	path = ThirdParty/VulkanMemoryAllocator
-	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
-[submodule "ThirdParty/json"]
-	path = ThirdParty/json
-	url = https://github.com/nlohmann/json.git
-[submodule "ThirdParty/nfd"]
-	path = ThirdParty/nfd
-	url = https://github.com/btzy/nativefiledialog-extended.git
-[submodule "ThirdParty/imgui"]
-	path = ThirdParty/imgui
-	url = https://github.com/ocornut/imgui.git
-	branch = docking
+[submodule "ThirdParty/Core/SDL"]
+    path = ThirdParty/Core/SDL
+    url = https://github.com/libsdl-org/SDL
+[submodule "ThirdParty/Core/spdlog"]
+    path = ThirdParty/Core/spdlog
+    url = https://github.com/gabime/spdlog
+[submodule "ThirdParty/Rendering/glm"]
+    path = ThirdParty/Rendering/glm
+    url = https://github.com/g-truc/glm
+[submodule "ThirdParty/Rendering/tracy"]
+    path = ThirdParty/Rendering/tracy
+    url = https://github.com/wolfpld/tracy
+[submodule "ThirdParty/Rendering/VulkanMemoryAllocator"]
+    path = ThirdParty/Rendering/VulkanMemoryAllocator
+    url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "ThirdParty/Assets/fast_obj"]
+    path = ThirdParty/Assets/fast_obj
+    url = https://github.com/thisistherk/fast_obj.git
+[submodule "ThirdParty/Assets/fastgltf"]
+    path = ThirdParty/Assets/fastgltf
+    url = https://github.com/spnda/fastgltf.git
+[submodule "ThirdParty/Assets/ufbx"]
+    path = ThirdParty/Assets/ufbx
+    url = https://github.com/ufbx/ufbx.git
+[submodule "ThirdParty/Scripting/lua"]
+    path = ThirdParty/Scripting/lua
+    url = https://github.com/lua/lua.git
+[submodule "ThirdParty/Scripting/sol2"]
+    path = ThirdParty/Scripting/sol2
+    url = https://github.com/ThePhD/sol2.git
+[submodule "ThirdParty/Utils/backward-cpp"]
+    path = ThirdParty/Utils/backward-cpp
+    url = https://github.com/bombela/backward-cpp
+[submodule "ThirdParty/Utils/json"]
+    path = ThirdParty/Utils/json
+    url = https://github.com/nlohmann/json.git
+[submodule "ThirdParty/Utils/nfd"]
+    path = ThirdParty/Utils/nfd
+    url = https://github.com/btzy/nativefiledialog-extended.git
+[submodule "ThirdParty/UI/imgui"]
+    path = ThirdParty/UI/imgui
+    url = https://github.com/ocornut/imgui.git
+    branch = docking

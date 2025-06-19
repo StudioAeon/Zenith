@@ -29,6 +29,7 @@ Zenith-Editor.exe
 
 # IDE Files
 .vs/
+out/
 .vscode/
 .idea/
 *.sln

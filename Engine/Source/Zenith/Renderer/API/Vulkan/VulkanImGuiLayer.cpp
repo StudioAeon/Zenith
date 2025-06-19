@@ -1,10 +1,10 @@
 #include "znpch.hpp"
 #include "VulkanImGuiLayer.hpp"
 
-#include <imgui.h>
+#include <imgui/imgui.h>
 
-#include "backends/imgui_impl_sdl3.h"
-#include "backends/imgui_impl_vulkan.h"
+#include <backends/imgui_impl_sdl3.h>
+#include <backends/imgui_impl_vulkan.h>
 
 #include "Zenith/Core/Application.hpp"
 

@@ -1,11 +1,11 @@
 #include "znpch.hpp"
 #include "OpenGLImGuiLayer.hpp"
 
-#include <imgui.h>
+#include <imgui/imgui.h>
 #include <glad/glad.h>
 
-#include "backends/imgui_impl_sdl3.h"
-#include "backends/imgui_impl_opengl3.h"
+#include <backends/imgui_impl_sdl3.h>
+#include <backends/imgui_impl_opengl3.h>
 
 #include "Zenith/Core/Application.hpp"
 #include <SDL3/SDL.h>

@@ -7,7 +7,7 @@
 #include "Zenith/Utilities/FileSystem.hpp"
 #include "Zenith/Utilities/StringUtils.hpp"
 
-#include <imgui_internal.h>
+#include <imgui/imgui_internal.h>
 
 #include <filesystem>
 #include <format>
@@ -37,7 +37,7 @@ namespace Zenith {
 
 	void EditorLayer::OnAttach()
 	{
-		UpdateWindowTitle("Untitled Project");
+		UpdateWindowTitle("Project Apex");
 
 		if (!m_UserPreferences->StartupProject.empty())
 			OpenProject(m_UserPreferences->StartupProject);

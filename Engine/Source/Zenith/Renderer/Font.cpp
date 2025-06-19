@@ -1,6 +1,8 @@
 #include "znpch.hpp"
 #include "Font.hpp"
 
+#include "Zenith/Asset/AssetManager.hpp"
+
 #include <fstream>
 
 namespace Zenith {
@@ -174,13 +176,13 @@ namespace Zenith {
 			return;
 		}
 
-		s_FontRegistry.clear();
-		s_DefaultFont.reset();
-		s_DefaultMonoSpacedFont.reset();
-
-		LoadDefaultFonts();
+		s_FontNameRegistry.clear();
+		s_DefaultFontHandle = AssetHandle();
+		s_DefaultMonoSpacedFontHandle = AssetHandle();
 
 		s_Initialized = true;
+
+		LoadDefaultFonts();
 	}
 
 	void Font::Shutdown()
@@ -191,10 +193,132 @@ namespace Zenith {
 			return;
 		}
 
-		s_FontRegistry.clear();
-		s_DefaultFont.reset();
-		s_DefaultMonoSpacedFont.reset();
+		s_FontNameRegistry.clear();
+		s_DefaultFontHandle = AssetHandle();
+		s_DefaultMonoSpacedFontHandle = AssetHandle();
 		s_Initialized = false;
+	}
+
+	Ref<Font> Font::GetDefaultFont()
+	{
+		if (s_DefaultFontHandle == 0)
+			return nullptr;
+
+		if (Project::GetActive())
+		{
+			if (auto font = AssetManager::GetAsset<Font>(s_DefaultFontHandle))
+				return font;
+		}
+
+		auto it = s_InitializationFonts.find(s_DefaultFontHandle);
+		if (it != s_InitializationFonts.end())
+			return it->second;
+
+		return nullptr;
+	}
+
+	Ref<Font> Font::GetDefaultMonoSpacedFont()
+	{
+		if (s_DefaultMonoSpacedFontHandle == 0)
+			return nullptr;
+
+		return AssetManager::GetAsset<Font>(s_DefaultMonoSpacedFontHandle);
+	}
+
+	AssetHandle Font::CreateFont(const std::filesystem::path& filepath, float fontSize)
+	{
+		if (!s_Initialized)
+		{
+			ZN_CORE_ERROR_TAG("Font", "Font system not initialized");
+			return AssetHandle::null();
+		}
+
+		std::string name = filepath.stem().string();
+		return CreateFont(name, filepath, fontSize);
+	}
+
+	AssetHandle Font::CreateFont(const std::string& name, const std::filesystem::path& filepath, float fontSize)
+	{
+		if (!s_Initialized)
+		{
+			ZN_CORE_ERROR_TAG("Font", "Font system not initialized");
+			return AssetHandle::null();
+		}
+
+		if (auto existingHandle = FindFontByName(name); existingHandle != 0)
+		{
+			ZN_CORE_WARN_TAG("Font", "Font '{}' already loaded", name);
+			return existingHandle;
+		}
+
+		auto font = Ref<Font>::Create(filepath);
+		if (font && font->GetFontAtlas())
+		{
+			font->m_Name = name;
+
+			// Only register with AssetManager if Project system is available
+			if (Project::GetActive())
+			{
+				AssetHandle handle = AssetManager::AddMemoryOnlyAsset(font);
+				s_FontNameRegistry[name] = handle;
+				return handle;
+			}
+			else
+			{
+				// During initialization - create handle directly without AssetManager
+				font->Handle = AssetHandle();
+				s_FontNameRegistry[name] = font->Handle;
+
+				// Store font temporarily until AssetManager becomes available
+				s_InitializationFonts[font->Handle] = font;
+
+				return font->Handle;
+			}
+		}
+
+		ZN_CORE_ERROR_TAG("Font", "Failed to load font '{}' from '{}'", name, filepath.string());
+		return AssetHandle::null();
+	}
+
+	Ref<Font> Font::GetFont(const std::string& name)
+	{
+		if (!s_Initialized)
+		{
+			ZN_CORE_ERROR_TAG("Font", "Font system not initialized");
+			return nullptr;
+		}
+
+		if (auto handle = FindFontByName(name); handle != 0)
+			return AssetManager::GetAsset<Font>(handle);
+
+		ZN_CORE_WARN_TAG("Font", "Font '{}' not found", name);
+		return nullptr;
+	}
+
+	AssetHandle Font::FindFontByName(const std::string& name)
+	{
+		auto it = s_FontNameRegistry.find(name);
+		if (it != s_FontNameRegistry.end())
+			return it->second;
+
+		// Only search through AssetManager if Project system is available
+		if (Project::GetActive())
+		{
+			auto fontHandles = AssetManager::GetAllAssetsWithType<Font>();
+			for (AssetHandle handle : fontHandles)
+			{
+				if (auto font = AssetManager::GetAsset<Font>(handle))
+				{
+					if (font->GetName() == name)
+					{
+						s_FontNameRegistry[name] = handle;
+						return handle;
+					}
+				}
+			}
+		}
+
+		return AssetHandle::null();
 	}
 
 	void Font::LoadDefaultFonts()
@@ -225,104 +349,32 @@ namespace Zenith {
 		};
 #endif
 
+		// Try to load default font
 		for (const auto& fontPath : defaultFonts)
 		{
 			if (std::filesystem::exists(fontPath))
 			{
-				auto font = std::make_shared<Font>(fontPath);
-				if (font && font->GetFontAtlas())
-				{
-					s_DefaultFont = font;
-					s_FontRegistry["default"] = font;
+				s_DefaultFontHandle = CreateFont("default", fontPath);
+				if (s_DefaultFontHandle != 0)
 					break;
-				}
 			}
 		}
 
+		// Try to load default monospace font
 		for (const auto& fontPath : monoFonts)
 		{
 			if (std::filesystem::exists(fontPath))
 			{
-				auto font = std::make_shared<Font>(fontPath);
-				if (font && font->GetFontAtlas())
-				{
-					s_DefaultMonoSpacedFont = font;
-					s_FontRegistry["monospace"] = font;
+				s_DefaultMonoSpacedFontHandle = CreateFont("monospace", fontPath);
+				if (s_DefaultMonoSpacedFontHandle != 0)
 					break;
-				}
 			}
 		}
 
-		if (!s_DefaultFont)
+		if (s_DefaultFontHandle == 0)
 			ZN_CORE_WARN_TAG("Font", "Failed to load any default font");
-		if (!s_DefaultMonoSpacedFont)
+		if (s_DefaultMonoSpacedFontHandle == 0)
 			ZN_CORE_WARN_TAG("Font", "Failed to load any default monospace font");
-	}
-
-	std::shared_ptr<Font> Font::GetDefaultFont()
-	{
-		return s_DefaultFont;
-	}
-
-	std::shared_ptr<Font> Font::GetDefaultMonoSpacedFont()
-	{
-		return s_DefaultMonoSpacedFont;
-	}
-
-	std::shared_ptr<Font> Font::LoadFont(const std::filesystem::path& filepath, float fontSize)
-	{
-		if (!s_Initialized)
-		{
-			ZN_CORE_ERROR_TAG("Font", "Font system not initialized");
-			return nullptr;
-		}
-
-		std::string name = filepath.stem().string();
-		return LoadFont(name, filepath, fontSize);
-	}
-
-	std::shared_ptr<Font> Font::LoadFont(const std::string& name, const std::filesystem::path& filepath, float fontSize)
-	{
-		if (!s_Initialized)
-		{
-			ZN_CORE_ERROR_TAG("Font", "Font system not initialized");
-			return nullptr;
-		}
-
-		auto it = s_FontRegistry.find(name);
-		if (it != s_FontRegistry.end())
-		{
-			ZN_CORE_WARN_TAG("Font", "Font '{}' already loaded", name);
-			return it->second;
-		}
-
-		auto font = std::make_shared<Font>(filepath);
-		if (font && font->GetFontAtlas())
-		{
-			font->m_Name = name;
-			s_FontRegistry[name] = font;
-			ZN_CORE_INFO_TAG("Font", "Successfully loaded font '{}' from '{}'", name, filepath.string());
-			return font;
-		}
-
-		ZN_CORE_ERROR_TAG("Font", "Failed to load font '{}' from '{}'", name, filepath.string());
-		return nullptr;
-	}
-
-	std::shared_ptr<Font> Font::GetFont(const std::string& name)
-	{
-		if (!s_Initialized)
-		{
-			ZN_CORE_ERROR_TAG("Font", "Font system not initialized");
-			return nullptr;
-		}
-
-		auto it = s_FontRegistry.find(name);
-		if (it != s_FontRegistry.end())
-			return it->second;
-
-		ZN_CORE_WARN_TAG("Font", "Font '{}' not found", name);
-		return nullptr;
 	}
 
 }

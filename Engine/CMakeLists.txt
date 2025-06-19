@@ -65,6 +65,11 @@ target_link_libraries(Zenith
 		imgui
 		filewatch
 		miniaudio
+		fast_obj
+		fastgltf::fastgltf
+		ufbx
+		lua::lua
+		sol2::sol2
 )
 
 zenith_enable_lto(Zenith)

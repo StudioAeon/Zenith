@@ -8,7 +8,7 @@
 
 #include "Zenith/Renderer/RendererAPI.hpp"
 
-#include <imgui.h>
+#include <imgui/imgui.h>
 
 // TODO(Robert): WIP
 // Defined in imgui_impl_sdl.cpp
