@@ -82,7 +82,7 @@ elseif(UNIX)
 endif()
 
 # ==== ImGui ====
-set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/UI//imgui)
+set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/UI/imgui)
 file(GLOB IMGUI_SOURCES
 		${IMGUI_DIR}/*.cpp
 		${IMGUI_DIR}/*.h
@@ -94,7 +94,7 @@ file(GLOB IMGUI_SOURCES
 add_library(imgui STATIC ${IMGUI_SOURCES})
 
 target_include_directories(imgui PUBLIC
-		${CMAKE_CURRENT_SOURCE_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}/UIe
 		${IMGUI_DIR}
 )
 
