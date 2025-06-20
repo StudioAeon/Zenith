@@ -3,8 +3,6 @@
 #include "RendererContext.hpp"
 #include "RenderCommandQueue.hpp"
 
-#include "Zenith/Core/Application.hpp"
-
 #include "RendererCapabilities.hpp"
 
 namespace Zenith {
@@ -16,7 +14,12 @@ namespace Zenith {
 
 		static Ref<RendererContext> GetContext()
 		{
-			return Application::Get().GetWindow().GetRenderContext();
+			return s_CurrentContext;
+		}
+
+		static void SetCurrentContext(Ref<RendererContext> context)
+		{
+			s_CurrentContext = context;
 		}
 
 		static void Init();
@@ -50,6 +53,7 @@ namespace Zenith {
 		static uint32_t GetRenderQueueSubmissionIndex();
 	private:
 		static RenderCommandQueue& GetRenderCommandQueue();
+		inline static Ref<RendererContext> s_CurrentContext = nullptr;
 	};
 
 	namespace Utils {

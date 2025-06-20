@@ -1,4 +1,5 @@
 #include "EditorLayer.hpp"
+#include "Zenith/Core/ApplicationContext.hpp"
 
 #include "Zenith/Debug/Profiler.hpp"
 
@@ -16,8 +17,8 @@
 
 namespace Zenith {
 
-	EditorLayer::EditorLayer(const Ref<UserPreferences>& userPreferences)
-		: m_UserPreferences(userPreferences)
+	EditorLayer::EditorLayer(Ref<UserPreferences> userPreferences)
+		: Layer("EditorLayer"), m_UserPreferences(userPreferences), m_ApplicationContext(nullptr)
 	{
 		m_ProjectNameBuffer.reserve(255);
 		m_OpenProjectFilePathBuffer.reserve(512);
@@ -32,9 +33,6 @@ namespace Zenith {
 		}
 	}
 
-	EditorLayer::~EditorLayer()
-	{}
-
 	void EditorLayer::OnAttach()
 	{
 		UpdateWindowTitle("Project Apex");
@@ -48,6 +46,11 @@ namespace Zenith {
 			EmptyProject();
 	}
 
+	void EditorLayer::SetApplicationContext(std::shared_ptr<ApplicationContext> context)
+	{
+		m_ApplicationContext = context;
+	}
+
 	void EditorLayer::OnDetach()
 	{
 		CloseProject(true);
@@ -57,7 +60,15 @@ namespace Zenith {
 	void EditorLayer::UpdateWindowTitle(const std::string& sceneName)
 	{
 		std::string title = sceneName + " - Zenith-Editor - " + Application::GetPlatformName() + " (" + Application::GetConfigurationName() + ")";
-		Application::Get().GetWindow().SetTitle(title);
+
+		if (m_ApplicationContext)
+		{
+			m_ApplicationContext->GetWindow().SetTitle(title);
+		}
+		else
+		{
+			ZN_CORE_WARN("EditorLayer: No application context available for window title update");
+		}
 	}
 
 	static void ReplaceToken(std::string& str, const char* token, const std::string& value)
@@ -213,10 +224,13 @@ namespace Zenith {
 		{
 			ImGui::SeparatorText("Graphics");
 
-			Application& app = Application::Get();
-			bool vsync = app.GetWindow().IsVSync();
-			if (ImGui::Checkbox("VSync", &vsync))
-				app.GetWindow().SetVSync(vsync);
+			if (m_ApplicationContext)
+			{
+				Window& window = m_ApplicationContext->GetWindow();
+				bool vsync = window.IsVSync();
+				if (ImGui::Checkbox("VSync", &vsync))
+					window.SetVSync(vsync);
+			}
 
 			ImGui::SeparatorText("File Operations");
 

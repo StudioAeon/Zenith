@@ -13,6 +13,8 @@
 
 namespace Zenith {
 
+	class ApplicationContext;
+
 	struct ApplicationSpecification
 	{
 		std::string Name = "Zenith";
@@ -41,25 +43,29 @@ namespace Zenith {
 		virtual void OnInit() {}
 		virtual void OnShutdown();
 		virtual void OnUpdate(Timestep ts) {}
-
 		virtual void OnEvent(Event& event);
 
 		void PushLayer(const std::shared_ptr<Layer>& layer);
 		void PushOverlay(const std::shared_ptr<Layer>& overlay);
 		void PopLayer(const std::shared_ptr<Layer>& layer);
 		void PopOverlay(const std::shared_ptr<Layer>& overlay);
+
 		void RenderImGui();
 
 		EventBus& GetEventBus() { return m_EventBus; }
-
-		inline Window& GetWindow() { return *m_Window; }
-
-		static inline Application& Get() { return *s_Instance; }
+		Window& GetWindow() { return *m_Window; }
+		LayerStack& GetLayerStack() { return m_LayerStack; }
 
 		Timestep GetTimestep() const { return m_TimeStep; }
 		Timestep GetFrametime() const { return m_Frametime; }
+		const ApplicationSpecification& GetSpecification() const { return m_Specification; }
 
-		float GetFrameDelta();  // TODO: This should be in "Platform"
+		PerformanceProfiler* GetPerformanceProfiler() { return m_Profiler; }
+		ImGuiLayer* GetImGuiLayer() { return m_ImGuiLayer.get(); }
+
+		std::shared_ptr<ApplicationContext> GetApplicationContext() { return m_ApplicationContext; }
+
+		float GetFrameDelta();
 
 		static std::thread::id GetMainThreadID();
 		static bool IsMainThread();
@@ -67,11 +73,6 @@ namespace Zenith {
 		static const char* GetConfigurationName();
 		static const char* GetPlatformName();
 
-		const ApplicationSpecification& GetSpecification() const { return m_Specification; }
-
-		PerformanceProfiler* GetPerformanceProfiler() { return m_Profiler; }
-
-		ImGuiLayer* GetImGuiLayer() { return m_ImGuiLayer.get(); }
 	private:
 		void ProcessEvents();
 		void RegisterEventListeners();
@@ -82,20 +83,22 @@ namespace Zenith {
 	private:
 		std::unique_ptr<Window> m_Window;
 		ApplicationSpecification m_Specification;
-		bool m_Running = true, m_Minimized = false;
 		LayerStack m_LayerStack;
-		std::shared_ptr<ImGuiLayer> m_ImGuiLayer;
-		Timestep m_Frametime;
-		Timestep m_TimeStep;
-		PerformanceProfiler* m_Profiler = nullptr; // TODO: Should be null in Dist
-
 		EventBus m_EventBus;
-
 		RenderSystem m_RenderSystem;
 
+		bool m_Running = true, m_Minimized = false;
+		Timestep m_Frametime;
+		Timestep m_TimeStep;
 		float m_LastFrameTime = 0.0f;
 
-		static Application* s_Instance;
+		std::shared_ptr<ImGuiLayer> m_ImGuiLayer;
+		PerformanceProfiler* m_Profiler = nullptr; // TODO: Should be null in Dist
+
+		std::shared_ptr<ApplicationContext> m_ApplicationContext;
+
+		static std::thread::id s_MainThreadID;
+
 	};
 
 	// Implemented by CLIENT

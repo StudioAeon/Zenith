@@ -301,7 +301,9 @@ namespace Zenith {
 
 	bool Input::IsKeyDown(KeyCode keycode)
 	{
-		bool enableImGui = Application::Get().GetSpecification().EnableImGui;
+		// TODO: Make this configurable through context in the future
+		bool enableImGui = ImGui::GetCurrentContext() != nullptr;
+
 		if (!enableImGui || !ImGui::GetCurrentContext())
 		{
 			if (!s_KeyboardState)
@@ -351,7 +353,9 @@ namespace Zenith {
 
 	bool Input::IsMouseButtonDown(MouseButton button)
 	{
-		bool enableImGui = Application::Get().GetSpecification().EnableImGui;
+		// TODO: Make this configurable through context in the future
+		bool enableImGui = ImGui::GetCurrentContext() != nullptr;
+
 		if (!enableImGui || !ImGui::GetCurrentContext())
 		{
 			int sdlButton = static_cast<int>(button) + 1;
@@ -402,8 +406,16 @@ namespace Zenith {
 
 	void Input::SetCursorMode(CursorMode mode)
 	{
-		auto& window = static_cast<Window&>(Application::Get().GetWindow());
-		SDL_Window* sdlWindow = static_cast<SDL_Window*>(window.GetNativeWindow());
+		SDL_Window* sdlWindow = SDL_GetMouseFocus();
+		if (!sdlWindow) {
+			// Fallback: try to get keyboard focus window
+			sdlWindow = SDL_GetKeyboardFocus();
+		}
+
+		if (!sdlWindow) {
+			ZN_CORE_WARN("No active SDL window found for cursor mode change");
+			return;
+		}
 
 		switch (mode)
 		{
@@ -427,8 +439,9 @@ namespace Zenith {
 				break;
 		}
 
-		if (Application::Get().GetSpecification().EnableImGui)
+		if (ImGui::GetCurrentContext()) {
 			IMGUI::SetInputEnabled(mode == CursorMode::Normal);
+		}
 	}
 
 	CursorMode Input::GetCursorMode()

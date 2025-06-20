@@ -249,8 +249,9 @@ namespace Zenith {
 			SetMetadata(assetHandle, metadata);
 			ZN_CORE_INFO_TAG("AssetManager", "Finished reloading asset {}", metadata.FilePath.string());
 			UpdateDependents(assetHandle);
-			auto event = std::make_unique<AssetReloadedEvent>(assetHandle);
-			Application::Get().GetEventBus().Dispatch(*event);
+			// TODO: Consider using a callback system or event dispatcher injection
+			// auto event = std::make_unique<AssetReloadedEvent>(assetHandle);
+			// Application::Get().GetEventBus().Dispatch(*event);
 		}
 		else
 		{

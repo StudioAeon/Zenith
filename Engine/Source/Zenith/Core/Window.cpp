@@ -18,9 +18,11 @@ namespace Zenith {
 
 	static bool s_SDLInitialized = false;
 
-	Window* Window::Create(const WindowSpecification& specification)
+	std::unique_ptr<Window> Window::Create(const WindowSpecification& specification)
 	{
-		return new Window(specification);
+		auto window = std::make_unique<Window>(specification);
+		window->Init();
+		return window;
 	}
 	
 	Window::Window(const WindowSpecification& specification)
@@ -51,8 +53,14 @@ namespace Zenith {
 
 		Uint32 windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 
+		if (m_Specification.Resizable)
+			windowFlags |= SDL_WINDOW_RESIZABLE;
+
 		if (m_Specification.Fullscreen)
 			windowFlags |= SDL_WINDOW_FULLSCREEN;
+
+		if (m_Specification.Maximized)
+			windowFlags |= SDL_WINDOW_MAXIMIZED;
 
 		switch (RendererAPI::Current())
 		{

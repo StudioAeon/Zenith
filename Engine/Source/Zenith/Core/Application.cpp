@@ -1,5 +1,6 @@
 #include "znpch.hpp"
 #include "Application.hpp"
+#include "ApplicationContext.hpp"
 #include "SplashScreen.hpp"
 
 #include "Zenith/Renderer/Renderer.hpp"
@@ -28,9 +29,8 @@
 
 bool g_ApplicationRunning = true;
 extern ImGuiContext* GImGui;
-namespace Zenith {
 
-	Application* Application::s_Instance = nullptr;
+namespace Zenith {
 
 	static std::thread::id s_MainThreadID;
 
@@ -45,7 +45,6 @@ namespace Zenith {
 			Renderer::Shutdown();
 		});
 
-		s_Instance = this;
 		s_MainThreadID = std::this_thread::get_id();
 
 		if (!specification.WorkingDirectory.empty())
@@ -65,72 +64,136 @@ namespace Zenith {
 			splashConfig.BackgroundColor = { 20, 20, 25, 255 };
 
 			auto splash = std::make_unique<SplashScreen>(splashConfig);
-			if (splash->Initialize())
-			{
-				splash->Show();
-			}
+			splash->Show();
 		}
+
+		WindowSpecification windowSpec;
+		windowSpec.Title = m_Specification.Name;
+		windowSpec.Width = m_Specification.WindowWidth;
+		windowSpec.Height = m_Specification.WindowHeight;
+		windowSpec.Fullscreen = m_Specification.Fullscreen;
+		windowSpec.VSync = m_Specification.VSync;
+		windowSpec.Maximized = m_Specification.StartMaximized;
+		windowSpec.Resizable = m_Specification.Resizable;
+
+		if (!m_Specification.IconPath.empty())
+			windowSpec.IconPath = m_Specification.IconPath;
+
+		m_Window = Window::Create(windowSpec);
+		m_Window->SetEventCallback([this](Event& e) { OnEvent(e); });
+
+		m_ApplicationContext = std::make_shared<ApplicationContext>(*this);
+
+		Renderer::SetCurrentContext(m_Window->GetRenderContext());
 
 		RegisterEventListeners();
 
-		WindowSpecification windowSpec;
-		windowSpec.Title = specification.Name;
-		windowSpec.Width = specification.WindowWidth;
-		windowSpec.Height = specification.WindowHeight;
-		windowSpec.Fullscreen = specification.Fullscreen;
-		windowSpec.VSync = specification.VSync;
-		windowSpec.IconPath = specification.IconPath;
-		m_Window = std::unique_ptr<Window>(Window::Create(windowSpec));
-		m_Window->Init();
-		m_Window->SetEventCallback([this](Event& e) { OnEvent(e); });
-
-		ZN_CORE_VERIFY(NFD::Init() == NFD_OKAY);
-
-		Renderer::Init();
-		Renderer::WaitAndRender();
-
-		m_RenderSystem.Initialize();
-
-		if (specification.StartMaximized)
-			m_Window->Maximize();
-		else
-			m_Window->CenterWindow();
-		m_Window->SetResizable(specification.Resizable);
-
 		if (m_Specification.EnableImGui)
 		{
-			m_ImGuiLayer = ImGuiLayer::Create();
+			m_ImGuiLayer = ImGuiLayer::Create(*m_ApplicationContext);
 			PushOverlay(m_ImGuiLayer);
 		}
 
-		// AudioEngine::Init();
-		Font::Init();
+		Renderer::Init();
+		m_RenderSystem.Initialize();
 	}
 
 	Application::~Application()
 	{
-		NFD::Quit();
-
-		m_RenderSystem.Shutdown();
-
-		if (m_Window) {
-			m_Window->SetEventCallback([](Event& e) {});
-		}
-
-		for (const auto& layer : m_LayerStack)
+		if (m_Profiler)
 		{
-			if (layer->IsEnabled())
-				layer->OnDetach();
+			zdelete m_Profiler;
+			m_Profiler = nullptr;
 		}
-		m_LayerStack.Clear();
+		OnShutdown();
+	}
 
-		// AudioEngine::Shutdown();
-		Font::Shutdown();
+	void Application::Close()
+	{
+		m_Running = false;
+	}
 
-		Renderer::Shutdown();
+	void Application::OnShutdown()
+	{
+		g_ApplicationRunning = false;
+	}
 
-		delete m_Profiler;
-		m_Profiler = nullptr;
+	void Application::ProcessEvents()
+	{
+		Input::TransitionPressedKeys();
+		Input::TransitionPressedButtons();
+
+		m_Window->ProcessEvents();
+		m_EventBus.DispatchQueued();
+	}
+
+	void Application::RegisterEventListeners()
+	{
+		// Window Events
+		m_EventBus.Listen<WindowResizeEvent>([this](WindowResizeEvent& e) { return OnWindowResize(e); });
+		m_EventBus.Listen<WindowCloseEvent>([this](WindowCloseEvent& e) { return OnWindowClose(e); });
+		m_EventBus.Listen<WindowMinimizeEvent>([this](WindowMinimizeEvent& e) { return OnWindowMinimize(e); });
+
+		// Keyboard Events
+		m_EventBus.Listen<KeyPressedEvent>([this](KeyPressedEvent& e) { return false; });
+		m_EventBus.Listen<KeyReleasedEvent>([this](KeyReleasedEvent& e) { return false; });
+		m_EventBus.Listen<KeyTypedEvent>([this](KeyTypedEvent& e) { return false; });
+
+		// Mouse Events
+		m_EventBus.Listen<MouseButtonPressedEvent>([this](MouseButtonPressedEvent& e) { return false; });
+		m_EventBus.Listen<MouseButtonReleasedEvent>([this](MouseButtonReleasedEvent& e) { return false; });
+		m_EventBus.Listen<MouseMovedEvent>([this](MouseMovedEvent& e) { return false; });
+		m_EventBus.Listen<MouseScrolledEvent>([this](MouseScrolledEvent& e) { return false; });
+	}
+
+	void Application::OnEvent(Event& event)
+	{
+		m_EventBus.Dispatch(event);
+
+		if (event.Handled || event.IsPropagationStopped())
+			return;
+
+		for (auto it = m_LayerStack.end(); it != m_LayerStack.begin(); ) {
+			--it;
+
+			if (!(*it)->IsEnabled())
+				continue;
+
+			bool handled = (*it)->OnEvent(event);
+			if (handled) {
+				event.Handled = true;
+			}
+
+			if (event.Handled || event.IsPropagationStopped())
+				break;
+		}
+	}
+
+	bool Application::OnWindowResize(WindowResizeEvent& e)
+	{
+		const uint32_t width = e.GetWidth(), height = e.GetHeight();
+		if (width == 0 || height == 0)
+		{
+			m_Minimized = true;
+			return false;
+		}
+
+		m_Minimized = false;
+		Renderer::WaitAndRender();
+		m_Window->GetRenderContext()->OnResize(width, height);
+		return true;
+	}
+
+	bool Application::OnWindowMinimize(WindowMinimizeEvent& e)
+	{
+		m_Minimized = e.IsMinimized();
+		return false;
+	}
+
+	bool Application::OnWindowClose(WindowCloseEvent& e)
+	{
+		Close();
+		return false;
 	}
 
 	void Application::PushLayer(const std::shared_ptr<Layer>& layer)
@@ -215,113 +278,6 @@ namespace Zenith {
 
 			ZN_PROFILE_MARK_FRAME;
 		}
-		OnShutdown();
-	}
-
-	void Application::Close()
-	{
-		m_Running = false;
-	}
-
-	void Application::OnShutdown()
-	{
-		g_ApplicationRunning = false;
-	}
-
-	void Application::ProcessEvents()
-	{
-		Input::TransitionPressedKeys();
-		Input::TransitionPressedButtons();
-
-		m_Window->ProcessEvents();
-
-		m_EventBus.DispatchQueued();
-	}
-
-	void Application::RegisterEventListeners()
-	{
-		// Window Events
-		m_EventBus.Listen<WindowResizeEvent>([this](WindowResizeEvent& e) { return OnWindowResize(e); });
-		m_EventBus.Listen<WindowCloseEvent>([this](WindowCloseEvent& e) { return OnWindowClose(e); });
-		m_EventBus.Listen<WindowMinimizeEvent>([this](WindowMinimizeEvent& e) { return OnWindowMinimize(e); });
-
-		// Keyboard Events
-		m_EventBus.Listen<KeyPressedEvent>([this](KeyPressedEvent& e) {
-			return false;
-		});
-		m_EventBus.Listen<KeyReleasedEvent>([this](KeyReleasedEvent& e) {
-			return false;
-		});
-		m_EventBus.Listen<KeyTypedEvent>([this](KeyTypedEvent& e) {
-			return false;
-		});
-
-		// Mouse Events
-		m_EventBus.Listen<MouseButtonPressedEvent>([this](MouseButtonPressedEvent& e) {
-			return false;
-		});
-		m_EventBus.Listen<MouseButtonReleasedEvent>([this](MouseButtonReleasedEvent& e) {
-			return false;
-		});
-		m_EventBus.Listen<MouseMovedEvent>([this](MouseMovedEvent& e) {
-			return false;
-		});
-		m_EventBus.Listen<MouseScrolledEvent>([this](MouseScrolledEvent& e) {
-			return false;
-		});
-	}
-
-
-	void Application::OnEvent(Event& event)
-	{
-		m_EventBus.Dispatch(event);
-
-		if (event.Handled || event.IsPropagationStopped())
-			return;
-
-		for (auto it = m_LayerStack.end(); it != m_LayerStack.begin(); ) {
-			--it;
-
-			if (!(*it)->IsEnabled())
-				continue;
-
-			bool handled = (*it)->OnEvent(event);
-			if (handled) {
-				event.Handled = true;
-			}
-
-			if (event.Handled || event.IsPropagationStopped())
-				break;
-		}
-	}
-
-	bool Application::OnWindowResize(WindowResizeEvent& e)
-	{
-		const uint32_t width = e.GetWidth(), height = e.GetHeight();
-		if (width == 0 || height == 0)
-		{
-			m_Minimized = true;
-			return false;
-		}
-
-		m_Minimized = false;
-
-		Renderer::WaitAndRender();
-		m_Window->GetRenderContext()->OnResize(width, height);
-
-		return true;
-	}
-
-	bool Application::OnWindowMinimize(WindowMinimizeEvent& e)
-	{
-		m_Minimized = e.IsMinimized();
-		return false;
-	}
-
-	bool Application::OnWindowClose(WindowCloseEvent& e)
-	{
-		Close();
-		return false;
 	}
 
 	float Application::GetFrameDelta()

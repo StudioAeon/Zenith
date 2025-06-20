@@ -18,6 +18,8 @@ namespace Zenith {
 		uint32_t Height = 900;
 		bool Fullscreen = false;
 		bool VSync = true;
+		bool Maximized = false;
+		bool Resizable = true;
 		std::filesystem::path IconPath;
 	};
 
@@ -55,7 +57,7 @@ namespace Zenith {
 
 		virtual Ref<RendererContext> GetRenderContext() { return m_RendererContext; }
 	public:
-		static Window* Create(const WindowSpecification& specification = WindowSpecification());
+		static std::unique_ptr<Window> Create(const WindowSpecification& specification = WindowSpecification());
 
 	private:
 		virtual void Shutdown();

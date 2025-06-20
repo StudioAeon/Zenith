@@ -15,15 +15,16 @@ namespace Zenith {
 	class EditorLayer : public Layer
 	{
 	public:
-		EditorLayer(const Ref<UserPreferences>& userPreferences);
-		virtual ~EditorLayer();
+		EditorLayer(Ref<UserPreferences> userPreferences);
+		virtual ~EditorLayer() = default;
 
 		virtual void OnAttach() override;
 		virtual void OnDetach() override;
 		virtual void OnUpdate(Timestep ts) override;
-
 		virtual void OnImGuiRender() override;
 		virtual bool OnEvent(Event& e) override;
+
+		void SetApplicationContext(std::shared_ptr<ApplicationContext> context);
 
 		bool OnKeyPressedEvent(KeyPressedEvent& e);
 		bool OnMouseButtonPressed(MouseButtonPressedEvent& e);
@@ -42,6 +43,8 @@ namespace Zenith {
 		std::string m_NewProjectFilePathBuffer;
 
 		Ref<UserPreferences> m_UserPreferences;
+
+		std::shared_ptr<ApplicationContext> m_ApplicationContext;
 
 	private:
 		void UpdateWindowTitle(const std::string& sceneName);

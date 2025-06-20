@@ -1,6 +1,7 @@
 #include "EditorLayer.hpp"
 #include "Zenith/Utilities/CommandLineParser.hpp"
 #include "Zenith/Utilities/FileSystem.hpp"
+#include "Zenith/Core/ApplicationContext.hpp"
 
 #include "Zenith/EntryPoint.hpp"
 
@@ -50,13 +51,21 @@ public:
 
 		auto editorLayer = std::make_shared<Zenith::EditorLayer>(m_UserPreferences);
 		editorLayer->SetEnabled(true);
+
+		auto applicationContext = GetApplicationContext();
+		editorLayer->SetApplicationContext(applicationContext);
+
 		PushLayer(editorLayer);
+
+		m_ApplicationContext = std::move(applicationContext);
 	}
 
 private:
 	std::string m_ProjectPath;
 	std::filesystem::path m_PersistentStoragePath;
 	Zenith::Ref<Zenith::UserPreferences> m_UserPreferences;
+
+	std::shared_ptr<Zenith::ApplicationContext> m_ApplicationContext;
 };
 
 Zenith::Application* Zenith::CreateApplication(int argc, char** argv)

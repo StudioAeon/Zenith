@@ -87,7 +87,9 @@ namespace Zenith {
 			: m_Name(name), m_Profiler(profiler) {}
 
 		~ScopePerfTimer() {
-			m_Profiler->SetPerFrameTiming(m_Name, m_Timer.ElapsedMillis());
+			if (m_Profiler) {
+				m_Profiler->SetPerFrameTiming(m_Name, m_Timer.ElapsedMillis());
+			}
 		}
 
 	private:
@@ -96,15 +98,22 @@ namespace Zenith {
 		Timer m_Timer;
 	};
 
-#if 1
-	#define ZN_SCOPE_PERF(name) \
-		::Zenith::ScopePerfTimer CONCAT(scope_perf_, __LINE__)(name, ::Zenith::Application::Get().GetPerformanceProfiler())
-
-	#define ZN_SCOPE_TIMER(name) \
-		::Zenith::ScopedTimer CONCAT(scoped_timer_, __LINE__)(name)
+	// TODO: Replace with proper context-aware profiler system
+	inline PerformanceProfiler& GetGlobalProfiler() {
+		static PerformanceProfiler s_GlobalProfiler;
+		return s_GlobalProfiler;
+	}
 
 	#define CONCAT_IMPL(x, y) x##y
 	#define CONCAT(x, y) CONCAT_IMPL(x, y)
+
+#if 1
+	// TEMPORARY FIX: Use global profiler instead of Application singleton
+	#define ZN_SCOPE_PERF(name) \
+		::Zenith::ScopePerfTimer CONCAT(scope_perf_, __LINE__)(name, &::Zenith::GetGlobalProfiler())
+
+	#define ZN_SCOPE_TIMER(name) \
+		::Zenith::ScopedTimer CONCAT(scoped_timer_, __LINE__)(name)
 #else
 	#define ZN_SCOPE_PERF(name)
 	#define ZN_SCOPE_TIMER(name)

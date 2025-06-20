@@ -1,37 +1,34 @@
 #include "znpch.hpp"
 #include "ImGuiLayer.hpp"
-
-#include "Zenith/Renderer/Renderer.hpp"
-
+#include "Zenith/Core/ApplicationContext.hpp"
+#include "Zenith/Renderer/RendererAPI.hpp"
 #include "Zenith/Renderer/API/OpenGL/OpenGLImGuiLayer.hpp"
 #include "Zenith/Renderer/API/Vulkan/VulkanImGuiLayer.hpp"
 
-#include "Zenith/Renderer/RendererAPI.hpp"
-
-#include <imgui/imgui.h>
-
-// TODO(Robert): WIP
-// Defined in imgui_impl_sdl.cpp
-// extern bool g_DisableImGuiEvents;
-
 namespace Zenith {
-	 
-	std::shared_ptr<ImGuiLayer> ImGuiLayer::Create()
+
+	ImGuiLayer::ImGuiLayer(ApplicationContext& context)
+		: Layer("ImGuiLayer"), m_Context(context)
+	{
+	}
+
+	std::shared_ptr<ImGuiLayer> ImGuiLayer::Create(ApplicationContext& context)
 	{
 		switch (RendererAPI::Current())
 		{
-			case RendererAPIType::None:    return nullptr;
-			case RendererAPIType::OpenGL:  return std::make_shared<OpenGLImGuiLayer>();
-			case RendererAPIType::Vulkan:  return std::make_shared<VulkanImGuiLayer>();
-		}
-		ZN_CORE_ASSERT(false, "Unknown RendererAPI");
-		return nullptr;
-	}
+			case RendererAPIType::None:
+				ZN_CORE_ASSERT(false, "RendererAPIType::None is currently not supported!");
+				return nullptr;
 
-	void ImGuiLayer::AllowInputEvents(bool allowEvents)
-	{
-		// TODO
-		// g_DisableImGuiEvents = !allowEvents;
+			case RendererAPIType::OpenGL:
+				return std::make_shared<OpenGLImGuiLayer>(context);
+
+			case RendererAPIType::Vulkan:
+				return std::make_shared<VulkanImGuiLayer>(context);
+		}
+
+		ZN_CORE_ASSERT(false, "Unknown RendererAPIType!");
+		return nullptr;
 	}
 
 }

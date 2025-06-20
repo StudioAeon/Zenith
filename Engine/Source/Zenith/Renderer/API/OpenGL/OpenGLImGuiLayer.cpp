@@ -7,18 +7,16 @@
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_opengl3.h>
 
-#include "Zenith/Core/Application.hpp"
+#include "Zenith/Core/ApplicationContext.hpp"
+#include "Zenith/Core/Window.hpp"
 #include <SDL3/SDL.h>
-
 
 #include "Zenith/Renderer/Renderer.hpp"
 
 namespace Zenith {
 
-	OpenGLImGuiLayer::OpenGLImGuiLayer()
-	{}
-
-	OpenGLImGuiLayer::OpenGLImGuiLayer(const std::string& name)
+	OpenGLImGuiLayer::OpenGLImGuiLayer(ApplicationContext& context)
+		: ImGuiLayer(context)
 	{}
 
 	OpenGLImGuiLayer::~OpenGLImGuiLayer()
@@ -31,18 +29,14 @@ namespace Zenith {
 		ImGui::CreateContext();
 		ImGuiIO& io = ImGui::GetIO(); (void)io;
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
-		//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
 		io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
-		//io.ConfigViewportsNoAutoMerge = true;
-		//io.ConfigViewportsNoTaskBarIcon = true;
 
 		ImFont* pFont = io.Fonts->AddFontFromFileTTF("Resources/Fonts/Roboto/Roboto-Regular.ttf", 18.0f);
 		io.FontDefault = io.Fonts->Fonts.back();
 
 		// Setup Dear ImGui style
 		ImGui::StyleColorsDark();
-		//ImGui::StyleColorsClassic();
 
 		// When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
 		ImGuiStyle& style = ImGui::GetStyle();
@@ -53,10 +47,10 @@ namespace Zenith {
 		}
 		style.Colors[ImGuiCol_WindowBg] = ImVec4(0.15f, 0.15f, 0.15f, style.Colors[ImGuiCol_WindowBg].w);
 
-		Application& app = Application::Get();
-		SDL_Window* window = static_cast<SDL_Window*>(app.GetWindow().GetNativeWindow());
+		Window& window = GetContext().GetWindow();
+		SDL_Window* sdlWindow = static_cast<SDL_Window*>(window.GetNativeWindow());
 
-		if (!window) {
+		if (!sdlWindow) {
 			ZN_CORE_ERROR("SDL Window is null!");
 			return;
 		}
@@ -68,7 +62,7 @@ namespace Zenith {
 		}
 
 		// Setup Platform/Renderer bindings
-		ImGui_ImplSDL3_InitForOpenGL(window, gl_context);
+		ImGui_ImplSDL3_InitForOpenGL(sdlWindow, gl_context);
 		ImGui_ImplOpenGL3_Init("#version 410");
 	}
 
@@ -89,29 +83,23 @@ namespace Zenith {
 	void OpenGLImGuiLayer::End()
 	{
 		ImGuiIO& io = ImGui::GetIO();
-		Application& app = Application::Get();
-		io.DisplaySize = ImVec2(app.GetWindow().GetWidth(), app.GetWindow().GetHeight());
 
-		// Render to swapchain... how do we handle this better?
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		Window& window = GetContext().GetWindow();
+		io.DisplaySize = ImVec2(static_cast<float>(window.GetWidth()), static_cast<float>(window.GetHeight()));
 
 		// Rendering
 		ImGui::Render();
+		glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 		{
 			SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
 			SDL_GLContext backup_current_context = SDL_GL_GetCurrentContext();
-
 			ImGui::UpdatePlatformWindows();
 			ImGui::RenderPlatformWindowsDefault();
-
 			SDL_GL_MakeCurrent(backup_current_window, backup_current_context);
 		}
 	}
-
-	void OpenGLImGuiLayer::OnImGuiRender()
-	{}
 
 }
