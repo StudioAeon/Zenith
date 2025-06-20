@@ -89,6 +89,8 @@ namespace Zenith {
 		Renderer::Init();
 		Renderer::WaitAndRender();
 
+		m_RenderSystem.Initialize();
+
 		if (specification.StartMaximized)
 			m_Window->Maximize();
 		else
@@ -109,7 +111,11 @@ namespace Zenith {
 	{
 		NFD::Quit();
 
-		m_Window->SetEventCallback([](Event& e) {});
+		m_RenderSystem.Shutdown();
+
+		if (m_Window) {
+			m_Window->SetEventCallback([](Event& e) {});
+		}
 
 		for (const auto& layer : m_LayerStack)
 		{
@@ -170,15 +176,6 @@ namespace Zenith {
 			m_LayerStack[i]->OnImGuiRender();
 	}
 
-	void Application::SyncEvents()
-	{
-		std::scoped_lock<std::mutex> lock(m_EventQueueMutex);
-		for (auto& [synced, _] : m_EventQueue)
-		{
-			synced = true;
-		}
-	}
-
 	void Application::Run()
 	{
 		OnInit();
@@ -194,7 +191,7 @@ namespace Zenith {
 
 			if (!m_Minimized)
 			{
-				Renderer::BeginFrame();
+				m_RenderSystem.BeginFrame();
 				{
 					ZN_SCOPE_PERF("Application Layer::OnUpdate");
 					for (const auto& layer : m_LayerStack)
@@ -202,25 +199,16 @@ namespace Zenith {
 							layer->OnUpdate(m_TimeStep);
 				}
 
-				// Render ImGui on render thread
-				Application* app = this;
 				if (m_Specification.EnableImGui)
 				{
-					Renderer::Submit([app]() { app->RenderImGui(); });
-					Renderer::Submit([this]() { m_ImGuiLayer->End(); });
+					m_RenderSystem.RenderImGui(
+						[this]() { this->RenderImGui(); },
+						m_ImGuiLayer.get()
+					);
 				}
-				Renderer::EndFrame();
 
-				// TODO: Clean up this frame render flow
-				m_Window->GetRenderContext()->BeginFrame();
-				Renderer::WaitAndRender();
-
-				Renderer::Submit([&]()
-				{
-					m_Window->SwapBuffers();
-				});
-
-				Renderer::SwapQueues();
+				m_RenderSystem.EndFrame();
+				m_RenderSystem.Present(*m_Window);
 			}
 
 			Input::ClearReleasedKeys();
@@ -237,7 +225,6 @@ namespace Zenith {
 
 	void Application::OnShutdown()
 	{
-		m_EventCallbacks.clear();
 		g_ApplicationRunning = false;
 	}
 
@@ -249,25 +236,6 @@ namespace Zenith {
 		m_Window->ProcessEvents();
 
 		m_EventBus.DispatchQueued();
-
-		// Note: we have no control over what func() does.  holding this lock while calling func() is a bad idea:
-		// 1) func() might be slow (means we hold the lock for ages)
-		// 2) func() might result in events getting queued, in which case we have a deadlock
-		std::scoped_lock<std::mutex> lock(m_EventQueueMutex);
-
-		// Process custom event queue, up until we encounter an event that is not yet sync'd
-		// If application queues such events, then it is the application's responsibility to call
-		// SyncEvents() at the appropriate time.
-		while (m_EventQueue.size() > 0)
-		{
-			const auto& [synced, func] = m_EventQueue.front();
-			if (!synced)
-			{
-				break;
-			}
-			func();
-			m_EventQueue.pop_front();
-		}
 	}
 
 	void Application::RegisterEventListeners()
@@ -308,17 +276,20 @@ namespace Zenith {
 	{
 		m_EventBus.Dispatch(event);
 
-		for (auto it = m_LayerStack.end(); it != m_LayerStack.begin(); ) {
-			(*--it)->OnEvent(event);
-			if (event.Handled || event.IsPropagationStopped())
-				break;
-		}
-
 		if (event.Handled || event.IsPropagationStopped())
 			return;
 
-		for (auto& eventCallback : m_EventCallbacks) {
-			eventCallback(event);
+		for (auto it = m_LayerStack.end(); it != m_LayerStack.begin(); ) {
+			--it;
+
+			if (!(*it)->IsEnabled())
+				continue;
+
+			bool handled = (*it)->OnEvent(event);
+			if (handled) {
+				event.Handled = true;
+			}
+
 			if (event.Handled || event.IsPropagationStopped())
 				break;
 		}

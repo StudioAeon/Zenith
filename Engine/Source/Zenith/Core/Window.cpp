@@ -168,61 +168,81 @@ namespace Zenith {
 			Input::ProcessEvent(m_Event);
 
 			switch (m_Event.type) {
-					case SDL_EVENT_QUIT: {
+				case SDL_EVENT_QUIT: {
 					auto e = std::make_unique<WindowCloseEvent>();
-					Application::Get().GetEventBus().QueueEvent(std::move(e));
+					if (m_Data.EventCallback) {
+						m_Data.EventCallback(*e);
+					}
 					break;
 				}
 				case SDL_EVENT_WINDOW_RESIZED: {
 					auto e = std::make_unique<WindowResizeEvent>(m_Event.window.data1, m_Event.window.data2);
 					m_Data.Width = m_Event.window.data1;
 					m_Data.Height = m_Event.window.data2;
-					Application::Get().GetEventBus().QueueEvent(std::move(e));
+					if (m_Data.EventCallback) {
+						m_Data.EventCallback(*e);
+					}
 					break;
 				}
 				case SDL_EVENT_WINDOW_MINIMIZED: {
 					auto e = std::make_unique<WindowMinimizeEvent>(true);
-					Application::Get().GetEventBus().QueueEvent(std::move(e));
+					if (m_Data.EventCallback) {
+						m_Data.EventCallback(*e);
+					}
 					break;
 				}
 				case SDL_EVENT_KEY_DOWN: {
 					int repeatCount = m_Event.key.repeat ? 1 : 0;
 					auto e = std::make_unique<KeyPressedEvent>(m_Event.key.scancode, repeatCount);
-					Application::Get().GetEventBus().QueueEvent(std::move(e));
+					if (m_Data.EventCallback) {
+						m_Data.EventCallback(*e);
+					}
 					break;
 				}
 				case SDL_EVENT_KEY_UP: {
 					auto e = std::make_unique<KeyReleasedEvent>(m_Event.key.scancode);
-					Application::Get().GetEventBus().QueueEvent(std::move(e));
+					if (m_Data.EventCallback) {
+						m_Data.EventCallback(*e);
+					}
 					break;
 				}
 				case SDL_EVENT_TEXT_INPUT: {
 					auto e = std::make_unique<KeyTypedEvent>(m_Event.text.text[0]);
-					Application::Get().GetEventBus().QueueEvent(std::move(e));
+					if (m_Data.EventCallback) {
+						m_Data.EventCallback(*e);
+					}
 					break;
 				}
 				case SDL_EVENT_MOUSE_BUTTON_DOWN: {
 					auto e = std::make_unique<MouseButtonPressedEvent>(m_Event.button.button);
-					Application::Get().GetEventBus().QueueEvent(std::move(e));
+					if (m_Data.EventCallback) {
+						m_Data.EventCallback(*e);
+					}
 					break;
 				}
 				case SDL_EVENT_MOUSE_BUTTON_UP: {
 					auto e = std::make_unique<MouseButtonReleasedEvent>(m_Event.button.button);
-					Application::Get().GetEventBus().QueueEvent(std::move(e));
+					if (m_Data.EventCallback) {
+						m_Data.EventCallback(*e);
+					}
 					break;
 				}
 				case SDL_EVENT_MOUSE_MOTION: {
 					auto e = std::make_unique<MouseMovedEvent>(
 						static_cast<float>(m_Event.motion.x),
 						static_cast<float>(m_Event.motion.y));
-					Application::Get().GetEventBus().QueueEvent(std::move(e));
+					if (m_Data.EventCallback) {
+						m_Data.EventCallback(*e);
+					}
 					break;
 				}
 				case SDL_EVENT_MOUSE_WHEEL: {
 					auto e = std::make_unique<MouseScrolledEvent>(
 						static_cast<float>(m_Event.wheel.x),
 						static_cast<float>(m_Event.wheel.y));
-					Application::Get().GetEventBus().QueueEvent(std::move(e));
+					if (m_Data.EventCallback) {
+						m_Data.EventCallback(*e);
+					}
 					break;
 				}
 				// Let Input system fully handle controller events

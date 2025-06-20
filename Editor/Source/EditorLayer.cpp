@@ -271,7 +271,7 @@ namespace Zenith {
 		ImGui::End();
 	}
 
-	void EditorLayer::OnEvent(Event& e)
-	{}
+	bool EditorLayer::OnEvent(Event& e)
+	{ return false; }
 
 }

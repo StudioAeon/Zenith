@@ -249,7 +249,8 @@ namespace Zenith {
 			SetMetadata(assetHandle, metadata);
 			ZN_CORE_INFO_TAG("AssetManager", "Finished reloading asset {}", metadata.FilePath.string());
 			UpdateDependents(assetHandle);
-			Application::Get().DispatchEvent<AssetReloadedEvent, /*DispatchImmediately=*/true>(assetHandle);
+			auto event = std::make_unique<AssetReloadedEvent>(assetHandle);
+			Application::Get().GetEventBus().Dispatch(*event);
 		}
 		else
 		{
@@ -479,7 +480,6 @@ namespace Zenith {
 
 	void EditorAssetManager::SyncWithAssetThread()
 	{
-#if ASYNC_ASSETS
 		std::vector<EditorAssetLoadResponse> freshAssets;
 
 		m_AssetThread->RetrieveReadyAssets(freshAssets);
@@ -499,9 +499,6 @@ namespace Zenith {
 		{
 			UpdateDependents(alr.Metadata.Handle);
 		}
-#else
-		Application::Get().SyncEvents();
-#endif
 	}
 
 	AssetHandle EditorAssetManager::ImportAsset(const std::filesystem::path& filepath)

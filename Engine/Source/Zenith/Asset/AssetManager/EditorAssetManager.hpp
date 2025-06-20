@@ -134,7 +134,8 @@ namespace Zenith {
 			{
 				ZN_CORE_INFO_TAG("AssetManager", "Replaced asset {}", metadata.FilePath.string());
 				UpdateDependents(metadata.Handle);
-				Application::Get().DispatchEvent<AssetReloadedEvent, /*DispatchImmediately=*/true>(metadata.Handle);
+				auto event = std::make_unique<AssetReloadedEvent>(metadata.Handle);
+				Application::Get().GetEventBus().Dispatch(*event);
 			}
 
 			return asset;

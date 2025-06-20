@@ -43,7 +43,6 @@ namespace Zenith {
 	public:
 		virtual ~Event() = default;
 		bool Handled = false;
-		bool Synced = false;
 
 		virtual EventType GetEventType() const = 0;
 		virtual const char* GetName() const = 0;

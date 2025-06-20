@@ -23,7 +23,7 @@ namespace Zenith {
 		virtual void OnUpdate(Timestep ts) override;
 
 		virtual void OnImGuiRender() override;
-		virtual void OnEvent(Event& e) override;
+		virtual bool OnEvent(Event& e) override;
 
 		bool OnKeyPressedEvent(KeyPressedEvent& e);
 		bool OnMouseButtonPressed(MouseButtonPressedEvent& e);

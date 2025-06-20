@@ -41,10 +41,10 @@ namespace Zenith {
 		}
 
 		static void WaitAndRender();
-		static void SwapQueues();
-
 		static void BeginFrame();
 		static void EndFrame();
+
+		static void SwapQueues();
 
 		static uint32_t GetRenderQueueIndex();
 		static uint32_t GetRenderQueueSubmissionIndex();

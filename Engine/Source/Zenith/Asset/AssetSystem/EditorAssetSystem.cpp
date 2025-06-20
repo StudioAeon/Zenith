@@ -144,11 +144,6 @@ namespace Zenith {
 		std::scoped_lock lock(m_LoadedAssetsMutex);
 		std::swap(outAssetList, m_LoadedAssets);
 
-		// Now that we've sync'd assets, any events that were dispatched from TryLoadData() are safe to be processed
-		// This needs to be inside the m_LoadedAssetsMutex lock - we do not want any more evens to go into the queue before we've
-		// marked all these ones as sync'd
-		Application::Get().SyncEvents();
-
 		return !outAssetList.empty();
 	}
 
@@ -235,12 +230,6 @@ namespace Zenith {
 			{
 				std::scoped_lock<std::mutex> lock(m_LoadedAssetsMutex);
 				m_LoadedAssets.emplace_back(metadata, asset);
-
-				// be careful:
-				// 1) DispatchEvent() is only thread-safe when DispatchImmediately is false.
-				// 2) Events must be handled carefully so that we are sure that the assets have been synched back to main thread _before_ this event is processed.
-				//    That's why we are dispatching event while we hold a lock on m_LoadedAssetsMutex (see RetrieveReadyAssets())
-				Application::Get().DispatchEvent<AssetReloadedEvent, /*DispatchImmediately=*/false>(metadata.Handle);
 			}
 
 			ZN_CORE_INFO_TAG("AssetSystem", "Finished loading asset {}", metadata.FilePath.string());

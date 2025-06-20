@@ -15,7 +15,7 @@ namespace Zenith {
 		virtual void OnDetach() {}
 		virtual void OnImGuiRender() {}
 		virtual void OnUpdate(Timestep ts) {}
-		virtual void OnEvent(Event& event) {}
+		virtual bool OnEvent(Event& event) { return false; }
 
 		inline const std::string& GetName() const { return m_DebugName; }
 

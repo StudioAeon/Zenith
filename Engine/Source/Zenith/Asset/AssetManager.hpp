@@ -13,7 +13,7 @@
 // Asynchronous asset loading can be disabled by setting this to 0
 // If you do this, then assets will not be automatically reloaded if/when they are changed by some external tool,
 // and you will have to manually reload
-#define ASYNC_ASSETS 0
+#define ASYNC_ASSETS 1
 
 namespace Zenith {
 
