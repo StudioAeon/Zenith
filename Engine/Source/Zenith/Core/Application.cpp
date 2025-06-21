@@ -32,7 +32,7 @@ extern ImGuiContext* GImGui;
 
 namespace Zenith {
 
-	static std::thread::id s_MainThreadID;
+	std::thread::id Application::s_MainThreadID;
 
 	Application::Application(const ApplicationSpecification& specification)
 		: m_Specification(specification)

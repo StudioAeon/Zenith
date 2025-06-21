@@ -3,7 +3,7 @@
 
 #include "Renderer.hpp"
 
-#include "Zenith/Renderer/API/OpenGL/OpenGLIndexBuffer.hpp"
+#include "Zenith/Renderer/API/Vulkan/VulkanIndexBuffer.hpp"
 
 namespace Zenith {
 
@@ -12,7 +12,7 @@ namespace Zenith {
 		switch (RendererAPI::Current())
 		{
 			case RendererAPIType::None:    return nullptr;
-			case RendererAPIType::OpenGL:  return Ref<OpenGLIndexBuffer>::Create(size);
+			case RendererAPIType::Vulkan:  return Ref<VulkanIndexBuffer>::Create(size);
 		}
 		ZN_CORE_ASSERT(false, "Unknown RendererAPI");
 		return nullptr;
@@ -23,7 +23,7 @@ namespace Zenith {
 		switch (RendererAPI::Current())
 		{
 			case RendererAPIType::None:    return nullptr;
-			case RendererAPIType::OpenGL:  return Ref<OpenGLIndexBuffer>::Create(data, size);
+			case RendererAPIType::Vulkan:  return Ref<VulkanIndexBuffer>::Create(data, size);
 		}
 		ZN_CORE_ASSERT(false, "Unknown RendererAPI");
 		return nullptr;

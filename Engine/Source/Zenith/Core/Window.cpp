@@ -64,9 +64,6 @@ namespace Zenith {
 
 		switch (RendererAPI::Current())
 		{
-			case RendererAPIType::OpenGL:
-				windowFlags |= SDL_WINDOW_OPENGL;
-				break;
 			case RendererAPIType::Vulkan:
 				windowFlags |= SDL_WINDOW_VULKAN;
 				break;
@@ -266,10 +263,6 @@ namespace Zenith {
 	void Window::SetVSync(bool enabled)
 	{
 		m_Specification.VSync = enabled;
-		if (RendererAPI::Current() == RendererAPIType::OpenGL)
-		{
-			SDL_GL_SetSwapInterval(enabled ? 1 : 0);
-		}
 	}
 
 	bool Window::IsVSync() const

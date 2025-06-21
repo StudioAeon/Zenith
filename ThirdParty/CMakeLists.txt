@@ -59,9 +59,6 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/Utils/json SYSTEM)
 set(NFD_BUILD_TESTS OFF)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/Utils/nfd SYSTEM)
 
-# ==== GLAD (OpenGL loader) ====
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/Rendering/glad SYSTEM)
-
 # ==== miniaudio (Header-only audio library) ====
 add_library(miniaudio INTERFACE)
 target_include_directories(miniaudio INTERFACE ${CMAKE_CURRENT_LIST_DIR}/Audio/miniaudio/include)
@@ -98,7 +95,7 @@ target_include_directories(imgui PUBLIC
 		${IMGUI_DIR}
 )
 
-target_link_libraries(imgui PUBLIC SDL3::SDL3-static Vulkan::Vulkan glad)
+target_link_libraries(imgui PUBLIC SDL3::SDL3-static Vulkan::Vulkan)
 
 # ==== FileWatch ====
 add_library(filewatch INTERFACE)

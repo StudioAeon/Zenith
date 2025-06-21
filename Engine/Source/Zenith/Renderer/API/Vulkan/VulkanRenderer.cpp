@@ -3,6 +3,7 @@
 
 #include "Vulkan.hpp"
 #include "VulkanContext.hpp"
+#include "TriangleRenderer.hpp"
 
 #include "Zenith/Renderer/Renderer.hpp"
 
@@ -12,6 +13,7 @@ namespace Zenith {
 	{
 		RendererCapabilities RenderCaps;
 		VkCommandBuffer ActiveCommandBuffer = nullptr;
+		Ref<TriangleRenderer> TriangleRenderer;
 	};
 
 	static VulkanRendererData* s_Data = nullptr;
@@ -19,22 +21,32 @@ namespace Zenith {
 	void VulkanRenderer::Init()
 	{
 		s_Data = new VulkanRendererData();
-
 		auto context = VulkanContext::Get();
 		auto physicalDevice = context->GetDevice()->GetPhysicalDevice();
 		auto& caps = s_Data->RenderCaps;
 
-		// Basic capabilities setup
+		// Setup capabilities
 		caps.Vendor = "Vulkan";
 		caps.Device = "Unknown";
 		caps.Version = "1.2";
 		caps.MaxSamples = 1;
 		caps.MaxAnisotropy = 1.0f;
 		caps.MaxTextureUnits = 32;
+
+		// Initialize triangle renderer
+		s_Data->TriangleRenderer = TriangleRenderer::Create();
+		s_Data->TriangleRenderer->Initialize();
+
+		ZN_CORE_INFO("VulkanRenderer initialized successfully");
 	}
 
 	void VulkanRenderer::Shutdown()
 	{
+		if (s_Data && s_Data->TriangleRenderer)
+		{
+			s_Data->TriangleRenderer->Shutdown();
+			s_Data->TriangleRenderer.Reset();
+		}
 		delete s_Data;
 		s_Data = nullptr;
 	}
@@ -50,7 +62,6 @@ namespace Zenith {
 		{
 			Ref<VulkanContext> context = VulkanContext::Get();
 			VulkanSwapChain& swapChain = context->GetSwapChain();
-
 			VkCommandBuffer drawCommandBuffer = swapChain.GetCurrentDrawCommandBuffer();
 			s_Data->ActiveCommandBuffer = drawCommandBuffer;
 			ZN_CORE_ASSERT(s_Data->ActiveCommandBuffer);
@@ -69,11 +80,21 @@ namespace Zenith {
 			renderPassBeginInfo.renderArea.offset = {0, 0};
 			renderPassBeginInfo.renderArea.extent = {swapChain.GetWidth(), swapChain.GetHeight()};
 
-			VkClearValue clearColor = {{{0.0f, 0.2f, 0.4f, 1.0f}}};
+			VkClearValue clearColor = {{{0.0f, 0.1f, 0.2f, 1.0f}}};
 			renderPassBeginInfo.clearValueCount = 1;
 			renderPassBeginInfo.pClearValues = &clearColor;
 
 			vkCmdBeginRenderPass(s_Data->ActiveCommandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+			// Render triangle
+			if (s_Data->TriangleRenderer)
+			{
+				s_Data->TriangleRenderer->Render(
+					s_Data->ActiveCommandBuffer,
+					swapChain.GetWidth(),
+					swapChain.GetHeight()
+				);
+			}
 		});
 	}
 
@@ -82,9 +103,7 @@ namespace Zenith {
 		Renderer::Submit([]()
 		{
 			ZN_CORE_ASSERT(s_Data->ActiveCommandBuffer);
-
 			vkCmdEndRenderPass(s_Data->ActiveCommandBuffer);
-
 			VK_CHECK_RESULT(vkEndCommandBuffer(s_Data->ActiveCommandBuffer));
 			s_Data->ActiveCommandBuffer = nullptr;
 		});

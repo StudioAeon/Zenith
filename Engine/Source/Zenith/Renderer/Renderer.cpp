@@ -3,7 +3,6 @@
 
 #include "RendererAPI.hpp"
 
-#include "Zenith/Renderer/API/OpenGL/OpenGLRenderer.hpp"
 #include "Zenith/Renderer/API/Vulkan/VulkanRenderer.hpp"
 
 namespace Zenith {
@@ -13,8 +12,7 @@ namespace Zenith {
 	void RendererAPI::SetAPI(RendererAPIType api)
 	{
 		// TODO: make sure this is called at a valid time
-		ZN_CORE_ASSERT(api == RendererAPIType::OpenGL || api == RendererAPIType::Vulkan,
-			"Only OpenGL and Vulkan are currently supported");
+		ZN_CORE_ASSERT(api == RendererAPIType::Vulkan, "Only Vulkan is supported");
 		s_CurrentRendererAPI = api;
 	}
 
@@ -26,7 +24,6 @@ namespace Zenith {
 	{
 		switch (RendererAPI::Current())
 		{
-			case RendererAPIType::OpenGL: return znew OpenGLRenderer();
 			case RendererAPIType::Vulkan: return znew VulkanRenderer();
 			case RendererAPIType::None:
 				ZN_CORE_ASSERT(false, "RendererAPI::None is not supported");

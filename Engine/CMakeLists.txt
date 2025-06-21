@@ -54,7 +54,6 @@ target_link_libraries(Zenith
 		SDL3::SDL3-static
 		spdlog
 		glm
-		glad
 		stb
 		Vulkan::Vulkan
 		VulkanMemoryAllocator

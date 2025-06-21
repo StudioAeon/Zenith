@@ -62,6 +62,9 @@ namespace Zenith {
 		VkQueue GetQueue() { return m_Queue; }
 		VkQueue GetComputeQueue() { return m_ComputeQueue; }
 
+		VkQueue GetGraphicsQueue() { return m_Queue; }
+		VkCommandPool GetCommandPool() { return m_CommandPool; }
+
 		VkCommandBuffer GetCommandBuffer(bool begin, bool compute = false);
 		void FlushCommandBuffer(VkCommandBuffer commandBuffer);
 		void FlushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue);

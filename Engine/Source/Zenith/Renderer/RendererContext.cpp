@@ -3,7 +3,6 @@
 
 #include "RendererAPI.hpp"
 
-#include "Zenith/Renderer/API/OpenGL/OpenGLContext.hpp"
 #include "Zenith/Renderer/API/Vulkan/VulkanContext.hpp"
 
 namespace Zenith {
@@ -13,7 +12,6 @@ namespace Zenith {
 		switch (RendererAPI::Current())
 		{
 			case RendererAPIType::None:    return nullptr;
-			case RendererAPIType::OpenGL:  return Ref<OpenGLContext>::Create(windowHandle);
 			case RendererAPIType::Vulkan:  return Ref<VulkanContext>::Create(windowHandle);
 		}
 		ZN_CORE_ASSERT(false, "Unknown RendererAPI");
