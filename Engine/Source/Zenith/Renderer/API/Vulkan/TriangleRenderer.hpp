@@ -60,8 +60,6 @@ namespace Zenith {
 		void CreateShaders();
 		void CreatePipeline();
 
-		std::vector<uint32_t> LoadSpirvFile(const std::string& filepath);
-
 	private:
 		Ref<VertexBuffer> m_VertexBuffer;
 		Ref<IndexBuffer> m_IndexBuffer;

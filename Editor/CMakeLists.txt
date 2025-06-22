@@ -15,6 +15,10 @@ add_executable(Zenith-Editor ${ZENITH_EDITOR_SOURCES})
 zenith_copy_directory(Zenith-Editor Editor/Resources Resources)
 zenith_copy_directory(Zenith-Editor Editor/ProjectApex ProjectApex)
 
+if(DXC_BINARY_DIR)
+	zenith_copy_directory_absolute(Zenith-Editor "${DXC_BINARY_DIR}" ".")
+endif()
+
 target_compile_features(Zenith-Editor PRIVATE cxx_std_20)
 
 target_include_directories(Zenith-Editor PUBLIC ${EDITOR_SRC_DIR})

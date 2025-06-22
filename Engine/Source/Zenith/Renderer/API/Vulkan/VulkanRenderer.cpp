@@ -5,6 +5,8 @@
 #include "VulkanContext.hpp"
 #include "TriangleRenderer.hpp"
 
+#include "Zenith/Renderer/API/Vulkan/DXCCompiler.hpp"
+
 #include "Zenith/Renderer/Renderer.hpp"
 
 namespace Zenith {
@@ -22,22 +24,47 @@ namespace Zenith {
 	{
 		s_Data = new VulkanRendererData();
 		auto context = VulkanContext::Get();
-		auto physicalDevice = context->GetDevice()->GetPhysicalDevice();
+		auto device = context->GetDevice();
+		auto physicalDevice = device->GetPhysicalDevice();
 		auto& caps = s_Data->RenderCaps;
 
-		// Setup capabilities
-		caps.Vendor = "Vulkan";
-		caps.Device = "Unknown";
-		caps.Version = "1.2";
-		caps.MaxSamples = 1;
-		caps.MaxAnisotropy = 1.0f;
-		caps.MaxTextureUnits = 32;
+		VkPhysicalDevice vkPhysicalDevice = physicalDevice->GetVulkanPhysicalDevice();
+		VkPhysicalDeviceProperties deviceProperties;
+		VkPhysicalDeviceFeatures deviceFeatures;
+		vkGetPhysicalDeviceProperties(vkPhysicalDevice, &deviceProperties);
+		vkGetPhysicalDeviceFeatures(vkPhysicalDevice, &deviceFeatures);
+
+		caps.Device = deviceProperties.deviceName;
+		caps.Version = std::to_string(VK_VERSION_MAJOR(deviceProperties.apiVersion)) + "." +
+					   std::to_string(VK_VERSION_MINOR(deviceProperties.apiVersion)) + "." +
+					   std::to_string(VK_VERSION_PATCH(deviceProperties.apiVersion));
+
+		switch (deviceProperties.vendorID) {
+			case 0x1002: caps.Vendor = "AMD"; break;
+			case 0x1010: caps.Vendor = "ImgTec"; break;
+			case 0x10DE: caps.Vendor = "NVIDIA"; break;
+			case 0x13B5: caps.Vendor = "ARM"; break;
+			case 0x5143: caps.Vendor = "Qualcomm"; break;
+			case 0x8086: caps.Vendor = "Intel"; break;
+			default: caps.Vendor = "Unknown (0x" + std::to_string(deviceProperties.vendorID) + ")"; break;
+		}
+
+		caps.MaxSamples = static_cast<int>(deviceProperties.limits.framebufferColorSampleCounts &
+											deviceProperties.limits.framebufferDepthSampleCounts);
+		caps.MaxAnisotropy = deviceFeatures.samplerAnisotropy ? deviceProperties.limits.maxSamplerAnisotropy : 1.0f;
+		caps.MaxTextureUnits = static_cast<int>(deviceProperties.limits.maxBoundDescriptorSets);
+
+		Utils::DumpGPUInfo();
+
+		auto& dxcCompiler = DXCCompiler::Get();
+		if (!dxcCompiler.Initialize())
+		{
+			ZN_CORE_WARN("Failed to initialize DXC compiler - falling back to pre-compiled shaders");
+		}
 
 		// Initialize triangle renderer
 		s_Data->TriangleRenderer = TriangleRenderer::Create();
 		s_Data->TriangleRenderer->Initialize();
-
-		ZN_CORE_INFO("VulkanRenderer initialized successfully");
 	}
 
 	void VulkanRenderer::Shutdown()
@@ -47,6 +74,9 @@ namespace Zenith {
 			s_Data->TriangleRenderer->Shutdown();
 			s_Data->TriangleRenderer.Reset();
 		}
+
+		DXCCompiler::Get().Shutdown();
+
 		delete s_Data;
 		s_Data = nullptr;
 	}

@@ -46,6 +46,35 @@ endif()
 # ==== VulkanMemoryAllocator ====
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/Rendering/VulkanMemoryAllocator SYSTEM)
 
+# ==== DirectXShaderCompiler (DXC) ====
+include(FetchContent)
+
+if(WIN32)
+	FetchContent_Declare(
+			dxc_bin
+			URL https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2505/dxc_2025_05_24.zip
+	)
+else()
+	FetchContent_Declare(
+			dxc_bin
+			URL https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2505/linux_dxc_2025_05_24.x86_64.tar.gz
+	)
+endif()
+
+FetchContent_MakeAvailable(dxc_bin)
+
+add_library(dxcompiler INTERFACE)
+
+if(WIN32)
+	set(DXC_BINARY_DIR "${dxc_bin_SOURCE_DIR}/bin/x64" CACHE INTERNAL "")
+	target_link_libraries(dxcompiler INTERFACE "${dxc_bin_SOURCE_DIR}/lib/x64/dxcompiler.lib")
+else()
+	set(DXC_BINARY_DIR "${dxc_bin_SOURCE_DIR}/lib" CACHE INTERNAL "")
+	target_link_libraries(dxcompiler INTERFACE "${dxc_bin_SOURCE_DIR}/lib/libdxcompiler.so")
+endif()
+
+target_include_directories(dxcompiler INTERFACE "${dxc_bin_SOURCE_DIR}/inc")
+
 # ==== Backward-cpp (Stack traces) ====
 set(BACKWARD_ENABLE TRUE)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/Utils/backward-cpp SYSTEM)

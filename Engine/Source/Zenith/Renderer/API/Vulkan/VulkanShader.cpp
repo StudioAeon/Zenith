@@ -4,7 +4,7 @@
 #include <fstream>
 #include <filesystem>
 
-// #include <shaderc/shaderc.hpp>
+#include "DXCCompiler.hpp"
 
 namespace Zenith {
 
@@ -36,44 +36,40 @@ namespace Zenith {
 		std::filesystem::path path(filepath);
 		m_Name = path.stem().string();
 
-		std::string vertPath = path.string() + ".vert.spv";
-		std::string fragPath = path.string() + ".frag.spv";
+		std::string hlslSource = LoadTextFile(filepath);
 
-		auto vertSpirv = LoadSpirvFile(vertPath);
-		auto fragSpirv = LoadSpirvFile(fragPath);
-
-		if (!vertSpirv.empty() && !fragSpirv.empty())
+		if (!hlslSource.empty())
 		{
-			m_ShaderModules[ShaderStage::Vertex] = CreateShaderModule(vertSpirv);
-			m_ShaderModules[ShaderStage::Fragment] = CreateShaderModule(fragSpirv);
-			ZN_CORE_INFO("Loaded shader from SPIR-V files: {}", m_Name);
+			std::unordered_map<ShaderStage, std::string> sources;
+			sources[ShaderStage::Vertex] = hlslSource;
+			sources[ShaderStage::Fragment] = hlslSource;
+			CompileShaders(sources);
 		}
 		else
 		{
-			ZN_CORE_WARN("Could not load SPIR-V files for {}, trying GLSL source compilation", m_Name);
-
-			std::string vertSourcePath = path.string() + ".vert";
-			std::string fragSourcePath = path.string() + ".frag";
-
-			std::string vertSource = LoadTextFile(vertSourcePath);
-			std::string fragSource = LoadTextFile(fragSourcePath);
-
-			if (!vertSource.empty() && !fragSource.empty())
-			{
-				std::unordered_map<ShaderStage, std::string> sources;
-				sources[ShaderStage::Vertex] = vertSource;
-				sources[ShaderStage::Fragment] = fragSource;
-				CompileShaders(sources);
-			}
-			else
-			{
-				ZN_CORE_ERROR("Failed to load shader files for: {}", m_Name);
-			}
+			ZN_CORE_ERROR("Failed to load HLSL shader file: {}", filepath);
 		}
 	}
 
 	void VulkanShader::CompileShaders(const std::unordered_map<ShaderStage, std::string>& sources)
-	{}
+	{
+		auto& dxcCompiler = DXCCompiler::Get();
+
+		if (!dxcCompiler.Initialize())
+		{
+			ZN_CORE_ERROR("Failed to initialize DXC compiler for shader: {}", m_Name);
+			return;
+		}
+
+		auto compiledShaders = dxcCompiler.CompileShaders(sources);
+
+		CreateShadersFromSpirv(compiledShaders);
+
+		if (compiledShaders.empty())
+		{
+			ZN_CORE_ERROR("Failed to compile any shaders for: {}", m_Name);
+		}
+	}
 
 	void VulkanShader::CreateShadersFromSpirv(const std::unordered_map<ShaderStage, std::vector<uint32_t>>& spirvCode)
 	{
@@ -84,32 +80,6 @@ namespace Zenith {
 				m_ShaderModules[stage] = CreateShaderModule(spirv);
 			}
 		}
-	}
-
-	std::vector<uint32_t> VulkanShader::LoadSpirvFile(const std::string& filepath)
-	{
-		std::ifstream file(filepath, std::ios::ate | std::ios::binary);
-		if (!file.is_open())
-		{
-			ZN_CORE_TRACE("Failed to open SPIR-V file: {}", filepath);
-			return {};
-		}
-
-		size_t fileSize = (size_t)file.tellg();
-		if (fileSize % sizeof(uint32_t) != 0)
-		{
-			ZN_CORE_ERROR("SPIR-V file size is not a multiple of 4 bytes: {}", filepath);
-			file.close();
-			return {};
-		}
-
-		std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
-
-		file.seekg(0);
-		file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
-		file.close();
-
-		return buffer;
 	}
 
 	std::string VulkanShader::LoadTextFile(const std::string& filepath)

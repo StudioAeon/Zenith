@@ -28,7 +28,6 @@ namespace Zenith {
 		CreateShaders();
 		CreatePipeline();
 		m_Initialized = true;
-		ZN_CORE_INFO("TriangleRenderer initialized successfully");
 	}
 
 	void TriangleRenderer::CreateTriangleData()
@@ -47,41 +46,7 @@ namespace Zenith {
 
 	void TriangleRenderer::CreateShaders()
 	{
-		auto vertexSpirv = LoadSpirvFile("Resources/Shaders/triangle.vert.spv");
-		auto fragmentSpirv = LoadSpirvFile("Resources/Shaders/triangle.frag.spv");
-
-		if (!vertexSpirv.empty() && !fragmentSpirv.empty())
-		{
-			m_Shader = VulkanShader::CreateFromSpirv("TriangleShader", vertexSpirv, fragmentSpirv);
-			ZN_CORE_INFO("TriangleRenderer: Loaded shaders from SPIR-V files");
-		}
-	}
-
-	std::vector<uint32_t> TriangleRenderer::LoadSpirvFile(const std::string& filepath)
-	{
-		std::ifstream file(filepath, std::ios::ate | std::ios::binary);
-		if (!file.is_open())
-		{
-			ZN_CORE_TRACE("Failed to open SPIR-V file: {}", filepath);
-			return {};
-		}
-
-		size_t fileSize = (size_t)file.tellg();
-		if (fileSize % sizeof(uint32_t) != 0)
-		{
-			ZN_CORE_ERROR("SPIR-V file size is not a multiple of 4 bytes: {}", filepath);
-			file.close();
-			return {};
-		}
-
-		std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
-
-		file.seekg(0);
-		file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
-		file.close();
-
-		ZN_CORE_TRACE("Loaded SPIR-V file: {} ({} bytes)", filepath, fileSize);
-		return buffer;
+		m_Shader = VulkanShader::Create("Resources/Shaders/basic.hlsl");
 	}
 
 	void TriangleRenderer::CreatePipeline()

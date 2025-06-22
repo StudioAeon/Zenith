@@ -47,7 +47,6 @@ namespace Zenith {
 
 		VkShaderModule CreateShaderModule(const std::vector<uint32_t>& code);
 
-		std::vector<uint32_t> LoadSpirvFile(const std::string& filepath);
 		std::string LoadTextFile(const std::string& filepath);
 
 	private:

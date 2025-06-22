@@ -51,24 +51,37 @@ target_compile_definitions(Zenith
 
 target_link_libraries(Zenith
 		PUBLIC
+		# ==== Core Dependencies ====
 		SDL3::SDL3-static
 		spdlog
 		glm
 		stb
+
+		# ==== Graphics & Rendering ====
 		Vulkan::Vulkan
 		VulkanMemoryAllocator
+		imgui
 		Tracy::TracyClient
 		backward
+
+		# ==== UI, File System, Events ====
+		filewatch
 		nfd::nfd
 		nlohmann_json::nlohmann_json
-		imgui
-		filewatch
+
+		# ==== Audio ====
 		miniaudio
+
+		# ==== Asset Loading ====
 		fast_obj
 		fastgltf::fastgltf
 		ufbx
+
+		# ==== Scripting ====
 		lua::lua
 		sol2::sol2
+
+		dxcompiler
 )
 
 zenith_enable_lto(Zenith)
