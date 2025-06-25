@@ -4,19 +4,22 @@
 #include "SplashScreen.hpp"
 
 #include "Zenith/Renderer/Renderer.hpp"
-#include "Zenith/Renderer/Font.hpp"
+#include "Zenith/Renderer/Framebuffer.hpp"
+
+#include <SDL3/SDL.h>
+#include <imgui.h>
 
 // #include "Zenith/Audio/AudioEngine.hpp"
 
 #include "Zenith/Events/KeyEvent.hpp"
 #include "Zenith/Events/MouseEvent.hpp"
 
-#include <SDL3/SDL.h>
-#include <imgui.h>
-
 #include "Input.hpp"
 #include "FatalSignal.hpp"
 
+#include "Zenith/Renderer/API/Vulkan/VulkanRenderer.hpp"
+#include "Zenith/Renderer/API/Vulkan/VulkanAllocator.hpp"
+#include "Zenith/Renderer/API/Vulkan/VulkanSwapChain.hpp"
 #include <imgui_internal.h>
 
 #include "Zenith/Utilities/StringUtils.hpp"
@@ -35,7 +38,7 @@ namespace Zenith {
 	std::thread::id Application::s_MainThreadID;
 
 	Application::Application(const ApplicationSpecification& specification)
-		: m_Specification(specification)
+		: m_Specification(specification), m_RenderThread(specification.CoreThreadingPolicy)
 	{
 		FatalSignal::Install(3000);
 
@@ -47,10 +50,14 @@ namespace Zenith {
 
 		s_MainThreadID = std::this_thread::get_id();
 
+		m_RenderThread.Run();
+
 		if (!specification.WorkingDirectory.empty())
 			std::filesystem::current_path(specification.WorkingDirectory);
 
 		m_Profiler = znew PerformanceProfiler();
+
+		Renderer::SetConfig(specification.RenderConfig);
 
 		bool showSplash = specification.ShowSplashScreen;
 		if (showSplash)
@@ -84,28 +91,34 @@ namespace Zenith {
 
 		m_ApplicationContext = std::make_shared<ApplicationContext>(*this);
 
-		Renderer::SetCurrentContext(m_Window->GetRenderContext());
-
 		RegisterEventListeners();
+
+		ZN_CORE_VERIFY(NFD::Init() == NFD_OKAY);
+
+		// Init renderer and execute command queue to compile all shaders
+		Renderer::Init(this);
+		// Render one frame (TODO: maybe make a func called Pump or something)
+		m_RenderThread.Pump();
 
 		if (m_Specification.EnableImGui)
 		{
 			m_ImGuiLayer = ImGuiLayer::Create(*m_ApplicationContext);
 			PushOverlay(m_ImGuiLayer);
 		}
-
-		Renderer::Init();
-		m_RenderSystem.Initialize();
 	}
 
 	Application::~Application()
 	{
-		if (m_Profiler)
-		{
-			zdelete m_Profiler;
-			m_Profiler = nullptr;
-		}
-		OnShutdown();
+		NFD::Quit();
+
+		m_Window->SetEventCallback([](Event& e) {});
+
+		m_RenderThread.Terminate();
+
+		Renderer::Shutdown();
+
+		delete m_Profiler;
+		m_Profiler = nullptr;
 	}
 
 	void Application::Close()
@@ -174,14 +187,18 @@ namespace Zenith {
 		const uint32_t width = e.GetWidth(), height = e.GetHeight();
 		if (width == 0 || height == 0)
 		{
-			m_Minimized = true;
+			//m_Minimized = true;
 			return false;
 		}
+		//m_Minimized = false;
 
-		m_Minimized = false;
-		Renderer::WaitAndRender();
-		m_Window->GetRenderContext()->OnResize(width, height);
-		return true;
+		auto& window = m_Window;
+		Renderer::Submit([&window, width, height]() mutable
+		{
+			window->GetSwapChain().OnResize(width, height);
+		});
+
+		return false;
 	}
 
 	bool Application::OnWindowMinimize(WindowMinimizeEvent& e)
@@ -248,36 +265,71 @@ namespace Zenith {
 			m_TimeStep = glm::min<float>(m_Frametime, 0.0333f);
 			m_LastFrameTime += m_Frametime; // Keep total time
 
+			// Wait for render thread to finish frame
+			{
+				ZN_PROFILE_SCOPE("Wait");
+				Timer timer;
+
+				m_RenderThread.BlockUntilRenderComplete();
+
+				m_PerformanceTimers.MainThreadWaitTime = timer.ElapsedMillis();
+			}
+
+			static uint64_t frameCounter = 0;
+
 			ProcessEvents();
 
+			m_ProfilerPreviousFrameData = m_Profiler->GetPerFrameData();
 			m_Profiler->Clear();
+
+			m_RenderThread.NextFrame();
+
+			// Start rendering previous frame
+			m_RenderThread.Kick();
 
 			if (!m_Minimized)
 			{
-				m_RenderSystem.BeginFrame();
+				Timer cpuTimer;
+
+				// On Render thread
+				Renderer::Submit([&]()
+				{
+					m_Window->GetSwapChain().BeginFrame();
+				});
+
+				Renderer::BeginFrame();
 				{
 					ZN_SCOPE_PERF("Application Layer::OnUpdate");
-					for (const auto& layer : m_LayerStack)
-						if (layer->IsEnabled())
-							layer->OnUpdate(m_TimeStep);
+					for (std::shared_ptr<Layer>& layer : m_LayerStack)
+						layer->OnUpdate(m_TimeStep);
 				}
 
+				// Render ImGui on render thread
+				/*Application* app = this;
 				if (m_Specification.EnableImGui)
 				{
-					m_RenderSystem.RenderImGui(
-						[this]() { this->RenderImGui(); },
-						m_ImGuiLayer.get()
-					);
-				}
+					Renderer::Submit([app]() { app->RenderImGui(); });
+					Renderer::Submit([=]() { m_ImGuiLayer->End(); });
+				}*/
+				Renderer::EndFrame();
 
-				m_RenderSystem.EndFrame();
-				m_RenderSystem.Present(*m_Window);
+				// On Render thread
+				Renderer::Submit([&]()
+				{
+					m_Window->SwapBuffers();
+				});
+
+				m_CurrentFrameIndex = (m_CurrentFrameIndex + 1) % Renderer::GetConfig().FramesInFlight;
+				m_PerformanceTimers.MainThreadWorkTime = cpuTimer.ElapsedMillis();
 			}
 
 			Input::ClearReleasedKeys();
 
+			frameCounter++;
+
 			ZN_PROFILE_MARK_FRAME;
 		}
+		OnShutdown();
 	}
 
 	float Application::GetFrameDelta()

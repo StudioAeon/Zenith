@@ -8,8 +8,12 @@
 #include "Zenith/Events/MouseEvent.hpp"
 #include "Zenith/Core/Input.hpp"
 
-#include <stb/stb_image.h>
+#include "Zenith/Renderer/RendererAPI.hpp"
 
+#include "Zenith/Renderer/API/Vulkan/VulkanContext.hpp"
+#include "Zenith/Renderer/API/Vulkan/VulkanSwapChain.hpp"
+
+#include <stb/stb_image.h>
 #include <backends/imgui_impl_sdl3.h>
 
 namespace Zenith {
@@ -124,10 +128,16 @@ namespace Zenith {
 		}
 
 		// Create Renderer Context
-		m_RendererContext = RendererContext::Create(m_Window);
-		m_RendererContext->Create();
+		m_RendererContext = RendererContext::Create();
+		m_RendererContext->Init();
 
-		SetVSync(m_Specification.VSync);
+		Ref<VulkanContext> context = m_RendererContext.As<VulkanContext>();
+
+		m_SwapChain = znew VulkanSwapChain();
+		m_SwapChain->Init(VulkanContext::GetInstance(), context->GetDevice());
+		m_SwapChain->InitSurface(m_Window);
+
+		m_SwapChain->Create(&m_Data.Width, &m_Data.Height, m_Specification.VSync);
 
 		// Update window size to actual value (just in case)
 		int w, h;
@@ -140,6 +150,9 @@ namespace Zenith {
 	{
 		Input::Shutdown();
 
+		m_SwapChain->Destroy();
+		zdelete m_SwapChain;
+		m_RendererContext.As<VulkanContext>()->GetDevice()->Destroy(); // need to destroy the device _before_ windows window destructor destroys the renderer context (because device Destroy() asks for renderer context...)
 		if (m_Window) {
 			SDL_DestroyWindow(m_Window);
 			m_Window = nullptr;
@@ -257,12 +270,16 @@ namespace Zenith {
 
 	void Window::SwapBuffers()
 	{
-		m_RendererContext->SwapBuffers();
+		m_SwapChain->Present();
 	}
 
 	void Window::SetVSync(bool enabled)
 	{
 		m_Specification.VSync = enabled;
+
+		//TODO: hook into application
+		m_SwapChain->SetVSync(m_Specification.VSync);
+		m_SwapChain->OnResize(m_Specification.Width, m_Specification.Height);
 	}
 
 	bool Window::IsVSync() const
@@ -300,6 +317,11 @@ namespace Zenith {
 	{
 		m_Data.Title = title;
 		SDL_SetWindowTitle(m_Window, title.c_str());
+	}
+
+	VulkanSwapChain& Window::GetSwapChain()
+	{
+		return *m_SwapChain;
 	}
 
 }

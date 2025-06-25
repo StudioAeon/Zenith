@@ -5,9 +5,11 @@
 
 #include "Zenith/Renderer/API/Vulkan/VulkanVertexBuffer.hpp"
 
+#include "Zenith/Renderer/RendererAPI.hpp"
+
 namespace Zenith {
 
-	Ref<VertexBuffer> VertexBuffer::Create(void* data, uint32_t size, VertexBufferUsage usage)
+	Ref<VertexBuffer> VertexBuffer::Create(void* data, uint64_t size, VertexBufferUsage usage)
 	{
 		switch (RendererAPI::Current())
 		{
@@ -18,7 +20,7 @@ namespace Zenith {
 		return nullptr;
 	}
 
-	Ref<VertexBuffer> VertexBuffer::Create(uint32_t size, VertexBufferUsage usage)
+	Ref<VertexBuffer> VertexBuffer::Create(uint64_t size, VertexBufferUsage usage)
 	{
 		switch (RendererAPI::Current())
 		{

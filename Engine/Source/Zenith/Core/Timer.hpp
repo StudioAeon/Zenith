@@ -62,9 +62,16 @@ namespace Zenith {
 			}
 		};
 
-		void SetPerFrameTiming(const std::string& name, float time) {
-			std::scoped_lock lock(m_PerFrameDataMutex);
-			m_PerFrameData[name] += time;
+		void SetPerFrameTiming(const char* name, float time)
+		{
+			std::scoped_lock<std::mutex> lock(m_PerFrameDataMutex);
+
+			if (m_PerFrameData.find(name) == m_PerFrameData.end())
+				m_PerFrameData[name] = 0.0f;
+
+			PerFrameData& data = m_PerFrameData[name];
+			data.Time += time;
+			data.Samples++;
 		}
 
 		void Clear() {
@@ -72,12 +79,10 @@ namespace Zenith {
 			m_PerFrameData.clear();
 		}
 
-		const std::unordered_map<std::string, PerFrameData>& GetPerFrameData() const {
-			return m_PerFrameData;
-		}
+		const std::unordered_map<const char*, PerFrameData>& GetPerFrameData() const { return m_PerFrameData; }
 
 	private:
-		std::unordered_map<std::string, PerFrameData> m_PerFrameData;
+		std::unordered_map<const char*, PerFrameData> m_PerFrameData;
 		inline static std::mutex m_PerFrameDataMutex;
 	};
 
@@ -86,14 +91,14 @@ namespace Zenith {
 		ScopePerfTimer(const char* name, PerformanceProfiler* profiler)
 			: m_Name(name), m_Profiler(profiler) {}
 
-		~ScopePerfTimer() {
-			if (m_Profiler) {
-				m_Profiler->SetPerFrameTiming(m_Name, m_Timer.ElapsedMillis());
-			}
+		~ScopePerfTimer()
+		{
+			float time = m_Timer.ElapsedMillis();
+			m_Profiler->SetPerFrameTiming(m_Name, time);
 		}
 
 	private:
-		std::string m_Name;
+		const char* m_Name;
 		PerformanceProfiler* m_Profiler;
 		Timer m_Timer;
 	};

@@ -5,9 +5,11 @@
 
 #include "Zenith/Renderer/API/Vulkan/VulkanIndexBuffer.hpp"
 
+#include "Zenith/Renderer/RendererAPI.hpp"
+
 namespace Zenith {
 
-	Ref<IndexBuffer> IndexBuffer::Create(uint32_t size)
+	Ref<IndexBuffer> IndexBuffer::Create(uint64_t size)
 	{
 		switch (RendererAPI::Current())
 		{
@@ -18,7 +20,7 @@ namespace Zenith {
 		return nullptr;
 	}
 
-	Ref<IndexBuffer> IndexBuffer::Create(void* data, uint32_t size)
+	Ref<IndexBuffer> IndexBuffer::Create(void* data, uint64_t size)
 	{
 		switch (RendererAPI::Current())
 		{

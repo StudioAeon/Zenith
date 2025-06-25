@@ -3,7 +3,7 @@
 
 #include "AssetManager.hpp"
 
-#include "Zenith/Renderer/Font.hpp"
+// #include "Zenith/Renderer/Font.hpp"
 
 #include "Zenith/Utilities/FileSystem.hpp"
 #include "Zenith/Utilities/SerializationMacros.hpp"
@@ -20,7 +20,7 @@ namespace Zenith {
 
 	bool FontSerializer::TryLoadData(const AssetMetadata& metadata, Ref<Asset>& asset) const
 	{
-		asset = Ref<Font>::Create(Project::GetEditorAssetManager()->GetFileSystemPathString(metadata));
+		// asset = Ref<Font>::Create(Project::GetEditorAssetManager()->GetFileSystemPathString(metadata));
 		asset->Handle = metadata.Handle;
 
 #if 0

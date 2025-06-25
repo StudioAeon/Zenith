@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zenith/Core/Base.hpp"
+#include "Zenith/Renderer/RenderCommandBuffer.hpp"
 
 #include "Vulkan.hpp"
 #include "VulkanDevice.hpp"
@@ -11,6 +12,7 @@
 struct SDL_Window;
 
 namespace Zenith {
+	class Application;
 
 	class VulkanSwapChain
 	{
@@ -19,7 +21,8 @@ namespace Zenith {
 
 		void Init(VkInstance instance, const Ref<VulkanDevice>& device);
 		void InitSurface(SDL_Window* windowHandle);
-		void Create(uint32_t* width, uint32_t* height, bool vsync = false);
+		void Create(uint32_t* width, uint32_t* height, bool vsync);
+		void Destroy();
 
 		void OnResize(uint32_t width, uint32_t height);
 
@@ -33,83 +36,83 @@ namespace Zenith {
 
 		VkRenderPass GetRenderPass() { return m_RenderPass; }
 
-		VkFramebuffer GetCurrentFramebuffer() { return GetFramebuffer(m_CurrentBufferIndex); }
-		VkCommandBuffer GetCurrentDrawCommandBuffer() { return GetDrawCommandBuffer(m_CurrentBufferIndex); }
+		VkFramebuffer GetCurrentFramebuffer() { return GetFramebuffer(m_CurrentImageIndex); }
+		VkCommandBuffer GetCurrentDrawCommandBuffer() { return GetDrawCommandBuffer(m_CurrentFrameIndex); }
 
 		VkFormat GetColorFormat() { return m_ColorFormat; }
 
-		uint32_t GetCurrentBufferIndex() const { return m_CurrentBufferIndex; }
+		uint32_t GetCurrentBufferIndex() const { return m_CurrentFrameIndex; }
+
 		VkFramebuffer GetFramebuffer(uint32_t index)
 		{
-			ZN_CORE_ASSERT(index < m_ImageCount);
+			ZN_CORE_ASSERT(index < m_Framebuffers.size());
 			return m_Framebuffers[index];
 		}
+
 		VkCommandBuffer GetDrawCommandBuffer(uint32_t index)
 		{
-			ZN_CORE_ASSERT(index < m_ImageCount);
-			return m_DrawCommandBuffers[index];
+			ZN_CORE_ASSERT(index < m_CommandBuffers.size());
+			return m_CommandBuffers[index].CommandBuffer;
 		}
 
-		void Cleanup();
-	private:
-		VkResult AcquireNextImage(VkSemaphore presentCompleteSemaphore, uint32_t* imageIndex);
-		VkResult QueuePresent(VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore = VK_NULL_HANDLE);
+		void SetVSync(const bool enabled) { m_VSync = enabled; }
 
-		void CreateFramebuffer();
-		void CreateDepthStencil();
-		void CreateDrawBuffers();
+	private:
+		uint32_t AcquireNextImage();
+
 		void FindImageFormatAndColorSpace();
 	private:
-		VkInstance m_Instance = VK_NULL_HANDLE;
+		VkInstance m_Instance = nullptr;
 		Ref<VulkanDevice> m_Device;
-		VulkanAllocator m_Allocator;
+		bool m_VSync = false;
 
 		VkFormat m_ColorFormat;
 		VkColorSpaceKHR m_ColorSpace;
 
-		VkSwapchainKHR m_SwapChain = VK_NULL_HANDLE;
+		VkSwapchainKHR m_SwapChain = nullptr;
 		uint32_t m_ImageCount = 0;
-		std::vector<VkImage> m_Images;
+		std::vector<VkImage> m_VulkanImages;
 
-		struct SwapChainBuffer
+		struct SwapchainImage
 		{
-			VkImage image;
-			VkImageView view;
+			VkImage Image = nullptr;
+			VkImageView ImageView = nullptr;
 		};
-		std::vector<SwapChainBuffer> m_Buffers;
+		std::vector<SwapchainImage> m_Images;
 
 		struct
 		{
-			VkImage Image;
-			VkDeviceMemory DeviceMemory;
-			VkImageView ImageView;
+			VkImage Image = nullptr;
+			VmaAllocation MemoryAlloc = nullptr;
+			VkImageView ImageView = nullptr;
 		} m_DepthStencil;
 
 		std::vector<VkFramebuffer> m_Framebuffers;
-		VkCommandPool m_CommandPool = VK_NULL_HANDLE;
-		std::vector<VkCommandBuffer> m_DrawCommandBuffers;
 
-		struct
+		struct SwapchainCommandBuffer
 		{
-			// Swap chain
-			VkSemaphore PresentComplete;
-			// Command buffer
-			VkSemaphore RenderComplete;
-		} m_Semaphores;
-		VkSubmitInfo m_SubmitInfo;
+			VkCommandPool CommandPool = nullptr;
+			VkCommandBuffer CommandBuffer = nullptr;
+		};
+		std::vector<SwapchainCommandBuffer> m_CommandBuffers;
 
+		// Semaphores to signal that images are available for rendering and that rendering has finished (one pair for each frame in flight)
+		std::vector<VkSemaphore> m_ImageAvailableSemaphores;
+		std::vector<VkSemaphore> m_RenderFinishedSemaphores;
+
+		// Fences to signal that command buffers are ready to be reused (one for each frame in flight)
 		std::vector<VkFence> m_WaitFences;
 
-		VkRenderPass m_RenderPass = VK_NULL_HANDLE;
-		uint32_t m_CurrentBufferIndex = 0;
+		VkRenderPass m_RenderPass = nullptr;
+		uint32_t m_CurrentFrameIndex = 0;    // Index of the frame we are currently working on, up to max frames in flight
+		uint32_t m_CurrentImageIndex = 0;    // Index of the current swapchain image.  Can be different from frame index
 
 		uint32_t m_QueueNodeIndex = UINT32_MAX;
 		uint32_t m_Width = 0, m_Height = 0;
 
-		VkSurfaceKHR m_Surface = VK_NULL_HANDLE;
+		VkSurfaceKHR m_Surface;
 
-		bool m_JustResized = false;
-		bool m_SkipNextFrame = false;
+		Application* m_Application = nullptr;
 
 		friend class VulkanContext;
 	};

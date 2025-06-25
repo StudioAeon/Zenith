@@ -1,13 +1,13 @@
 #include "znpch.hpp"
 #include "AssetManager.hpp"
 
-#include "Zenith/Renderer/Font.hpp"
+// #include "Zenith/Renderer/Font.hpp"
 
 namespace Zenith {
 
 	static std::unordered_map<AssetType, std::function<Ref<Asset>()>> s_AssetPlaceholderTable =
 	{
-		{ AssetType::Font, []() { return Font::GetDefaultFont(); }}
+		// { AssetType::Font, []() { return Font::GetDefaultFont(); }}
 	};
 
 	Ref<Asset> AssetManager::GetPlaceholderAsset(AssetType type)

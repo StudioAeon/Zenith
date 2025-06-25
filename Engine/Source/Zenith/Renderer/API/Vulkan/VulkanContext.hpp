@@ -1,10 +1,8 @@
 #pragma once
 
-#include "Zenith/Renderer/RendererContext.hpp"
+#include "Zenith/Renderer/Renderer.hpp"
 
-#include "Vulkan.hpp"
 #include "VulkanDevice.hpp"
-#include "VulkanAllocator.hpp"
 #include "VulkanSwapChain.hpp"
 
 struct SDL_Window;
@@ -14,35 +12,30 @@ namespace Zenith {
 	class VulkanContext : public RendererContext
 	{
 	public:
-		VulkanContext(SDL_Window* windowHandle);
+		VulkanContext();
 		virtual ~VulkanContext();
 
-		virtual void Create() override;
-		virtual void SwapBuffers() override;
-		virtual void OnResize(uint32_t width, uint32_t height) override;
-		virtual void BeginFrame() override;
+		virtual void Init() override;
 
 		Ref<VulkanDevice> GetDevice() { return m_Device; }
-		VulkanSwapChain& GetSwapChain() { return m_SwapChain; }
 
 		static VkInstance GetInstance() { return s_VulkanInstance; }
 
-		static Ref<VulkanContext> Get();
+		static Ref<VulkanContext> Get() { return Ref<VulkanContext>(Renderer::GetContext()); }
 		static Ref<VulkanDevice> GetCurrentDevice() { return Get()->GetDevice(); }
-
 	private:
-		SDL_Window* m_WindowHandle;
-
 		// Devices
 		Ref<VulkanPhysicalDevice> m_PhysicalDevice;
 		Ref<VulkanDevice> m_Device;
 
 		// Vulkan instance
-		inline static VkInstance s_VulkanInstance = VK_NULL_HANDLE;
+		inline static VkInstance s_VulkanInstance;
+#if 0
 		VkDebugReportCallbackEXT m_DebugReportCallback = VK_NULL_HANDLE;
-		VkPipelineCache m_PipelineCache = VK_NULL_HANDLE;
+#endif
+		VkDebugUtilsMessengerEXT m_DebugUtilsMessenger = VK_NULL_HANDLE;
+		VkPipelineCache m_PipelineCache = nullptr;
 
-		VulkanAllocator m_Allocator;
 		VulkanSwapChain m_SwapChain;
 	};
 }

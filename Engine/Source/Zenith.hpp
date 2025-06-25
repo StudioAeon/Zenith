@@ -28,6 +28,8 @@
 
 // ==== Zenith Renderer API ==============================
 #include "Zenith/Renderer/Renderer.hpp"
+#include "Zenith/Renderer/Framebuffer.hpp"
 #include "Zenith/Renderer/VertexBuffer.hpp"
 #include "Zenith/Renderer/IndexBuffer.hpp"
+#include "Zenith/Renderer/Pipeline.hpp"
 // =======================================================

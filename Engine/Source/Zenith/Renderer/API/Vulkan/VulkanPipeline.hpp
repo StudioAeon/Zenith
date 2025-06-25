@@ -1,52 +1,33 @@
 #pragma once
 
-#include "Zenith/Core/Ref.hpp"
+#include "Zenith/Renderer/Pipeline.hpp"
+
 #include "Vulkan.hpp"
-#include "VulkanDevice.hpp"
-#include "VulkanShader.hpp"
-#include <vector>
+#include <map>
 
 namespace Zenith {
 
-	struct VertexInputDescription
-	{
-		std::vector<VkVertexInputBindingDescription> bindings;
-		std::vector<VkVertexInputAttributeDescription> attributes;
-	};
-
-	struct PipelineSpecification
-	{
-		Ref<VulkanShader> shader;
-		VertexInputDescription vertexInput;
-		VkRenderPass renderPass;
-		bool wireframe = false;
-		bool depthTest = true;
-		bool depthWrite = true;
-		VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
-		VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-	};
-
-	class VulkanPipeline : public RefCounted
+	class VulkanPipeline : public Pipeline
 	{
 	public:
 		VulkanPipeline(const PipelineSpecification& spec);
 		virtual ~VulkanPipeline();
 
-		void Bind(VkCommandBuffer commandBuffer);
+		virtual PipelineSpecification& GetSpecification() { return m_Specification; }
+		virtual const PipelineSpecification& GetSpecification() const { return m_Specification; }
 
-		VkPipeline GetVulkanPipeline() const { return m_Pipeline; }
-		VkPipelineLayout GetLayout() const { return m_PipelineLayout; }
+		virtual void Invalidate() override;
 
-		static Ref<VulkanPipeline> Create(const PipelineSpecification& spec);
+		bool IsDynamicLineWidth() const;
 
-	private:
-		void CreatePipelineLayout();
-		void CreatePipeline();
-
+		VkPipeline GetVulkanPipeline() { return m_VulkanPipeline; }
+		VkPipelineLayout GetVulkanPipelineLayout() { return m_PipelineLayout; }
 	private:
 		PipelineSpecification m_Specification;
-		VkPipeline m_Pipeline = VK_NULL_HANDLE;
-		VkPipelineLayout m_PipelineLayout = VK_NULL_HANDLE;
-		Ref<VulkanDevice> m_Device;
+
+		VkPipelineLayout m_PipelineLayout = nullptr;
+		VkPipeline m_VulkanPipeline = nullptr;
+		VkPipelineCache m_PipelineCache = nullptr;
 	};
+
 }

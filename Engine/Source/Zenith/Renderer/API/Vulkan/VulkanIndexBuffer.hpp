@@ -1,34 +1,36 @@
 #pragma once
 
 #include "Zenith/Renderer/IndexBuffer.hpp"
-#include "VulkanBuffer.hpp"
+
+#include "Zenith/Core/Buffer.hpp"
+
+#include "VulkanAllocator.hpp"
 
 namespace Zenith {
 
 	class VulkanIndexBuffer : public IndexBuffer
 	{
 	public:
-		VulkanIndexBuffer(const void* data, uint32_t size);
-		VulkanIndexBuffer(uint32_t size);
-		virtual ~VulkanIndexBuffer() = default;
+		VulkanIndexBuffer(uint64_t size);
+		VulkanIndexBuffer(void* data, uint64_t size = 0);
+		virtual ~VulkanIndexBuffer();
 
-		virtual void SetData(void* data, uint32_t size, uint32_t offset = 0) override;
+		virtual void SetData(void* buffer, uint64_t size, uint64_t offset = 0) override;
 		virtual void Bind() const override;
 
-		virtual uint32_t GetCount() const override { return m_Buffer->GetSize() / sizeof(uint32_t); }
-		virtual uint32_t GetSize() const override { return m_Buffer->GetSize(); }
-		virtual RendererID GetRendererID() const override {
-			return static_cast<RendererID>(reinterpret_cast<uintptr_t>(m_Buffer->GetVulkanBuffer()) & 0xFFFFFFFF);
-		}
+		virtual uint32_t GetCount() const override { return m_Size / sizeof(uint32_t); }
 
-		VkBuffer GetVulkanBuffer() const { return m_Buffer->GetVulkanBuffer(); }
+		virtual uint64_t GetSize() const override { return m_Size; }
+		virtual RendererID GetRendererID() const override;
 
-		static Ref<VulkanIndexBuffer> Create(const void* data, uint32_t size);
-		static Ref<VulkanIndexBuffer> Create(uint32_t size);
-
+		VkBuffer GetVulkanBuffer() { return m_VulkanBuffer; }
 	private:
-		Ref<VulkanBuffer> m_Buffer;
-		Ref<VulkanBuffer> m_StagingBuffer;
+		uint64_t m_Size = 0;
+		Buffer m_LocalData;
+
+		VkBuffer m_VulkanBuffer = nullptr;
+		VmaAllocation m_MemoryAllocation;
+		
 	};
 
 }

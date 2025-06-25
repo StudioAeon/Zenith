@@ -9,6 +9,8 @@
 
 #include <SDL3/SDL.h>
 
+// #include "Zenith/Renderer/API/Vulkan/VulkanContext.hpp"
+
 namespace Zenith {
 
 	struct WindowSpecification
@@ -22,6 +24,8 @@ namespace Zenith {
 		bool Resizable = true;
 		std::filesystem::path IconPath;
 	};
+
+	class VulkanSwapChain;
 
 	class Window
 	{
@@ -55,7 +59,10 @@ namespace Zenith {
 
 		inline void* GetNativeWindow() const { return m_Window; }
 
+		void SetRenderContext(Ref<RendererContext> context) { m_RendererContext = context; }
+
 		virtual Ref<RendererContext> GetRenderContext() { return m_RendererContext; }
+		virtual VulkanSwapChain& GetSwapChain();
 	public:
 		static std::unique_ptr<Window> Create(const WindowSpecification& specification = WindowSpecification());
 
@@ -79,6 +86,7 @@ namespace Zenith {
 		float m_LastFrameTime = 0.0f;
 
 		Ref<RendererContext> m_RendererContext;
+		VulkanSwapChain* m_SwapChain;
 	};
 
 }
