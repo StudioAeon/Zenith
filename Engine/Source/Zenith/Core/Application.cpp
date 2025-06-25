@@ -29,6 +29,7 @@
 #include <nfd.hpp>
 
 #include "Memory.hpp"
+#include "backends/imgui_impl_vulkan.h"
 
 bool g_ApplicationRunning = true;
 extern ImGuiContext* GImGui;
@@ -102,8 +103,8 @@ namespace Zenith {
 
 		if (m_Specification.EnableImGui)
 		{
-			// m_ImGuiLayer = ImGuiLayer::Create(*m_ApplicationContext);
-			// PushOverlay(m_ImGuiLayer);
+			m_ImGuiLayer = ImGuiLayer::Create(*m_ApplicationContext);
+			PushOverlay(m_ImGuiLayer);
 		}
 	}
 
@@ -187,20 +188,15 @@ namespace Zenith {
 		const uint32_t width = e.GetWidth(), height = e.GetHeight();
 		if (width == 0 || height == 0)
 		{
-			//m_Minimized = true;
 			return false;
 		}
-		//m_Minimized = false;
 
-		// Check if single-threaded
 		if (m_Specification.CoreThreadingPolicy == ThreadingPolicy::SingleThreaded)
 		{
-			// Execute resize immediately on main thread
 			m_Window->GetSwapChain().OnResize(width, height);
 		}
 		else
 		{
-			// Queue for render thread
 			auto& window = m_Window;
 			Renderer::Submit([&window, width, height]() mutable
 			{
@@ -292,10 +288,10 @@ namespace Zenith {
 			m_ProfilerPreviousFrameData = m_Profiler->GetPerFrameData();
 			m_Profiler->Clear();
 
-			//m_RenderThread.NextFrame();
+			m_RenderThread.NextFrame();
 
 			// Start rendering previous frame
-			//m_RenderThread.Kick();
+			m_RenderThread.Kick();
 
 			if (!m_Minimized)
 			{
@@ -331,6 +327,33 @@ namespace Zenith {
 						ZN_SCOPE_PERF("Application Layer::OnUpdate");
 						for (std::shared_ptr<Layer>& layer : m_LayerStack)
 							layer->OnUpdate(m_TimeStep);
+					}
+
+					if (m_Specification.EnableImGui)
+					{
+						m_ImGuiLayer->Begin();
+
+						ImGui::Begin("Renderer");
+						auto& caps = Renderer::GetCapabilities();
+						ImGui::Text("Vendor: %s", caps.Vendor.c_str());
+						ImGui::Text("Renderer: %s", caps.Device.c_str());
+						ImGui::Text("Version: %s", caps.Version.c_str());
+						ImGui::Text("Frame Time: %.2fms\n", m_TimeStep.GetMilliseconds());
+						ImGui::End();
+
+						for (int i = 0; i < m_LayerStack.Size(); i++)
+							m_LayerStack[i]->OnImGuiRender();
+
+						ImGui::Render();
+						ImDrawData* draw_data = ImGui::GetDrawData();
+						ImGui_ImplVulkan_RenderDrawData(draw_data, cmdBuffer);
+
+						ImGuiIO& io = ImGui::GetIO();
+						if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+						{
+							ImGui::UpdatePlatformWindows();
+							ImGui::RenderPlatformWindowsDefault();
+						}
 					}
 
 					vkCmdEndRenderPass(cmdBuffer);

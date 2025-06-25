@@ -282,8 +282,6 @@ namespace Zenith {
 
 		m_Specification.VSync = enabled;
 
-		ZN_CORE_INFO_TAG("Renderer", "Setting VSync to {}", enabled ? "enabled" : "disabled");
-
 		Renderer::Submit([this, enabled, width = m_Specification.Width, height = m_Specification.Height]() mutable
 		{
 			m_SwapChain->SetVSync(enabled);

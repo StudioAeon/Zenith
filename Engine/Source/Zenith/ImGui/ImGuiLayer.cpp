@@ -2,7 +2,7 @@
 #include "ImGuiLayer.hpp"
 #include "Zenith/Core/ApplicationContext.hpp"
 #include "Zenith/Renderer/RendererAPI.hpp"
-// #include "Zenith/Renderer/API/Vulkan/VulkanImGuiLayer.hpp"
+#include "Zenith/Renderer/API/Vulkan/VulkanImGuiLayer.hpp"
 
 namespace Zenith {
 
@@ -19,8 +19,8 @@ namespace Zenith {
 				ZN_CORE_ASSERT(false, "RendererAPIType::None is currently not supported!");
 				return nullptr;
 
-			// case RendererAPIType::Vulkan:
-				// return std::make_shared<VulkanImGuiLayer>(context);
+			case RendererAPIType::Vulkan:
+				return std::make_shared<VulkanImGuiLayer>(context);
 		}
 
 		ZN_CORE_ASSERT(false, "Unknown RendererAPIType!");
