@@ -80,7 +80,7 @@ namespace Zenith {
 			}
 		}
 
-		static void WaitAndRender();
+		static void WaitAndRender(RenderThread* renderThread);
 		static void SwapQueues();
 
 		static void RenderThreadFunc(RenderThread* renderThread);
@@ -114,6 +114,7 @@ namespace Zenith {
 		static RenderCommandQueue& GetRenderResourceReleaseQueue(uint32_t index);
 
 		static GPUMemoryStats GetGPUMemoryStats();
+		static Application* GetApplication() { return s_Application; }
 	private:
 		static RenderCommandQueue& GetRenderCommandQueue();
 		inline static Ref<RendererContext> s_CurrentContext = nullptr;

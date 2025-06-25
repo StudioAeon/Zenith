@@ -33,7 +33,7 @@ namespace Zenith {
 	{
 		m_IsRunning = true;
 		if (m_ThreadingPolicy == ThreadingPolicy::MultiThreaded)
-			// m_RenderThread.Dispatch(Renderer::RenderThreadFunc, this);
+			m_RenderThread.Dispatch(Renderer::RenderThreadFunc, this);
 
 		s_RenderThreadID = m_RenderThread.GetID();
 	}
@@ -41,9 +41,9 @@ namespace Zenith {
 	void RenderThread::Terminate()
 	{
 		m_IsRunning = false;
-		Pump();
 
 		if (m_ThreadingPolicy == ThreadingPolicy::MultiThreaded)
+			Set(State::Kick);
 			m_RenderThread.Join();
 
 		s_RenderThreadID = std::thread::id();
@@ -107,7 +107,7 @@ namespace Zenith {
 		}
 		else
 		{
-			// Renderer::WaitAndRender(this);
+			Renderer::WaitAndRender(this);
 		}
 	}
 

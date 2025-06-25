@@ -26,7 +26,7 @@ namespace Zenith {
 		bool EnableImGui = true;
 		bool ShowSplashScreen = true;
 		RendererConfig RenderConfig;
-		ThreadingPolicy CoreThreadingPolicy = ThreadingPolicy::SingleThreaded;
+		ThreadingPolicy CoreThreadingPolicy = ThreadingPolicy::MultiThreaded;
 		std::filesystem::path IconPath;
 		std::string WorkingDirectory;
 	};
@@ -63,7 +63,11 @@ namespace Zenith {
 		void RenderImGui();
 
 		EventBus& GetEventBus() { return m_EventBus; }
-		Window& GetWindow() { return *m_Window; }
+		Window& GetWindow()
+		{
+			ZN_CORE_ASSERT(m_Window, "Window is null!");
+			return *m_Window;
+		}
 		LayerStack& GetLayerStack() { return m_LayerStack; }
 
 		Timestep GetTimestep() const { return m_TimeStep; }

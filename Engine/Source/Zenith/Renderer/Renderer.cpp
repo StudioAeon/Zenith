@@ -61,12 +61,12 @@ namespace Zenith {
 
 		Renderer::SetCurrentContext(app->GetWindow().GetRenderContext());
 
-		s_RendererAPI = InitRendererAPI();
-		s_RendererAPI->Init();
+		// Make sure we don't have more frames in flight than swapchain images
+		s_Config.FramesInFlight = glm::min<uint32_t>(s_Config.FramesInFlight, app->GetWindow().GetSwapChain().GetImageCount());
 
-		// Now we can safely access the swap chain through the window
-		s_Config.FramesInFlight = glm::min<uint32_t>(s_Config.FramesInFlight,
-													 app->GetWindow().GetSwapChain().GetImageCount());
+		s_RendererAPI = InitRendererAPI();
+
+		s_RendererAPI->Init();
 	}
 
 	void Renderer::Shutdown()
@@ -93,16 +93,46 @@ namespace Zenith {
 	{
 		ZN_PROFILE_THREAD("Render Thread");
 
+		Renderer::SetCurrentContext(s_Application->GetWindow().GetRenderContext());
+
 		while (renderThread->IsRunning())
 		{
-			WaitAndRender(); // Todo: WaitAndRender(RenderThread* renderThread)
+			WaitAndRender(renderThread);
 		}
 	}
 
-	void Renderer::WaitAndRender()
+	void Renderer::WaitAndRender(RenderThread* renderThread)
 	{
 		ZN_PROFILE_FUNC();
-		s_CommandQueue[GetRenderQueueIndex()]->Execute();
+
+		if (!renderThread->IsRunning()) {
+			return;
+		}
+		auto& performanceTimers = Renderer::s_Application->GetPerformanceTimers();
+
+		// Wait for kick, then set render thread to busy
+		{
+			ZN_PROFILE_SCOPE("Wait");
+			Timer waitTimer;
+			renderThread->WaitAndSet(RenderThread::State::Kick, RenderThread::State::Busy);
+
+			if (!renderThread->IsRunning()) {
+				renderThread->Set(RenderThread::State::Idle);
+				return;
+			}
+
+			performanceTimers.RenderThreadWaitTime = waitTimer.ElapsedMillis();
+		}
+
+		Timer workTimer;
+		if (renderThread->IsRunning()) {
+			s_CommandQueue[GetRenderQueueIndex()]->Execute();
+		}
+
+		// Rendering has completed, set state to idle
+		renderThread->Set(RenderThread::State::Idle);
+
+		performanceTimers.RenderThreadWorkTime = workTimer.ElapsedMillis();
 	}
 
 	void Renderer::SwapQueues()

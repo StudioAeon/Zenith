@@ -56,6 +56,18 @@ namespace Zenith {
 
 	void VulkanRenderer::Init()
 	{
+		m_Application = Renderer::GetApplication();
+		if (!m_Application) {
+			ZN_CORE_ERROR("VulkanRenderer::Init - Application is null!");
+			return;
+		}
+
+		auto context = VulkanContext::Get();
+		if (!context) {
+			ZN_CORE_ERROR("VulkanRenderer::Init - VulkanContext is null!");
+			return;
+		}
+
 		s_Data = znew VulkanRendererData();
 		const auto& config = Renderer::GetConfig();
 
@@ -423,7 +435,7 @@ namespace Zenith {
 
 	void VulkanRenderer::BeginFrame()
 	{
-		Renderer::Submit([this]()
+		Renderer::Submit([=]()
 		{
 			ZN_PROFILE_FUNC("VulkanRenderer::BeginFrame");
 
