@@ -2,12 +2,7 @@
 #include "VulkanDevice.hpp"
 
 #include "VulkanContext.hpp"
-
-#ifdef ZN_SDK_VMA
-#include "vma/vk_mem_alloc.h"
-#else
 #include "vk_mem_alloc.h"
-#endif
 
 namespace Zenith {
 

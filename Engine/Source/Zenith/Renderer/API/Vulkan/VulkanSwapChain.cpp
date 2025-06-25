@@ -584,10 +584,10 @@ namespace Zenith {
 		// Make sure the frame we're requesting has finished rendering (from previous iterations)
 		{
 			ZN_PROFILE_SCOPE("VulkanSwapChain::AcquireNextImage - WaitForFences");
-			auto& performanceTimers = m_Application->GetPerformanceTimers();
+			// auto& performanceTimers = m_Application->GetPerformanceTimers();
 			Timer gpuWaitTimer;
 			VK_CHECK_RESULT(vkWaitForFences(m_Device->GetVulkanDevice(), 1, &m_WaitFences[m_CurrentFrameIndex], VK_TRUE, UINT64_MAX));
-			performanceTimers.RenderThreadGPUWaitTime = gpuWaitTimer.ElapsedMillis();
+			// performanceTimers.RenderThreadGPUWaitTime = gpuWaitTimer.ElapsedMillis();
 		}
 
 		uint32_t imageIndex;

@@ -108,7 +108,7 @@ namespace Zenith {
 		float m_LastFrameTime = 0.0f;
 		uint32_t m_CurrentFrameIndex = 0;
 
-		PerformanceTimers m_PerformanceTimers; // TODO(Yan): remove for Dist
+		PerformanceTimers m_PerformanceTimers; // TODO: remove for Dist
 
 		std::shared_ptr<ImGuiLayer> m_ImGuiLayer;
 		PerformanceProfiler* m_Profiler = nullptr; // TODO: Should be null in Dist

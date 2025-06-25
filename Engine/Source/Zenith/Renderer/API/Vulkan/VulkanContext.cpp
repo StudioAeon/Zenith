@@ -95,7 +95,12 @@ namespace Zenith {
 			}
 		}
 
-		ZN_CORE_WARN("{0} {1} message: \n\t{2}\n {3} {4}", VkDebugUtilsMessageType(messageType), VkDebugUtilsMessageSeverity(messageSeverity), pCallbackData->pMessage, labels, objects);
+		printf("%s %s message: \n\t%s\n %s %s\n",
+			VkDebugUtilsMessageType(messageType),
+			VkDebugUtilsMessageSeverity(messageSeverity),
+			pCallbackData && pCallbackData->pMessage ? pCallbackData->pMessage : "No message",
+			labels.empty() ? "No labels" : labels.c_str(),
+			objects.empty() ? "No objects" : objects.c_str());
 		[[maybe_unused]] const auto& imageRefs = VulkanImage2D::GetImageRefs();
 
 		return VK_FALSE;
@@ -125,7 +130,7 @@ namespace Zenith {
 	VulkanContext::~VulkanContext()
 	{
 		// Its too late to destroy the device here, because Destroy() asks for the context (which we're in the middle of destructing)
-		// Device is destroyed in GLFWWindow::Shutdown()
+		// Device is destroyed in SDL_Window::Shutdown()
 		//m_Device->Destroy();
 
 		vkDestroyInstance(s_VulkanInstance, nullptr);
@@ -137,8 +142,13 @@ namespace Zenith {
 		ZN_CORE_INFO_TAG("Renderer", "VulkanContext::Create");
 
 		if (SDL_Vulkan_LoadLibrary(nullptr) != 0) {
-			ZN_CORE_ERROR("Failed to load Vulkan library: {}", SDL_GetError());
-			ZN_CORE_ASSERT(false, "SDL3 Vulkan support failed - see error above");
+			const char* sdlError = SDL_GetError();
+			ZN_CORE_WARN("SDL_Vulkan_LoadLibrary failed: {}",
+				sdlError && strlen(sdlError) > 0 ? sdlError : "Unknown SDL error");
+
+			SDL_ClearError();
+
+			ZN_CORE_INFO("Attempting to continue with potentially static Vulkan linkage...");
 		}
 
 		if (!CheckDriverAPIVersionSupport(VK_API_VERSION_1_2))
@@ -229,17 +239,6 @@ namespace Zenith {
 
 		if (s_Validation)
 		{
-#if 0
-			auto vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(s_VulkanInstance, "vkCreateDebugReportCallbackEXT");
-			ZN_CORE_ASSERT(vkCreateDebugReportCallbackEXT != NULL, "");
-			VkDebugReportCallbackCreateInfoEXT debug_report_ci = {};
-			debug_report_ci.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-			debug_report_ci.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-			debug_report_ci.pfnCallback = VulkanDebugReportCallback;
-			debug_report_ci.pUserData = VK_NULL_HANDLE;
-			VK_CHECK_RESULT(vkCreateDebugReportCallbackEXT(s_VulkanInstance, &debug_report_ci, nullptr, &m_DebugReportCallback));
-#endif
-
 			auto vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(s_VulkanInstance, "vkCreateDebugUtilsMessengerEXT");
 			ZN_CORE_ASSERT(vkCreateDebugUtilsMessengerEXT != NULL, "");
 			VkDebugUtilsMessengerCreateInfoEXT debugUtilsCreateInfo{};

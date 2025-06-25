@@ -102,8 +102,8 @@ namespace Zenith {
 
 		if (m_Specification.EnableImGui)
 		{
-			m_ImGuiLayer = ImGuiLayer::Create(*m_ApplicationContext);
-			PushOverlay(m_ImGuiLayer);
+			// m_ImGuiLayer = ImGuiLayer::Create(*m_ApplicationContext);
+			// PushOverlay(m_ImGuiLayer);
 		}
 	}
 
@@ -192,11 +192,21 @@ namespace Zenith {
 		}
 		//m_Minimized = false;
 
-		auto& window = m_Window;
-		Renderer::Submit([&window, width, height]() mutable
+		// Check if single-threaded
+		if (m_Specification.CoreThreadingPolicy == ThreadingPolicy::SingleThreaded)
 		{
-			window->GetSwapChain().OnResize(width, height);
-		});
+			// Execute resize immediately on main thread
+			m_Window->GetSwapChain().OnResize(width, height);
+		}
+		else
+		{
+			// Queue for render thread
+			auto& window = m_Window;
+			Renderer::Submit([&window, width, height]() mutable
+			{
+				window->GetSwapChain().OnResize(width, height);
+			});
+		}
 
 		return false;
 	}
@@ -282,42 +292,52 @@ namespace Zenith {
 			m_ProfilerPreviousFrameData = m_Profiler->GetPerFrameData();
 			m_Profiler->Clear();
 
-			m_RenderThread.NextFrame();
+			//m_RenderThread.NextFrame();
 
 			// Start rendering previous frame
-			m_RenderThread.Kick();
+			//m_RenderThread.Kick();
 
 			if (!m_Minimized)
 			{
 				Timer cpuTimer;
 
-				// On Render thread
-				Renderer::Submit([&]()
-				{
-					m_Window->GetSwapChain().BeginFrame();
-				});
+				m_Window->GetSwapChain().BeginFrame();
 
-				Renderer::BeginFrame();
+				// Record commands directly (no render thread queuing)
 				{
-					ZN_SCOPE_PERF("Application Layer::OnUpdate");
-					for (std::shared_ptr<Layer>& layer : m_LayerStack)
-						layer->OnUpdate(m_TimeStep);
+					VulkanSwapChain& swapChain = m_Window->GetSwapChain();
+					VkCommandBuffer cmdBuffer = swapChain.GetCurrentDrawCommandBuffer();
+
+					VkCommandBufferBeginInfo beginInfo{};
+					beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+					beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+					VK_CHECK_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
+
+					VkRenderPassBeginInfo renderPassBeginInfo{};
+					renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+					renderPassBeginInfo.renderPass = swapChain.GetRenderPass();
+					renderPassBeginInfo.framebuffer = swapChain.GetCurrentFramebuffer();
+					renderPassBeginInfo.renderArea.offset = {0, 0};
+					renderPassBeginInfo.renderArea.extent = {swapChain.GetWidth(), swapChain.GetHeight()};
+
+					VkClearValue clearValue{};
+					clearValue.color = {{0.2f, 0.3f, 0.8f, 1.0f}}; // Blue background
+					renderPassBeginInfo.clearValueCount = 1;
+					renderPassBeginInfo.pClearValues = &clearValue;
+
+					vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+					{
+						ZN_SCOPE_PERF("Application Layer::OnUpdate");
+						for (std::shared_ptr<Layer>& layer : m_LayerStack)
+							layer->OnUpdate(m_TimeStep);
+					}
+
+					vkCmdEndRenderPass(cmdBuffer);
+					VK_CHECK_RESULT(vkEndCommandBuffer(cmdBuffer));
 				}
 
-				// Render ImGui on render thread
-				/*Application* app = this;
-				if (m_Specification.EnableImGui)
-				{
-					Renderer::Submit([app]() { app->RenderImGui(); });
-					Renderer::Submit([=]() { m_ImGuiLayer->End(); });
-				}*/
-				Renderer::EndFrame();
-
-				// On Render thread
-				Renderer::Submit([&]()
-				{
-					m_Window->SwapBuffers();
-				});
+				m_Window->SwapBuffers();
 
 				m_CurrentFrameIndex = (m_CurrentFrameIndex + 1) % Renderer::GetConfig().FramesInFlight;
 				m_PerformanceTimers.MainThreadWorkTime = cpuTimer.ElapsedMillis();

@@ -152,7 +152,9 @@ namespace Zenith {
 
 		m_SwapChain->Destroy();
 		zdelete m_SwapChain;
-		m_RendererContext.As<VulkanContext>()->GetDevice()->Destroy(); // need to destroy the device _before_ windows window destructor destroys the renderer context (because device Destroy() asks for renderer context...)
+
+		m_RendererContext.As<VulkanContext>()->GetDevice()->Destroy();
+
 		if (m_Window) {
 			SDL_DestroyWindow(m_Window);
 			m_Window = nullptr;
@@ -275,11 +277,18 @@ namespace Zenith {
 
 	void Window::SetVSync(bool enabled)
 	{
+		if (m_Specification.VSync == enabled)
+			return;
+
 		m_Specification.VSync = enabled;
 
-		//TODO: hook into application
-		m_SwapChain->SetVSync(m_Specification.VSync);
-		m_SwapChain->OnResize(m_Specification.Width, m_Specification.Height);
+		ZN_CORE_INFO_TAG("Renderer", "Setting VSync to {}", enabled ? "enabled" : "disabled");
+
+		Renderer::Submit([this, enabled, width = m_Specification.Width, height = m_Specification.Height]() mutable
+		{
+			m_SwapChain->SetVSync(enabled);
+			m_SwapChain->OnResize(width, height);
+		});
 	}
 
 	bool Window::IsVSync() const
