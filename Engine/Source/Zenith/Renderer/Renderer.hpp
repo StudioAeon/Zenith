@@ -1,9 +1,12 @@
-
 #pragma once
 
 #include "RendererContext.hpp"
 #include "RenderCommandQueue.hpp"
 #include "RenderCommandBuffer.hpp"
+#include "RenderPass.hpp"
+#include "RenderCommandBuffer.hpp"
+#include "UniformBufferSet.hpp"
+#include "StorageBufferSet.hpp"
 
 #include "RendererCapabilities.hpp"
 #include "RendererConfig.hpp"
@@ -12,6 +15,10 @@
 #include "Texture.hpp"
 
 #include "GPUStats.hpp"
+
+#include "Shader.hpp"
+#include <unordered_set>
+#include "Material.hpp"
 
 namespace Zenith {
 	class Application;
@@ -35,6 +42,8 @@ namespace Zenith {
 		static void Shutdown();
 
 		static RendererCapabilities& GetCapabilities();
+
+		static Ref<ShaderLibrary> GetShaderLibrary();
 
 		template<typename FuncT>
 		static void Submit(FuncT&& func)
@@ -92,8 +101,8 @@ namespace Zenith {
 		// ~Actual~ Renderer here... TODO: remove confusion later
 
 		// Render Pass API
-		static void BeginFrame();
-		static void EndFrame();
+		static void BeginRenderPass(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<RenderPass> renderPass, bool explicitClear = false);
+		static void EndRenderPass(Ref<RenderCommandBuffer> renderCommandBuffer);
 
 		static void BeginGPUPerfMarker(Ref<RenderCommandBuffer> renderCommandBuffer, const std::string& label, const glm::vec4& markerColor = {});
 		static void InsertGPUPerfMarker(Ref<RenderCommandBuffer> renderCommandBuffer, const std::string& label, const glm::vec4& markerColor = {});
@@ -103,12 +112,25 @@ namespace Zenith {
 		static void RT_InsertGPUPerfMarker(Ref<RenderCommandBuffer> renderCommandBuffer, const std::string& label, const glm::vec4& markerColor = {});
 		static void RT_EndGPUPerfMarker(Ref<RenderCommandBuffer> renderCommandBuffer);
 
+		static void BeginFrame();
+		static void EndFrame();
+
+		static void RenderQuad(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Pipeline> pipeline, Ref<Material> material, const glm::mat4& transform);
+		static void SubmitFullscreenQuad(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Pipeline> pipeline, Ref<Material> material);
+		static void SubmitFullscreenQuadWithOverrides(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Pipeline> pipeline, Ref<Material> material, Buffer vertexShaderOverrides, Buffer fragmentShaderOverrides);
 		static void ClearImage(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Image2D> image, const ImageClearValue& clearValue, ImageSubresourceRange subresourceRange = ImageSubresourceRange());
 		static void CopyImage(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Image2D> sourceImage, Ref<Image2D> destinationImage);
 		static void BlitImage(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Image2D> sourceImage, Ref<Image2D> destinationImage);
 
 		static Ref<Texture2D> GetWhiteTexture();
 		static Ref<Texture2D> GetBlackTexture();
+		static Ref<Texture2D> GetHilbertLut();
+		static Ref<Texture2D> GetBRDFLutTexture();
+		static Ref<TextureCube> GetBlackCubeTexture();
+
+		static void RegisterShaderDependency(Ref<Shader> shader, Ref<Pipeline> pipeline);
+		static void RegisterShaderDependency(Ref<Shader> shader, Ref<Material> material);
+		static void OnShaderReloaded(size_t hash);
 
 		static uint32_t GetCurrentFrameIndex();
 		static uint32_t RT_GetCurrentFrameIndex();
@@ -117,6 +139,14 @@ namespace Zenith {
 		static void SetConfig(const RendererConfig& config);
 
 		static RenderCommandQueue& GetRenderResourceReleaseQueue(uint32_t index);
+
+		// Add known macro from shader.
+		static const std::unordered_map<std::string, std::string>& GetGlobalShaderMacros();
+		static void AcknowledgeParsedGlobalMacros(const std::unordered_set<std::string>& macros, Ref<Shader> shader);
+		static void SetMacroInShader(Ref<Shader> shader, const std::string& name, const std::string& value = "");
+		static void SetGlobalMacroInShaders(const std::string& name, const std::string& value = "");
+		// Returns true if any shader is actually updated.
+		static bool UpdateDirtyShaders();
 
 		static GPUMemoryStats GetGPUMemoryStats();
 		static Application* GetApplication() { return s_Application; }

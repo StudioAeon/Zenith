@@ -1,6 +1,8 @@
 #include "znpch.hpp"
 #include "Renderer.hpp"
 
+#include "Shader.hpp"
+
 #include "RendererAPI.hpp"
 
 #include "Zenith/Core/Timer.hpp"
@@ -15,11 +17,67 @@
 #include <thread>
 #include <unordered_map>
 
+namespace std {
+	template<>
+	struct hash<Zenith::WeakRef<Zenith::Shader>>
+	{
+		size_t operator()(const Zenith::WeakRef<Zenith::Shader>& shader) const noexcept
+		{
+			return shader->GetHash();
+		}
+	};
+}
+
 namespace Zenith {
 
 	Application* Renderer::s_Application = nullptr;
 	static std::unordered_map<size_t, Ref<Pipeline>> s_PipelineCache;
 	static RendererAPI* s_RendererAPI = nullptr;
+
+	struct ShaderDependencies
+	{
+		std::vector<Ref<Pipeline>> Pipelines;
+		std::vector<Ref<Material>> Materials;
+	};
+	static std::unordered_map<size_t, ShaderDependencies> s_ShaderDependencies;
+	static std::shared_mutex s_ShaderDependenciesMutex; // ShaderDependencies can be accessed (and modified) from multiple threads, hence require synchronization
+
+	struct GlobalShaderInfo
+	{
+		// Macro name, set of shaders with that macro.
+		std::unordered_map<std::string, std::unordered_map<size_t, WeakRef<Shader>>> ShaderGlobalMacrosMap;
+		// Shaders waiting to be reloaded.
+		std::unordered_set<WeakRef<Shader>> DirtyShaders;
+	};
+	static GlobalShaderInfo s_GlobalShaderInfo;
+
+	void Renderer::RegisterShaderDependency(Ref<Shader> shader, Ref<Pipeline> pipeline)
+	{
+		std::scoped_lock lock(s_ShaderDependenciesMutex);
+		s_ShaderDependencies[shader->GetHash()].Pipelines.push_back(pipeline);
+	}
+
+	void Renderer::RegisterShaderDependency(Ref<Shader> shader, Ref<Material> material)
+	{
+		std::scoped_lock lock(s_ShaderDependenciesMutex);
+		s_ShaderDependencies[shader->GetHash()].Materials.push_back(material);
+	}
+
+	void Renderer::OnShaderReloaded(size_t hash)
+	{
+		ShaderDependencies dependencies;
+		{
+			std::shared_lock lock(s_ShaderDependenciesMutex);
+			if (auto it = s_ShaderDependencies.find(hash); it != s_ShaderDependencies.end())
+			{
+				dependencies = it->second; // expensive to copy, but we need to release the lock (in particular to avoid potential deadlock if things like material->OnShaderReloaded() happen to ask for the lock)
+			}
+		}
+		for (auto& pipeline : dependencies.Pipelines)
+		{
+			pipeline->Invalidate();
+		}
+	}
 
 	uint32_t Renderer::RT_GetCurrentFrameIndex()
 	{
@@ -41,8 +99,15 @@ namespace Zenith {
 
 	struct RendererData
 	{
+		Ref<ShaderLibrary> m_ShaderLibrary;
+
 		Ref<Texture2D> WhiteTexture;
 		Ref<Texture2D> BlackTexture;
+		Ref<Texture2D> BRDFLutTexture;
+		Ref<Texture2D> HilbertLut;
+		Ref<TextureCube> BlackCubeTexture;
+
+		std::unordered_map<std::string, std::string> GlobalShaderMacros;
 	};
 
 	static RendererConfig s_Config;
@@ -76,6 +141,10 @@ namespace Zenith {
 
 		s_RendererAPI = InitRendererAPI();
 
+		s_Data->m_ShaderLibrary = Ref<ShaderLibrary>::Create();
+
+		Renderer::GetShaderLibrary()->Load("Resources/Shaders/Triangle.hlsl");
+
 		Renderer::GetApplication()->GetRenderThread().Pump();
 
 		uint32_t whiteTextureData = 0xffffffff;
@@ -87,6 +156,61 @@ namespace Zenith {
 
 		constexpr uint32_t blackTextureData = 0xff000000;
 		s_Data->BlackTexture = Texture2D::Create(spec, Buffer(&blackTextureData, sizeof(uint32_t)));
+
+		{
+			TextureSpecification spec;
+			spec.SamplerWrap = TextureWrap::Clamp;
+			s_Data->BRDFLutTexture = Texture2D::Create(spec, std::filesystem::path("Resources/Renderer/BRDF_LUT.png"));
+		}
+
+		constexpr uint32_t blackCubeTextureData[6] = { 0xff000000, 0xff000000, 0xff000000, 0xff000000, 0xff000000, 0xff000000 };
+		s_Data->BlackCubeTexture = TextureCube::Create(spec, Buffer(blackCubeTextureData, sizeof(blackCubeTextureData)));
+
+		// Hilbert look-up texture! It's a 64 x 64 uint16 texture
+		{
+			TextureSpecification spec;
+			spec.Format = ImageFormat::RED16UI;
+			spec.Width = 64;
+			spec.Height = 64;
+			spec.SamplerWrap = TextureWrap::Clamp;
+			spec.SamplerFilter = TextureFilter::Nearest;
+
+			constexpr auto HilbertIndex = [](uint32_t posX, uint32_t posY)
+			{
+				uint16_t index = 0u;
+				for (uint16_t curLevel = 64 / 2u; curLevel > 0u; curLevel /= 2u)
+				{
+					const uint16_t regionX = (posX & curLevel) > 0u;
+					const uint16_t regionY = (posY & curLevel) > 0u;
+					index += curLevel * curLevel * ((3u * regionX) ^ regionY);
+					if (regionY == 0u)
+					{
+						if (regionX == 1u)
+						{
+							posX = uint16_t((64 - 1u)) - posX;
+							posY = uint16_t((64 - 1u)) - posY;
+						}
+
+						std::swap(posX, posY);
+					}
+				}
+				return index;
+			};
+
+			uint16_t* data = new uint16_t[(size_t)(64 * 64)];
+			for (int x = 0; x < 64; x++)
+			{
+				for (int y = 0; y < 64; y++)
+				{
+					const uint16_t r2index = HilbertIndex(x, y);
+					ZN_CORE_ASSERT(r2index < 65536);
+					data[x + 64 * y] = r2index;
+				}
+			}
+			s_Data->HilbertLut = Texture2D::Create(spec, Buffer(data, 1));
+			delete[] data;
+
+		}
 
 		s_RendererAPI->Init();
 	}
@@ -111,6 +235,11 @@ namespace Zenith {
 	RendererCapabilities& Renderer::GetCapabilities()
 	{
 		return s_RendererAPI->GetCapabilities();
+	}
+
+	Ref<ShaderLibrary> Renderer::GetShaderLibrary()
+	{
+		return s_Data->m_ShaderLibrary;
 	}
 
 	void Renderer::RenderThreadFunc(RenderThread* renderThread)
@@ -174,6 +303,18 @@ namespace Zenith {
 		return s_RenderCommandQueueSubmissionIndex;
 	}
 
+	void Renderer::BeginRenderPass(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<RenderPass> renderPass, bool explicitClear)
+	{
+		ZN_CORE_ASSERT(renderPass, "RenderPass cannot be null!");
+
+		s_RendererAPI->BeginRenderPass(renderCommandBuffer, renderPass, explicitClear);
+	}
+
+	void Renderer::EndRenderPass(Ref<RenderCommandBuffer> renderCommandBuffer)
+	{
+		s_RendererAPI->EndRenderPass(renderCommandBuffer);
+	}
+
 	void Renderer::InsertGPUPerfMarker(Ref<RenderCommandBuffer> renderCommandBuffer, const std::string& label, const glm::vec4& color)
 	{
 		s_RendererAPI->InsertGPUPerfMarker(renderCommandBuffer, label, color);
@@ -214,6 +355,11 @@ namespace Zenith {
 		s_RendererAPI->EndFrame();
 	}
 
+	void Renderer::RenderQuad(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Pipeline> pipeline, Ref<Material> material, const glm::mat4& transform)
+	{
+		s_RendererAPI->RenderQuad(renderCommandBuffer, pipeline, material, transform);
+	}
+
 	void Renderer::ClearImage(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Image2D> image, const ImageClearValue& clearValue, ImageSubresourceRange subresourceRange)
 	{
 		s_RendererAPI->ClearImage(renderCommandBuffer, image, clearValue, subresourceRange);
@@ -229,6 +375,16 @@ namespace Zenith {
 		s_RendererAPI->BlitImage(renderCommandBuffer, sourceImage, destinationImage);
 	}
 
+	void Renderer::SubmitFullscreenQuad(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Pipeline> pipeline, Ref<Material> material)
+	{
+		s_RendererAPI->SubmitFullscreenQuad(renderCommandBuffer, pipeline, material);
+	}
+
+	void Renderer::SubmitFullscreenQuadWithOverrides(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Pipeline> pipeline, Ref<Material> material, Buffer vertexShaderOverrides, Buffer fragmentShaderOverrides)
+	{
+		s_RendererAPI->SubmitFullscreenQuadWithOverrides(renderCommandBuffer, pipeline, material, vertexShaderOverrides, fragmentShaderOverrides);
+	}
+
 	Ref<Texture2D> Renderer::GetWhiteTexture()
 	{
 		return s_Data->WhiteTexture;
@@ -237,6 +393,21 @@ namespace Zenith {
 	Ref<Texture2D> Renderer::GetBlackTexture()
 	{
 		return s_Data->BlackTexture;
+	}
+
+	Ref<Texture2D> Renderer::GetHilbertLut()
+	{
+		return s_Data->HilbertLut;
+	}
+
+	Ref<Texture2D> Renderer::GetBRDFLutTexture()
+	{
+		return s_Data->BRDFLutTexture;
+	}
+
+	Ref<TextureCube> Renderer::GetBlackCubeTexture()
+	{
+		return s_Data->BlackCubeTexture;
 	}
 
 	RenderCommandQueue& Renderer::GetRenderCommandQueue()
@@ -249,6 +420,11 @@ namespace Zenith {
 		return s_ResourceFreeQueue[index];
 	}
 
+	const std::unordered_map<std::string, std::string>& Renderer::GetGlobalShaderMacros()
+	{
+		return s_Data->GlobalShaderMacros;
+	}
+
 	RendererConfig& Renderer::GetConfig()
 	{
 		return s_Config;
@@ -257,6 +433,58 @@ namespace Zenith {
 	void Renderer::SetConfig(const RendererConfig& config)
 	{
 		s_Config = config;
+	}
+
+	void Renderer::AcknowledgeParsedGlobalMacros(const std::unordered_set<std::string>& macros, Ref<Shader> shader)
+	{
+		for (const std::string& macro : macros)
+		{
+			s_GlobalShaderInfo.ShaderGlobalMacrosMap[macro][shader->GetHash()] = shader;
+		}
+	}
+
+	void Renderer::SetMacroInShader(Ref<Shader> shader, const std::string& name, const std::string& value)
+	{
+		shader->SetMacro(name, value);
+		s_GlobalShaderInfo.DirtyShaders.emplace(shader.Raw());
+	}
+
+	void Renderer::SetGlobalMacroInShaders(const std::string& name, const std::string& value)
+	{
+		if (s_Data->GlobalShaderMacros.find(name) != s_Data->GlobalShaderMacros.end())
+		{
+			if (s_Data->GlobalShaderMacros.at(name) == value)
+				return;
+		}
+
+		s_Data->GlobalShaderMacros[name] = value;
+
+		if (s_GlobalShaderInfo.ShaderGlobalMacrosMap.find(name) == s_GlobalShaderInfo.ShaderGlobalMacrosMap.end())
+		{
+			ZN_CORE_WARN_TAG("Renderer", "No shaders with {} macro found", name);
+			return;
+		}
+
+		ZN_CORE_ASSERT(s_GlobalShaderInfo.ShaderGlobalMacrosMap.find(name) != s_GlobalShaderInfo.ShaderGlobalMacrosMap.end(), "Macro has not been passed from any shader!");
+		for (auto& [hash, shader] : s_GlobalShaderInfo.ShaderGlobalMacrosMap.at(name))
+		{
+			ZN_CORE_ASSERT(shader.IsValid(), "Shader is deleted!");
+			s_GlobalShaderInfo.DirtyShaders.emplace(shader);
+		}
+	}
+
+	bool Renderer::UpdateDirtyShaders()
+	{
+		// TODO: how is this going to work for dist?
+		const bool updatedAnyShaders = s_GlobalShaderInfo.DirtyShaders.size();
+		for (WeakRef<Shader> shader : s_GlobalShaderInfo.DirtyShaders)
+		{
+			ZN_CORE_ASSERT(shader.IsValid(), "Shader is deleted!");
+			shader->RT_Reload(true);
+		}
+		s_GlobalShaderInfo.DirtyShaders.clear();
+
+		return updatedAnyShaders;
 	}
 
 	GPUMemoryStats Renderer::GetGPUMemoryStats()

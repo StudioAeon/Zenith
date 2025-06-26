@@ -2,6 +2,9 @@
 
 #include "Zenith/Renderer/RendererAPI.hpp"
 
+#include "VulkanUniformBuffer.hpp"
+#include "VulkanStorageBuffer.hpp"
+
 #include "vulkan/vulkan.h"
 
 namespace Zenith {
@@ -26,6 +29,13 @@ namespace Zenith {
 		virtual void RT_BeginGPUPerfMarker(Ref<RenderCommandBuffer> renderCommandBuffer, const std::string& label, const glm::vec4& markerColor = {}) override;
 		virtual void RT_EndGPUPerfMarker(Ref<RenderCommandBuffer> renderCommandBuffer) override;
 
+		virtual void BeginRenderPass(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<RenderPass> renderPass, bool explicitClear = false) override;
+		virtual void EndRenderPass(Ref<RenderCommandBuffer> renderCommandBuffer) override;
+
+		virtual void SubmitFullscreenQuad(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Pipeline> pipeline, Ref<Material> material) override;
+		virtual void SubmitFullscreenQuadWithOverrides(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Pipeline> pipeline, Ref<Material> material, Buffer vertexShaderOverrides, Buffer fragmentShaderOverrides) override;
+
+		virtual void RenderQuad(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Pipeline> pipeline, Ref<Material> material, const glm::mat4& transform) override;
 		virtual void ClearImage(Ref<RenderCommandBuffer> commandBuffer, Ref<Image2D> image, const ImageClearValue& clearValue, ImageSubresourceRange subresourceRange) override;
 		virtual void CopyImage(Ref<RenderCommandBuffer> commandBuffer, Ref<Image2D> sourceImage, Ref<Image2D> destinationImage) override;
 		virtual void BlitImage(Ref<RenderCommandBuffer> commandBuffer, Ref<Image2D> sourceImage, Ref<Image2D> destinationImage) override;
@@ -33,7 +43,12 @@ namespace Zenith {
 		static VkSampler GetClampSampler();
 		static VkSampler GetPointSampler();
 
+		static uint32_t GetDescriptorAllocationCount(uint32_t frameIndex = 0);
+
 		static int32_t& GetSelectedDrawCall();
+	public:
+		static VkDescriptorSet RT_AllocateDescriptorSet(VkDescriptorSetAllocateInfo& allocInfo);
+		static VkDescriptorSet AllocateMaterialDescriptorSet(VkDescriptorSetAllocateInfo& allocInfo);
 	private:
 		Application* m_Application = nullptr;
 	};

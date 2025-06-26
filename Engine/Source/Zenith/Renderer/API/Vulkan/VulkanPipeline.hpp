@@ -3,6 +3,7 @@
 #include "Zenith/Renderer/Pipeline.hpp"
 
 #include "Vulkan.hpp"
+#include "VulkanShader.hpp"
 #include <map>
 
 namespace Zenith {
@@ -17,6 +18,8 @@ namespace Zenith {
 		virtual const PipelineSpecification& GetSpecification() const { return m_Specification; }
 
 		virtual void Invalidate() override;
+
+		virtual Ref<Shader> GetShader() const override { return m_Specification.Shader; }
 
 		bool IsDynamicLineWidth() const;
 

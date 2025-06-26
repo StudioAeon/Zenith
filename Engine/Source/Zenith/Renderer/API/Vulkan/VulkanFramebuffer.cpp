@@ -28,7 +28,7 @@ namespace Zenith {
 	}
 
 	VulkanFramebuffer::VulkanFramebuffer(const FramebufferSpecification& specification)
-		: m_Specification(specification)
+		: m_Specification(specification), m_Application(Renderer::GetApplication())
 	{
 		if (specification.Width == 0)
 		{

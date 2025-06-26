@@ -1,8 +1,10 @@
 #include "znpch.hpp"
 #include "VulkanPipeline.hpp"
 
+#include "VulkanShader.hpp"
 #include "VulkanContext.hpp"
 #include "VulkanFramebuffer.hpp"
+#include "VulkanUniformBuffer.hpp"
 
 #include "Zenith/Renderer/Renderer.hpp"
 
@@ -63,8 +65,10 @@ namespace Zenith {
 	VulkanPipeline::VulkanPipeline(const PipelineSpecification& spec)
 		: m_Specification(spec)
 	{
+		ZN_CORE_ASSERT(spec.Shader);
 		ZN_CORE_ASSERT(spec.TargetFramebuffer);
 		Invalidate();
+		Renderer::RegisterShaderDependency(spec.Shader, this);
 	}
 
 	VulkanPipeline::~VulkanPipeline()
@@ -86,17 +90,35 @@ namespace Zenith {
 			// ZN_CORE_WARN("[VulkanPipeline] Creating pipeline {0}", instance->m_Specification.DebugName);
 
 			VkDevice device = VulkanContext::GetCurrentDevice()->GetVulkanDevice();
+			ZN_CORE_ASSERT(instance->m_Specification.Shader);
+			Ref<VulkanShader> vulkanShader = Ref<VulkanShader>(instance->m_Specification.Shader);
 			Ref<VulkanFramebuffer> framebuffer = instance->m_Specification.TargetFramebuffer.As<VulkanFramebuffer>();
+
+			auto descriptorSetLayouts = vulkanShader->GetAllDescriptorSetLayouts();
+
+			const auto& pushConstantRanges = vulkanShader->GetPushConstantRanges();
+
+			// TODO: should come from shader
+			std::vector<VkPushConstantRange> vulkanPushConstantRanges(pushConstantRanges.size());
+			for (uint32_t i = 0; i < pushConstantRanges.size(); i++)
+			{
+				const auto& pushConstantRange = pushConstantRanges[i];
+				auto& vulkanPushConstantRange = vulkanPushConstantRanges[i];
+
+				vulkanPushConstantRange.stageFlags = pushConstantRange.ShaderStage;
+				vulkanPushConstantRange.offset = pushConstantRange.Offset;
+				vulkanPushConstantRange.size = pushConstantRange.Size;
+			}
 
 			// Create the pipeline layout that is used to generate the rendering pipelines that are based on this descriptor set layout
 			// In a more complex scenario you would have different pipeline layouts for different descriptor set layouts that could be reused
 			VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = {};
 			pPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 			pPipelineLayoutCreateInfo.pNext = nullptr;
-			pPipelineLayoutCreateInfo.setLayoutCount = 0;
-			pPipelineLayoutCreateInfo.pSetLayouts = nullptr;
-			pPipelineLayoutCreateInfo.pushConstantRangeCount = 0;
-			pPipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
+			pPipelineLayoutCreateInfo.setLayoutCount = (uint32_t)descriptorSetLayouts.size();
+			pPipelineLayoutCreateInfo.pSetLayouts = descriptorSetLayouts.data();
+			pPipelineLayoutCreateInfo.pushConstantRangeCount = (uint32_t)vulkanPushConstantRanges.size();
+			pPipelineLayoutCreateInfo.pPushConstantRanges = vulkanPushConstantRanges.data();
 
 			VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &instance->m_PipelineLayout));
 
@@ -293,9 +315,11 @@ namespace Zenith {
 			vertexInputState.vertexAttributeDescriptionCount = (uint32_t)vertexInputAttributes.size();
 			vertexInputState.pVertexAttributeDescriptions = vertexInputAttributes.data();
 
+			const auto& shaderStages = vulkanShader->GetPipelineShaderStageCreateInfos();
+
 			// Set pipeline shader stage info
-			pipelineCreateInfo.stageCount = 0;
-			pipelineCreateInfo.pStages = nullptr;
+			pipelineCreateInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
+			pipelineCreateInfo.pStages = shaderStages.data();
 
 			// Assign the pipeline states to the pipeline creation info structure
 			pipelineCreateInfo.pVertexInputState = &vertexInputState;

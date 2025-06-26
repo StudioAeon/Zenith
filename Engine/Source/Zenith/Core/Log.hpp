@@ -46,9 +46,9 @@ namespace Zenith {
 		inline static std::shared_ptr<spdlog::logger> &GetClientLogger() {
 			return s_ClientLogger;
 		}
-		inline static std::shared_ptr<spdlog::logger> &GetEditorConsoleLogger() {
+		/*inline static std::shared_ptr<spdlog::logger> &GetEditorConsoleLogger() {
 			return s_EditorConsoleLogger;
-		}
+		}*/
 
 		static bool HasTag(const std::string &tag) {
 			return s_EnabledTags.find(tag) != s_EnabledTags.end();

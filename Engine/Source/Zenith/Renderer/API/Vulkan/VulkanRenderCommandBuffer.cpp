@@ -158,11 +158,12 @@ namespace Zenith {
 	{
 		m_TimestampNextAvailableQuery = 2;
 
-
 		Ref<VulkanRenderCommandBuffer> instance = this;
-		Renderer::Submit([instance]() mutable
+		Application* app = m_Application;
+
+		Renderer::Submit([instance, app]() mutable
 		{
-			uint32_t commandBufferIndex = Renderer::RT_GetCurrentFrameIndex();
+				uint32_t commandBufferIndex = Renderer::RT_GetCurrentFrameIndex();
 
 			VkCommandBufferBeginInfo cmdBufInfo = {};
 			cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -170,9 +171,9 @@ namespace Zenith {
 			cmdBufInfo.pNext = nullptr;
 
 			VkCommandBuffer commandBuffer = nullptr;
-			if (instance->m_OwnedBySwapChain)
+			if (instance->m_OwnedBySwapChain) 
 			{
-				VulkanSwapChain& swapChain = instance->m_Application->GetWindow().GetSwapChain();
+				VulkanSwapChain& swapChain = app->GetWindow().GetSwapChain();
 				commandBuffer = swapChain.GetDrawCommandBuffer(commandBufferIndex);
 			}
 			else

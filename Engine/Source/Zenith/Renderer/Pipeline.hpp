@@ -3,6 +3,8 @@
 #include "Zenith/Core/Ref.hpp"
 
 #include "Zenith/Renderer/VertexBuffer.hpp"
+#include "Zenith/Renderer/Shader.hpp"
+#include "Zenith/Renderer/UniformBuffer.hpp"
 #include "Zenith/Renderer/Framebuffer.hpp"
 
 namespace Zenith {
@@ -20,19 +22,20 @@ namespace Zenith {
 
 	enum class DepthCompareOperator
 	{
-		None = 0,
+	    None = 0,
 		Never,
 		NotEqual,
-		Less,
-		LessOrEqual,
-		Greater,
-		GreaterOrEqual,
+	    Less,
+	    LessOrEqual,
+	    Greater,
+	    GreaterOrEqual,
 		Equal,
-		Always,
+	    Always,
 	};
 
 	struct PipelineSpecification
 	{
+		Ref<Shader> Shader;
 		Ref<Framebuffer> TargetFramebuffer;
 		VertexBufferLayout Layout;
 		VertexBufferLayout InstanceLayout;
@@ -118,6 +121,8 @@ namespace Zenith {
 		virtual const PipelineSpecification& GetSpecification() const = 0;
 
 		virtual void Invalidate() = 0;
+
+		virtual Ref<Shader> GetShader() const = 0;
 
 		static Ref<Pipeline> Create(const PipelineSpecification& spec);
 	};
