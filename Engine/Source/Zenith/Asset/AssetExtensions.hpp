@@ -11,7 +11,13 @@ namespace Zenith {
 		// Fonts
 		{ ".ttf", AssetType::Font },
 		{ ".ttc", AssetType::Font },
-		{ ".otf", AssetType::Font }
+		{ ".otf", AssetType::Font },
+
+		// Textures
+		{ ".png", AssetType::Texture },
+		{ ".jpg", AssetType::Texture },
+		{ ".jpeg", AssetType::Texture },
+
 	};
 
 }

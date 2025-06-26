@@ -9,6 +9,8 @@
 #include "RendererConfig.hpp"
 #include "RenderThread.hpp"
 
+#include "Texture.hpp"
+
 #include "GPUStats.hpp"
 
 namespace Zenith {
@@ -104,6 +106,9 @@ namespace Zenith {
 		static void ClearImage(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Image2D> image, const ImageClearValue& clearValue, ImageSubresourceRange subresourceRange = ImageSubresourceRange());
 		static void CopyImage(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Image2D> sourceImage, Ref<Image2D> destinationImage);
 		static void BlitImage(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Image2D> sourceImage, Ref<Image2D> destinationImage);
+
+		static Ref<Texture2D> GetWhiteTexture();
+		static Ref<Texture2D> GetBlackTexture();
 
 		static uint32_t GetCurrentFrameIndex();
 		static uint32_t RT_GetCurrentFrameIndex();

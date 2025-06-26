@@ -32,4 +32,5 @@
 #include "Zenith/Renderer/VertexBuffer.hpp"
 #include "Zenith/Renderer/IndexBuffer.hpp"
 #include "Zenith/Renderer/Pipeline.hpp"
+#include "Zenith/Renderer/Texture.hpp"
 // =======================================================

@@ -37,6 +37,7 @@ namespace Zenith {
 		// You simply go AssetManager::GetAsset<Whatever>(handle), and so long as you get a non-null pointer back, you're good to go.
 		// No IsValid(), IsFlagSet(AssetFlag::Missing) etc. etc. all throughout the code.
 		friend class EditorAssetManager;
+		friend class TextureSerializer;
 
 		bool IsValid() const { return ((Flags & (uint16_t)AssetFlag::Missing) | (Flags & (uint16_t)AssetFlag::Invalid)) == 0; }
 

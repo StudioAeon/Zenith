@@ -3,6 +3,7 @@
 
 #include "AssetManager.hpp"
 
+#include "Zenith/Renderer/Renderer.hpp"
 // #include "Zenith/Renderer/Font.hpp"
 
 #include "Zenith/Utilities/FileSystem.hpp"
@@ -31,6 +32,22 @@ namespace Zenith {
 #endif
 
 		return true;
+	}
+
+	//////////////////////////////////////////////////////////////////////////////////
+	// TextureSerializer
+	//////////////////////////////////////////////////////////////////////////////////
+
+	bool TextureSerializer::TryLoadData(const AssetMetadata& metadata, Ref<Asset>& asset) const
+	{
+		asset = Texture2D::Create(TextureSpecification(), Project::GetEditorAssetManager()->GetFileSystemPathString(metadata));
+		asset->Handle = metadata.Handle;
+
+		bool result = asset.As<Texture2D>()->Loaded();
+		if (!result)
+			asset->SetFlag(AssetFlag::Invalid, true);
+
+		return result;
 	}
 
 	void AssetSerializer::RegisterDependencies(const AssetMetadata& metadata) const

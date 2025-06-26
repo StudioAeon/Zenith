@@ -16,7 +16,9 @@
 #include <unordered_map>
 
 namespace Zenith {
+
 	Application* Renderer::s_Application = nullptr;
+	static std::unordered_map<size_t, Ref<Pipeline>> s_PipelineCache;
 	static RendererAPI* s_RendererAPI = nullptr;
 
 	uint32_t Renderer::RT_GetCurrentFrameIndex()
@@ -37,7 +39,14 @@ namespace Zenith {
 		s_CurrentRendererAPI = api;
 	}
 
+	struct RendererData
+	{
+		Ref<Texture2D> WhiteTexture;
+		Ref<Texture2D> BlackTexture;
+	};
+
 	static RendererConfig s_Config;
+	static RendererData* s_Data = nullptr;
 	constexpr static uint32_t s_RenderCommandQueueCount = 2;
 	static RenderCommandQueue* s_CommandQueue[s_RenderCommandQueueCount];
 	static std::atomic<uint32_t> s_RenderCommandQueueSubmissionIndex = 0;
@@ -56,6 +65,7 @@ namespace Zenith {
 	void Renderer::Init(Application* app)
 	{
 		s_Application = app;
+		s_Data = znew RendererData();
 		s_CommandQueue[0] = znew RenderCommandQueue();
 		s_CommandQueue[1] = znew RenderCommandQueue();
 
@@ -66,12 +76,26 @@ namespace Zenith {
 
 		s_RendererAPI = InitRendererAPI();
 
+		Renderer::GetApplication()->GetRenderThread().Pump();
+
+		uint32_t whiteTextureData = 0xffffffff;
+		TextureSpecification spec;
+		spec.Format = ImageFormat::RGBA;
+		spec.Width = 1;
+		spec.Height = 1;
+		s_Data->WhiteTexture = Texture2D::Create(spec, Buffer(&whiteTextureData, sizeof(uint32_t)));
+
+		constexpr uint32_t blackTextureData = 0xff000000;
+		s_Data->BlackTexture = Texture2D::Create(spec, Buffer(&blackTextureData, sizeof(uint32_t)));
+
 		s_RendererAPI->Init();
 	}
 
 	void Renderer::Shutdown()
 	{
 		s_RendererAPI->Shutdown();
+
+		delete s_Data;
 
 		// Resource release queue
 		for (uint32_t i = 0; i < s_Config.FramesInFlight; i++)
@@ -203,6 +227,16 @@ namespace Zenith {
 	void Renderer::BlitImage(Ref<RenderCommandBuffer> renderCommandBuffer, Ref<Image2D> sourceImage, Ref<Image2D> destinationImage)
 	{
 		s_RendererAPI->BlitImage(renderCommandBuffer, sourceImage, destinationImage);
+	}
+
+	Ref<Texture2D> Renderer::GetWhiteTexture()
+	{
+		return s_Data->WhiteTexture;
+	}
+
+	Ref<Texture2D> Renderer::GetBlackTexture()
+	{
+		return s_Data->BlackTexture;
 	}
 
 	RenderCommandQueue& Renderer::GetRenderCommandQueue()

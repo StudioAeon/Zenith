@@ -10,6 +10,7 @@ namespace Zenith {
 	{
 		s_Serializers.clear();
 		s_Serializers[AssetType::Font] = CreateScope<FontSerializer>();
+		s_Serializers[AssetType::Texture] = CreateScope<TextureSerializer>();
 	}
 
 	void AssetImporter::Serialize(const AssetMetadata& metadata, const Ref<Asset>& asset)
