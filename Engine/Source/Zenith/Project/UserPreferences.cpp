@@ -52,7 +52,6 @@ namespace Zenith {
 		fout.close();
 
 		m_Preferences->FilePath = filepath.string();
-		ZN_CORE_INFO("User preferences saved to: {}", filepath.string());
 	}
 
 	void UserPreferencesSerializer::Deserialize(const std::filesystem::path& filepath)

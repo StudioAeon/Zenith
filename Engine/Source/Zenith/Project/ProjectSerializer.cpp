@@ -2,6 +2,8 @@
 #include "ProjectSerializer.hpp"
 
 #include "Zenith/Utilities/JSONSerializationHelpers.hpp"
+#include "Zenith/Utilities/SerializationMacros.hpp"
+#include "Zenith/Utilities/StringUtils.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -11,21 +13,22 @@
 namespace Zenith {
 
 	ProjectSerializer::ProjectSerializer(Ref<Project> project)
-		: m_Project(project)
+	   : m_Project(project)
 	{
 	}
 
 	void ProjectSerializer::Serialize(const std::filesystem::path& filepath)
 	{
-		nlohmann::json j;
+		nlohmann::json root;
 		nlohmann::json projectNode;
 
 		projectNode["Name"] = m_Project->m_Config.Name;
+		projectNode["AssetDirectory"] = m_Project->m_Config.AssetDirectory;
+		projectNode["AssetRegistry"] = m_Project->m_Config.AssetRegistryPath;
 		projectNode["StartScene"] = m_Project->m_Config.StartScene;
 		projectNode["AutoSave"] = m_Project->m_Config.EnableAutoSave;
 		projectNode["AutoSaveInterval"] = m_Project->m_Config.AutoSaveIntervalSeconds;
 
-		// Log settings
 		nlohmann::json logNode;
 		auto& tags = Log::EnabledTags();
 		for (auto& [name, details] : tags)
@@ -40,11 +43,10 @@ namespace Zenith {
 		}
 		projectNode["Log"] = logNode;
 
-		// Root node
-		j["Project"] = projectNode;
+		root["Project"] = projectNode;
 
 		std::ofstream fout(filepath);
-		fout << j.dump(4);
+		fout << root.dump(4);
 		fout.close();
 
 		m_Project->OnSerialized();
@@ -59,24 +61,24 @@ namespace Zenith {
 			return false;
 		}
 
-		nlohmann::json j;
+		nlohmann::json root;
 		try
 		{
-			stream >> j;
+			stream >> root;
 		}
-		catch (nlohmann::json::parse_error& e)
+		catch (const nlohmann::json::parse_error& e)
 		{
-			ZN_CORE_ERROR("Failed to parse project file: {}", e.what());
+			ZN_CORE_ERROR("Failed to parse project JSON: {}", e.what());
 			return false;
 		}
 
-		if (!j.contains("Project"))
+		if (!root.contains("Project"))
 		{
 			ZN_CORE_ERROR("Project file missing 'Project' node");
 			return false;
 		}
 
-		auto projectNode = j["Project"];
+		auto projectNode = root["Project"];
 		if (!projectNode.contains("Name"))
 		{
 			ZN_CORE_ERROR("Project file missing 'Name' field");
@@ -85,40 +87,19 @@ namespace Zenith {
 
 		auto& config = m_Project->m_Config;
 
-		// Clear existing config to ensure clean state
-		config = ProjectConfig{};
+		config.Name = projectNode["Name"].get<std::string>();
 
-		// Safely extract strings with fallbacks
-		try
-		{
-			config.Name = projectNode["Name"].get<std::string>();
-			if (config.Name.empty())
-				config.Name = "Unnamed Project";
-		}
-		catch (...)
-		{
-			ZN_CORE_ERROR("Failed to read project name");
-			config.Name = "Unnamed Project";
-		}
+		config.AssetDirectory = projectNode.value("AssetDirectory", std::string(""));
+		config.AssetRegistryPath = projectNode.value("AssetRegistry", std::string(""));
+		config.StartScene = projectNode.value("StartScene", std::string(""));
+		config.EnableAutoSave = projectNode.value("AutoSave", false);
+		config.AutoSaveIntervalSeconds = projectNode.value("AutoSaveInterval", 300);
 
 		std::filesystem::path projectPath = filepath;
 		config.ProjectFileName = projectPath.filename().string();
 		config.ProjectDirectory = projectPath.parent_path().string();
 
-		try
-		{
-			config.StartScene = projectNode.value("StartScene", std::string(""));
-		}
-		catch (...)
-		{
-			config.StartScene = "";
-		}
-
-		config.EnableAutoSave = projectNode.value("AutoSave", false);
-		config.AutoSaveIntervalSeconds = projectNode.value("AutoSaveInterval", 300);
-
-		// Log settings
-		if (projectNode.contains("Log"))
+		if (projectNode.contains("Log") && projectNode["Log"].is_object())
 		{
 			try
 			{
@@ -127,20 +108,22 @@ namespace Zenith {
 
 				for (auto& [name, tagData] : logNode.items())
 				{
-					auto& details = tags[name];
-					details.Enabled = tagData.value("Enabled", true);
+					if (tagData.is_object())
+					{
+						auto& details = tags[name];
+						details.Enabled = tagData.value("Enabled", true);
 
-					std::string levelStr = tagData.value("LevelFilter", "Info");
-					details.LevelFilter = Log::LevelFromString(levelStr);
+						std::string levelStr = tagData.value("LevelFilter", "Info");
+						details.LevelFilter = Log::LevelFromString(levelStr);
+					}
 				}
 			}
-			catch (...)
+			catch (const std::exception& e)
 			{
-				ZN_CORE_WARN("Failed to deserialize log settings");
+				ZN_CORE_WARN("Failed to deserialize log settings: {}", e.what());
 			}
 		}
 
-		ZN_CORE_INFO("Successfully deserialized project: {}", config.Name);
 		m_Project->OnDeserialized();
 		return true;
 	}

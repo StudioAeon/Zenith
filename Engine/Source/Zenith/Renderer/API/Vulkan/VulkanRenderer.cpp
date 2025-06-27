@@ -188,7 +188,7 @@ namespace Zenith {
 			s_Data->SamplerClamp = nullptr;
 		}
 
-#if HZ_HAS_SHADER_COMPILER
+#if ZN_HAS_SHADER_COMPILER
 		VulkanShaderCompiler::ClearUniformBuffers();
 #endif
 		delete s_Data;

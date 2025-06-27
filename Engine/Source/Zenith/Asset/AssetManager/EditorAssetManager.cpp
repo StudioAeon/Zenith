@@ -582,10 +582,28 @@ namespace Zenith {
 
 		const auto& assetRegistryPath = Project::GetAssetRegistryPath();
 		if (!FileSystem::Exists(assetRegistryPath))
+		{
+			ZN_CORE_INFO("[AssetManager] Asset Registry file does not exist, will be created on first save");
 			return;
+		}
 
 		std::ifstream stream(assetRegistryPath);
-		ZN_CORE_ASSERT(stream);
+		if (!stream.is_open())
+		{
+			ZN_CORE_ERROR("[AssetManager] Failed to open Asset Registry file: {}", assetRegistryPath.string());
+			return;
+		}
+
+		// Check if file is empty
+		stream.seekg(0, std::ios::end);
+		std::streampos fileSize = stream.tellg();
+		stream.seekg(0, std::ios::beg);
+
+		if (fileSize == 0)
+		{
+			ZN_CORE_INFO("[AssetManager] Asset Registry file is empty, will be populated on asset scan");
+			return;
+		}
 
 		nlohmann::json data;
 		try
@@ -595,16 +613,23 @@ namespace Zenith {
 		catch (const nlohmann::json::exception& e)
 		{
 			ZN_CORE_ERROR("[AssetManager] Failed to parse Asset Registry JSON: {}", e.what());
+			ZN_CORE_WARN("[AssetManager] Asset Registry may be corrupted, will be regenerated");
 			return;
 		}
 
-		if (!data.contains("Assets") || !data["Assets"].is_array())
+		if (!data.contains("Assets"))
 		{
-			ZN_CORE_ERROR("[AssetManager] Asset Registry appears to be corrupted! Missing or invalid 'Assets' array.");
-			ZN_CORE_VERIFY(false);
+			ZN_CORE_WARN("[AssetManager] Asset Registry missing 'Assets' node, treating as empty");
 			return;
 		}
 
+		if (!data["Assets"].is_array())
+		{
+			ZN_CORE_ERROR("[AssetManager] Asset Registry 'Assets' is not an array, regenerating registry");
+			return;
+		}
+
+		size_t loadedCount = 0;
 		for (const auto& entry : data["Assets"])
 		{
 			if (!entry.contains("FilePath") || !entry.contains("Handle") || !entry.contains("Type"))
@@ -613,84 +638,38 @@ namespace Zenith {
 				continue;
 			}
 
-			std::string filepath = entry["FilePath"].get<std::string>();
-
-			AssetMetadata metadata;
-			metadata.Handle = AssetHandle(entry["Handle"].get<uint64_t>());
-			metadata.FilePath = filepath;
-			metadata.Type = (AssetType)Utils::AssetTypeFromString(entry["Type"].get<std::string>());
-
-			if (metadata.Type == AssetType::None)
-				continue;
-
-			if (metadata.Type != GetAssetTypeFromPath(filepath))
+			try
 			{
-				ZN_CORE_WARN_TAG("AssetManager", "Mismatch between stored AssetType and extension type when reading asset registry!");
-				metadata.Type = GetAssetTypeFromPath(filepath);
-			}
+				std::string filepath = entry["FilePath"].get<std::string>();
 
-			if (!FileSystem::Exists(GetFileSystemPath(metadata)))
-			{
-				ZN_CORE_WARN("[AssetManager] Missing asset '{0}' detected in registry file, trying to locate...", metadata.FilePath);
+				AssetMetadata metadata;
+				metadata.Handle = AssetHandle(entry["Handle"].get<uint64_t>());
+				metadata.FilePath = filepath;
+				metadata.Type = (AssetType)Utils::AssetTypeFromString(entry["Type"].get<std::string>());
 
-				std::string mostLikelyCandidate;
-				uint32_t bestScore = 0;
-
-				for (auto& pathEntry : std::filesystem::recursive_directory_iterator(Project::GetActiveAssetDirectory()))
+				if (metadata.Type == AssetType::None)
 				{
-					const std::filesystem::path& path = pathEntry.path();
-
-					if (path.filename() != metadata.FilePath.filename())
-						continue;
-
-					if (bestScore > 0)
-						ZN_CORE_WARN("[AssetManager] Multiple candidates found...");
-
-					std::vector<std::string> candiateParts = Utils::SplitString(path.string(), "/\\");
-
-					uint32_t score = 0;
-					for (const auto& part : candiateParts)
-					{
-						if (filepath.find(part) != std::string::npos)
-							score++;
-					}
-
-					ZN_CORE_WARN("'{0}' has a score of {1}, best score is {2}", path.string(), score, bestScore);
-
-					if (bestScore > 0 && score == bestScore)
-					{
-						// TODO: How do we handle this?
-						// Probably prompt the user at this point?
-					}
-
-					if (score <= bestScore)
-						continue;
-
-					bestScore = score;
-					mostLikelyCandidate = path.string();
-				}
-
-				if (mostLikelyCandidate.empty() && bestScore == 0)
-				{
-					ZN_CORE_ERROR("[AssetManager] Failed to locate a potential match for '{0}'", metadata.FilePath);
+					ZN_CORE_WARN("[AssetManager] Unknown asset type in registry: {}", entry["Type"].get<std::string>());
 					continue;
 				}
 
-				std::replace(mostLikelyCandidate.begin(), mostLikelyCandidate.end(), '\\', '/');
-				metadata.FilePath = std::filesystem::relative(mostLikelyCandidate, Project::GetActive()->GetAssetDirectory());
-				ZN_CORE_WARN("[AssetManager] Found most likely match '{0}'", metadata.FilePath);
-			}
+				if (metadata.Type != GetAssetTypeFromPath(filepath))
+				{
+					ZN_CORE_WARN_TAG("AssetManager", "Mismatch between stored AssetType and extension type when reading asset registry: {}", metadata.FilePath.string());
+					continue;
+				}
 
-			if (metadata.Handle == 0)
+				SetMetadata(metadata.Handle, metadata);
+				loadedCount++;
+			}
+			catch (const std::exception& e)
 			{
-				ZN_CORE_WARN("[AssetManager] AssetHandle for {0} is 0, this shouldn't happen.", metadata.FilePath);
+				ZN_CORE_WARN("[AssetManager] Failed to parse asset entry: {}", e.what());
 				continue;
 			}
-
-			SetMetadata(metadata.Handle, metadata);
 		}
 
-		ZN_CORE_INFO("[AssetManager] Loaded {0} asset entries", m_AssetRegistry.Count());
+		ZN_CORE_INFO("[AssetManager] Loaded {} asset entries from registry", loadedCount);
 	}
 
 	void EditorAssetManager::ProcessDirectory(const std::filesystem::path& directoryPath)
@@ -712,41 +691,109 @@ namespace Zenith {
 
 	void EditorAssetManager::WriteRegistryToFile()
 	{
-		// Sort assets by UUID to make project management easier
 		struct AssetRegistryEntry
 		{
 			std::string FilePath;
 			AssetType Type;
 		};
 		std::map<UUID, AssetRegistryEntry> sortedMap;
+
 		for (auto& [filepath, metadata] : m_AssetRegistry)
 		{
 			if (!FileSystem::Exists(GetFileSystemPath(metadata)))
+			{
+				ZN_CORE_TRACE("[AssetManager] Skipping missing asset: {}", metadata.FilePath.string());
 				continue;
+			}
 
 			std::string pathToSerialize = metadata.FilePath.string();
-			// NOTE: if Windows
+			// Normalize path separators for cross-platform compatibility
 			std::replace(pathToSerialize.begin(), pathToSerialize.end(), '\\', '/');
+
+			if (pathToSerialize.empty())
+			{
+				ZN_CORE_WARN("[AssetManager] Skipping asset with empty path, handle: {}", static_cast<uint64_t>(metadata.Handle));
+				continue;
+			}
+
 			sortedMap[metadata.Handle] = { pathToSerialize, metadata.Type };
 		}
 
-		ZN_CORE_INFO("[AssetManager] serializing asset registry with {0} entries", sortedMap.size());
+		ZN_CORE_INFO("[AssetManager] Serializing asset registry with {} entries", sortedMap.size());
 
 		nlohmann::json jsonData;
 		jsonData["Assets"] = nlohmann::json::array();
 
 		for (const auto& [handle, entry] : sortedMap)
 		{
-			nlohmann::json assetEntry;
-			assetEntry["Handle"] = static_cast<uint64_t>(handle);
-			assetEntry["FilePath"] = entry.FilePath;
-			assetEntry["Type"] = Utils::AssetTypeToString(entry.Type);
-			jsonData["Assets"].push_back(assetEntry);
+			try
+			{
+				nlohmann::json assetEntry;
+				assetEntry["Handle"] = static_cast<uint64_t>(handle);
+				assetEntry["FilePath"] = entry.FilePath;
+				assetEntry["Type"] = Utils::AssetTypeToString(entry.Type);
+
+				if (assetEntry["FilePath"].get<std::string>().empty())
+				{
+					ZN_CORE_WARN("[AssetManager] Skipping asset entry with empty file path");
+					continue;
+				}
+
+				jsonData["Assets"].push_back(assetEntry);
+			}
+			catch (const std::exception& e)
+			{
+				ZN_CORE_ERROR("[AssetManager] Failed to serialize asset entry {}: {}", static_cast<uint64_t>(handle), e.what());
+				continue;
+			}
 		}
 
 		const std::string& assetRegistryPath = Project::GetAssetRegistryPath().string();
-		std::ofstream fout(assetRegistryPath);
-		fout << jsonData.dump(2);
+
+		try
+		{
+			std::string jsonString = jsonData.dump(2);
+			auto testParse = nlohmann::json::parse(jsonString);
+
+			std::ofstream fout(assetRegistryPath);
+			if (!fout.is_open())
+			{
+				ZN_CORE_ERROR("[AssetManager] Failed to open asset registry file for writing: {}", assetRegistryPath);
+				return;
+			}
+
+			fout << jsonString;
+			fout.close();
+
+			if (fout.fail())
+			{
+				ZN_CORE_ERROR("[AssetManager] Failed to write asset registry file: {}", assetRegistryPath);
+				return;
+			}
+
+			ZN_CORE_INFO("[AssetManager] Asset registry saved successfully with {} entries", jsonData["Assets"].size());
+		}
+		catch (const std::exception& e)
+		{
+			ZN_CORE_ERROR("[AssetManager] Failed to write asset registry: {}", e.what());
+
+			try
+			{
+				nlohmann::json fallbackData;
+				fallbackData["Assets"] = nlohmann::json::array();
+
+				std::ofstream fallbackOut(assetRegistryPath);
+				if (fallbackOut.is_open())
+				{
+					fallbackOut << fallbackData.dump(2);
+					ZN_CORE_WARN("[AssetManager] Created empty asset registry as fallback");
+				}
+			}
+			catch (...)
+			{
+				ZN_CORE_ERROR("[AssetManager] Failed to create fallback asset registry");
+			}
+		}
 	}
 
 	void EditorAssetManager::OnAssetRenamed(AssetHandle assetHandle, const std::filesystem::path& newFilePath)
