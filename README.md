@@ -1,6 +1,10 @@
 # Zenith
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-v0.1.0-green.svg)]() [![CodeFactor](https://www.codefactor.io/repository/github/studioaeon/zenith/badge)](https://www.codefactor.io/repository/github/studioaeon/zenith)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-lightgrey.svg)]()
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=StudioAeon_Zenith&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=StudioAeon_Zenith)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=StudioAeon_Zenith&metric=bugs)](https://sonarcloud.io/summary/new_code?id=StudioAeon_Zenith)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=StudioAeon_Zenith&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=StudioAeon_Zenith)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=StudioAeon_Zenith&metric=coverage)](https://sonarcloud.io/summary/new_code?id=StudioAeon_Zenith)
 
 A modular, lightweight C++ game engine targeting 3D and (eventually) lightweight 2D games.
 

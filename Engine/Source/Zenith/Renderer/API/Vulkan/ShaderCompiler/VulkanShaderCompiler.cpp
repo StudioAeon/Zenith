@@ -13,6 +13,7 @@
 #include "Zenith/Utilities/FileSystem.hpp"
 
 #include <dxc/dxcapi.h>
+#include <spirv_reflect.h>
 
 #include <cstdlib>
 #include <format>
@@ -43,9 +44,6 @@ namespace Zenith {
 			if (!std::filesystem::exists(cacheDirectory))
 				std::filesystem::create_directories(cacheDirectory);
 		}
-
-		// TODO: Implement DXC type conversion when reflection is implemented
-		// This function will be needed when we implement proper DXC reflection
 	}
 
 	VulkanShaderCompiler::VulkanShaderCompiler(const std::filesystem::path& shaderSourcePath, bool disableOptimization)
@@ -544,19 +542,63 @@ namespace Zenith {
 
 	void VulkanShaderCompiler::Reflect(VkShaderStageFlagBits shaderStage, const std::vector<uint32_t>& shaderData)
 	{
+		VkDevice device = VulkanContext::GetCurrentDevice()->GetVulkanDevice();
+
 		ZN_CORE_TRACE_TAG("Renderer", "===========================");
-		ZN_CORE_TRACE_TAG("Renderer", " DXC Shader Reflection");
+		ZN_CORE_TRACE_TAG("Renderer", " SPIRV-Reflect Shader Reflection");
 		ZN_CORE_TRACE_TAG("Renderer", "===========================");
 
-		// TODO: Implement DXC-based reflection instead of spirv-cross
-		// For now, we'll use a basic implementation that matches the structure
-		// This would need to be implemented using DXC's reflection APIs
+		// Create reflection module
+		SpvReflectShaderModule module;
+		SpvReflectResult result = spvReflectCreateShaderModule(
+			shaderData.size() * sizeof(uint32_t),
+			shaderData.data(),
+			&module
+		);
 
-		ZN_CORE_WARN_TAG("Renderer", "DXC reflection not yet implemented - using placeholder");
+		if (result != SPV_REFLECT_RESULT_SUCCESS)
+		{
+			ZN_CORE_ERROR_TAG("Renderer", "Failed to create reflection module for stage: {}",
+							   ShaderUtils::ShaderStageToString(shaderStage));
+			return;
+		}
 
-		// Placeholder implementation - you'll need to implement proper DXC reflection here
-		// The reflection should use DXC's IDxcContainerReflection and related interfaces
-		// to extract uniform buffers, storage buffers, push constants, and other resources
+		// Reflect Descriptor Bindings
+		uint32_t descriptorBindingCount = 0;
+		result = spvReflectEnumerateDescriptorBindings(&module, &descriptorBindingCount, nullptr);
+		if (result == SPV_REFLECT_RESULT_SUCCESS && descriptorBindingCount > 0)
+		{
+			std::vector<SpvReflectDescriptorBinding*> descriptorBindings(descriptorBindingCount);
+			result = spvReflectEnumerateDescriptorBindings(&module, &descriptorBindingCount, descriptorBindings.data());
+
+			if (result == SPV_REFLECT_RESULT_SUCCESS)
+			{
+				for (const auto* binding : descriptorBindings)
+				{
+					ProcessDescriptorBinding(binding, shaderStage);
+				}
+			}
+		}
+
+		// Reflect Push Constants
+		uint32_t pushConstantCount = 0;
+		result = spvReflectEnumeratePushConstantBlocks(&module, &pushConstantCount, nullptr);
+		if (result == SPV_REFLECT_RESULT_SUCCESS && pushConstantCount > 0)
+		{
+			std::vector<SpvReflectBlockVariable*> pushConstants(pushConstantCount);
+			result = spvReflectEnumeratePushConstantBlocks(&module, &pushConstantCount, pushConstants.data());
+
+			if (result == SPV_REFLECT_RESULT_SUCCESS)
+			{
+				for (const auto* pushConstant : pushConstants)
+				{
+					ProcessPushConstant(pushConstant, shaderStage);
+				}
+			}
+		}
+
+		// Clean up
+		spvReflectDestroyShaderModule(&module);
 
 		ZN_CORE_TRACE_TAG("Renderer", "Special macros:");
 		for (const auto& macro : m_AcknowledgedMacros)
@@ -565,6 +607,259 @@ namespace Zenith {
 		}
 
 		ZN_CORE_TRACE_TAG("Renderer", "===========================");
+	}
+
+	void VulkanShaderCompiler::ProcessDescriptorBinding(const SpvReflectDescriptorBinding* binding, VkShaderStageFlagBits shaderStage)
+	{
+		const char* name = binding->name ? binding->name : "unnamed";
+		uint32_t set = binding->set;
+		uint32_t bindingPoint = binding->binding;
+
+		switch (binding->descriptor_type)
+		{
+			case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+			{
+				ZN_CORE_TRACE_TAG("Renderer", "Uniform Buffer: {} (set={}, binding={})", name, set, bindingPoint);
+
+				uint32_t size = binding->block.size;
+
+				if (set >= m_ReflectionData.ShaderDescriptorSets.size())
+					m_ReflectionData.ShaderDescriptorSets.resize(set + 1);
+
+				ShaderResource::ShaderDescriptorSet& shaderDescriptorSet = m_ReflectionData.ShaderDescriptorSets[set];
+
+				if (s_UniformBuffers[set].find(bindingPoint) == s_UniformBuffers[set].end())
+				{
+					ShaderResource::UniformBuffer uniformBuffer;
+					uniformBuffer.BindingPoint = bindingPoint;
+					uniformBuffer.Size = size;
+					uniformBuffer.Name = name;
+					uniformBuffer.ShaderStage = VK_SHADER_STAGE_ALL;
+					s_UniformBuffers[set][bindingPoint] = uniformBuffer;
+				}
+				else
+				{
+					ShaderResource::UniformBuffer& uniformBuffer = s_UniformBuffers[set][bindingPoint];
+					if (size > uniformBuffer.Size)
+						uniformBuffer.Size = size;
+				}
+				shaderDescriptorSet.UniformBuffers[bindingPoint] = s_UniformBuffers[set][bindingPoint];
+
+				ZN_CORE_TRACE_TAG("Renderer", "  Size: {0}", size);
+				ZN_CORE_TRACE_TAG("Renderer", "-------------------");
+				break;
+			}
+
+			case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+			{
+				ZN_CORE_TRACE_TAG("Renderer", "Storage Buffer: {} (set={}, binding={})", name, set, bindingPoint);
+
+				uint32_t size = binding->block.size;
+
+				if (set >= m_ReflectionData.ShaderDescriptorSets.size())
+					m_ReflectionData.ShaderDescriptorSets.resize(set + 1);
+
+				ShaderResource::ShaderDescriptorSet& shaderDescriptorSet = m_ReflectionData.ShaderDescriptorSets[set];
+
+				if (s_StorageBuffers[set].find(bindingPoint) == s_StorageBuffers[set].end())
+				{
+					ShaderResource::StorageBuffer storageBuffer;
+					storageBuffer.BindingPoint = bindingPoint;
+					storageBuffer.Size = size;
+					storageBuffer.Name = name;
+					storageBuffer.ShaderStage = VK_SHADER_STAGE_ALL;
+					s_StorageBuffers[set][bindingPoint] = storageBuffer;
+				}
+				else
+				{
+					ShaderResource::StorageBuffer& storageBuffer = s_StorageBuffers[set][bindingPoint];
+					if (size > storageBuffer.Size)
+						storageBuffer.Size = size;
+				}
+				shaderDescriptorSet.StorageBuffers[bindingPoint] = s_StorageBuffers[set][bindingPoint];
+
+				ZN_CORE_TRACE_TAG("Renderer", "  Size: {0}", size);
+				ZN_CORE_TRACE_TAG("Renderer", "-------------------");
+				break;
+			}
+
+			case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+			{
+				ZN_CORE_TRACE_TAG("Renderer", "Sampled Image: {} (set={}, binding={})", name, set, bindingPoint);
+
+				uint32_t arraySize = binding->count > 0 ? binding->count : 1;
+
+				if (set >= m_ReflectionData.ShaderDescriptorSets.size())
+					m_ReflectionData.ShaderDescriptorSets.resize(set + 1);
+
+				ShaderResource::ShaderDescriptorSet& shaderDescriptorSet = m_ReflectionData.ShaderDescriptorSets[set];
+				auto& imageSampler = shaderDescriptorSet.ImageSamplers[bindingPoint];
+				imageSampler.BindingPoint = bindingPoint;
+				imageSampler.DescriptorSet = set;
+				imageSampler.Name = name;
+				imageSampler.ShaderStage = shaderStage;
+				imageSampler.Dimension = binding->image.dim;
+				imageSampler.ArraySize = arraySize;
+
+				m_ReflectionData.Resources[name] = ShaderResourceDeclaration(name, set, bindingPoint, arraySize);
+				break;
+			}
+
+			case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+			{
+				ZN_CORE_TRACE_TAG("Renderer", "Separate Image: {} (set={}, binding={})", name, set, bindingPoint);
+
+				uint32_t arraySize = binding->count > 0 ? binding->count : 1;
+
+				if (set >= m_ReflectionData.ShaderDescriptorSets.size())
+					m_ReflectionData.ShaderDescriptorSets.resize(set + 1);
+
+				ShaderResource::ShaderDescriptorSet& shaderDescriptorSet = m_ReflectionData.ShaderDescriptorSets[set];
+				auto& imageSampler = shaderDescriptorSet.SeparateTextures[bindingPoint];
+				imageSampler.BindingPoint = bindingPoint;
+				imageSampler.DescriptorSet = set;
+				imageSampler.Name = name;
+				imageSampler.ShaderStage = shaderStage;
+				imageSampler.Dimension = binding->image.dim;
+				imageSampler.ArraySize = arraySize;
+
+				m_ReflectionData.Resources[name] = ShaderResourceDeclaration(name, set, bindingPoint, arraySize);
+				break;
+			}
+
+			case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
+			{
+				ZN_CORE_TRACE_TAG("Renderer", "Separate Sampler: {} (set={}, binding={})", name, set, bindingPoint);
+
+				uint32_t arraySize = binding->count > 0 ? binding->count : 1;
+
+				if (set >= m_ReflectionData.ShaderDescriptorSets.size())
+					m_ReflectionData.ShaderDescriptorSets.resize(set + 1);
+
+				ShaderResource::ShaderDescriptorSet& shaderDescriptorSet = m_ReflectionData.ShaderDescriptorSets[set];
+				auto& imageSampler = shaderDescriptorSet.SeparateSamplers[bindingPoint];
+				imageSampler.BindingPoint = bindingPoint;
+				imageSampler.DescriptorSet = set;
+				imageSampler.Name = name;
+				imageSampler.ShaderStage = shaderStage;
+				imageSampler.Dimension = binding->image.dim;
+				imageSampler.ArraySize = arraySize;
+
+				m_ReflectionData.Resources[name] = ShaderResourceDeclaration(name, set, bindingPoint, arraySize);
+				break;
+			}
+
+			case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+			{
+				ZN_CORE_TRACE_TAG("Renderer", "Storage Image: {} (set={}, binding={})", name, set, bindingPoint);
+
+				uint32_t arraySize = binding->count > 0 ? binding->count : 1;
+
+				if (set >= m_ReflectionData.ShaderDescriptorSets.size())
+					m_ReflectionData.ShaderDescriptorSets.resize(set + 1);
+
+				ShaderResource::ShaderDescriptorSet& shaderDescriptorSet = m_ReflectionData.ShaderDescriptorSets[set];
+				auto& imageSampler = shaderDescriptorSet.StorageImages[bindingPoint];
+				imageSampler.BindingPoint = bindingPoint;
+				imageSampler.DescriptorSet = set;
+				imageSampler.Name = name;
+				imageSampler.Dimension = binding->image.dim;
+				imageSampler.ArraySize = arraySize;
+				imageSampler.ShaderStage = shaderStage;
+
+				m_ReflectionData.Resources[name] = ShaderResourceDeclaration(name, set, bindingPoint, arraySize);
+				break;
+			}
+
+			default:
+				ZN_CORE_TRACE_TAG("Renderer", "Other Descriptor: {} (type={}, set={}, binding={})",
+								   name, static_cast<int>(binding->descriptor_type), set, bindingPoint);
+				break;
+		}
+	}
+
+	void VulkanShaderCompiler::ProcessPushConstant(const SpvReflectBlockVariable* pushConstant, VkShaderStageFlagBits shaderStage)
+	{
+		const char* bufferName = pushConstant->name ? pushConstant->name : "";
+		uint32_t bufferSize = pushConstant->size;
+		uint32_t memberCount = pushConstant->member_count;
+		uint32_t bufferOffset = 0;
+
+		if (m_ReflectionData.PushConstantRanges.size())
+			bufferOffset = m_ReflectionData.PushConstantRanges.back().Offset + m_ReflectionData.PushConstantRanges.back().Size;
+
+		auto& pushConstantRange = m_ReflectionData.PushConstantRanges.emplace_back();
+		pushConstantRange.ShaderStage = shaderStage;
+		pushConstantRange.Size = bufferSize - bufferOffset;
+		pushConstantRange.Offset = bufferOffset;
+
+		ZN_CORE_TRACE_TAG("Renderer", "Push Constant Buffer:");
+		ZN_CORE_TRACE_TAG("Renderer", "  Name: {0}", bufferName);
+		ZN_CORE_TRACE_TAG("Renderer", "  Member Count: {0}", memberCount);
+		ZN_CORE_TRACE_TAG("Renderer", "  Size: {0}", bufferSize);
+
+		// Skip empty push constant buffers - these are for the renderer only
+		if (strlen(bufferName) == 0 || strcmp(bufferName, "u_Renderer") == 0)
+			return;
+
+		ShaderBuffer& buffer = m_ReflectionData.ConstantBuffers[bufferName];
+		buffer.Name = bufferName;
+		buffer.Size = bufferSize - bufferOffset;
+
+		// Process push constant members
+		for (uint32_t i = 0; i < memberCount; i++)
+		{
+			const SpvReflectBlockVariable& member = pushConstant->members[i];
+			const char* memberName = member.name ? member.name : "unnamed";
+			uint32_t size = member.size;
+			uint32_t offset = member.offset - bufferOffset;
+
+			ShaderUniformType uniformType = SPIRVTypeToShaderUniformType(member.type_description);
+
+			std::string uniformName = std::format("{}.{}", bufferName, memberName);
+			buffer.Uniforms[uniformName] = ShaderUniform(uniformName, uniformType, size, offset);
+		}
+	}
+
+	ShaderUniformType VulkanShaderCompiler::SPIRVTypeToShaderUniformType(const SpvReflectTypeDescription* typeDesc)
+	{
+		if (!typeDesc) return ShaderUniformType::None;
+
+		switch (typeDesc->type_flags)
+		{
+			case SPV_REFLECT_TYPE_FLAG_BOOL:
+				return ShaderUniformType::Bool;
+
+			case SPV_REFLECT_TYPE_FLAG_INT:
+				if (typeDesc->traits.numeric.vector.component_count == 1) return ShaderUniformType::Int;
+				if (typeDesc->traits.numeric.vector.component_count == 2) return ShaderUniformType::IVec2;
+				if (typeDesc->traits.numeric.vector.component_count == 3) return ShaderUniformType::IVec3;
+				if (typeDesc->traits.numeric.vector.component_count == 4) return ShaderUniformType::IVec4;
+				break;
+
+			case SPV_REFLECT_TYPE_FLAG_FLOAT:
+				if (typeDesc->traits.numeric.matrix.column_count > 1)
+				{
+					// Matrix types
+					if (typeDesc->traits.numeric.matrix.column_count == 3 &&
+						typeDesc->traits.numeric.matrix.row_count == 3)
+						return ShaderUniformType::Mat3;
+					if (typeDesc->traits.numeric.matrix.column_count == 4 &&
+						typeDesc->traits.numeric.matrix.row_count == 4)
+						return ShaderUniformType::Mat4;
+				}
+				else
+				{
+					// Vector types
+					if (typeDesc->traits.numeric.vector.component_count == 1) return ShaderUniformType::Float;
+					if (typeDesc->traits.numeric.vector.component_count == 2) return ShaderUniformType::Vec2;
+					if (typeDesc->traits.numeric.vector.component_count == 3) return ShaderUniformType::Vec3;
+					if (typeDesc->traits.numeric.vector.component_count == 4) return ShaderUniformType::Vec4;
+				}
+				break;
+		}
+
+		return ShaderUniformType::None;
 	}
 
 }

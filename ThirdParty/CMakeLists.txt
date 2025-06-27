@@ -66,14 +66,32 @@ FetchContent_MakeAvailable(dxc_bin)
 add_library(dxcompiler INTERFACE)
 
 if(WIN32)
-	set(DXC_BINARY_DIR "${dxc_bin_SOURCE_DIR}/bin/x64" CACHE INTERNAL "")
+	set(DXC_BINARY_DIR "${dxc_bin_SOURCE_DIR}/bin/x64")
 	target_link_libraries(dxcompiler INTERFACE "${dxc_bin_SOURCE_DIR}/lib/x64/dxcompiler.lib")
 else()
-	set(DXC_BINARY_DIR "${dxc_bin_SOURCE_DIR}/lib" CACHE INTERNAL "")
+	set(DXC_BINARY_DIR "${dxc_bin_SOURCE_DIR}/lib")
 	target_link_libraries(dxcompiler INTERFACE "${dxc_bin_SOURCE_DIR}/lib/libdxcompiler.so")
 endif()
 
 target_include_directories(dxcompiler INTERFACE "${dxc_bin_SOURCE_DIR}/inc")
+
+# ==== SPIRV-Reflect (Lightweight reflection for SPIR-V) ====
+FetchContent_Declare(
+		spirv_reflect
+		GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Reflect.git
+		GIT_TAG        vulkan-sdk-1.3.283.0
+)
+
+FetchContent_MakeAvailable(spirv_reflect)
+
+add_library(zenith-reflect STATIC ${spirv_reflect_SOURCE_DIR}/spirv_reflect.c)
+
+target_include_directories(zenith-reflect PUBLIC ${spirv_reflect_SOURCE_DIR})
+target_compile_definitions(zenith-reflect PUBLIC SPV_REFLECT_USE_SYSTEM_SPIRV_H)
+
+set_target_properties(zenith-reflect PROPERTIES SKIP_PRECOMPILE_HEADERS ON LINKER_LANGUAGE C)
+
+target_link_libraries(zenith-reflect PUBLIC Vulkan::Headers)
 
 # ==== Backward-cpp (Stack traces) ====
 set(BACKWARD_ENABLE TRUE)

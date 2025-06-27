@@ -82,6 +82,7 @@ target_link_libraries(Zenith
 		sol2::sol2
 
 		dxcompiler
+		zenith-reflect
 )
 
 zenith_enable_lto(Zenith)

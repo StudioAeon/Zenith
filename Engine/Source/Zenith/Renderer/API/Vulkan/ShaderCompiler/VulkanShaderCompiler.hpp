@@ -16,6 +16,10 @@
 struct IDxcCompiler3;
 struct IDxcUtils;
 
+struct SpvReflectDescriptorBinding;
+struct SpvReflectBlockVariable;
+struct SpvReflectTypeDescription;
+
 namespace Zenith {
 
 	struct DxcInstances
@@ -71,6 +75,10 @@ namespace Zenith {
 
 		void ReflectAllShaderStages(const std::map<VkShaderStageFlagBits, std::vector<uint32_t>>& shaderData);
 		void Reflect(VkShaderStageFlagBits shaderStage, const std::vector<uint32_t>& shaderData);
+
+		void ProcessDescriptorBinding(const SpvReflectDescriptorBinding* binding, VkShaderStageFlagBits shaderStage);
+		void ProcessPushConstant(const SpvReflectBlockVariable* pushConstant, VkShaderStageFlagBits shaderStage);
+		ShaderUniformType SPIRVTypeToShaderUniformType(const SpvReflectTypeDescription* typeDesc);
 
 	private:
 		std::filesystem::path m_ShaderSourcePath;
