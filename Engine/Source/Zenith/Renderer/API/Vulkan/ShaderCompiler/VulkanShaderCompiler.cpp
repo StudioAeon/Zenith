@@ -286,7 +286,7 @@ namespace Zenith {
 
 		exec.push_back(NULL);
 
-		// TODO(Emily): Error handling
+		// TODO: Error handling
 		pid_t pid;
 		posix_spawnattr_t attr;
 		posix_spawnattr_init(&attr);

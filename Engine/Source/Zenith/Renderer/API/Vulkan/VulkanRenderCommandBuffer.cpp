@@ -96,6 +96,18 @@ namespace Zenith {
 	VulkanRenderCommandBuffer::VulkanRenderCommandBuffer(std::string debugName, bool swapchain)
 		: m_DebugName(std::move(debugName)), m_OwnedBySwapChain(true)
 	{
+		m_Application = Renderer::GetApplication();
+		if (!m_Application) {
+			ZN_CORE_ERROR("VulkanRenderer::Init - Application is null!");
+			return;
+		}
+
+		auto context = VulkanContext::Get();
+		if (!context) {
+			ZN_CORE_ERROR("VulkanRenderer::Init - VulkanContext is null!");
+			return;
+		}
+
 		auto device = VulkanContext::GetCurrentDevice();
 		uint32_t framesInFlight = Renderer::GetConfig().FramesInFlight;
 

@@ -594,7 +594,7 @@ namespace Zenith {
 						{
 							Ref<VulkanTexture2D> vulkanTexture = input.Input[i].As<VulkanTexture2D>();
 							if (vulkanTexture == nullptr)
-								vulkanTexture = Renderer::GetWhiteTexture().As<VulkanTexture2D>(); // TODO(Yan): error texture
+								vulkanTexture = Renderer::GetWhiteTexture().As<VulkanTexture2D>(); // TODO: error texture
 
 							const VkDescriptorImageInfo& imageInfo = vulkanTexture->GetDescriptorInfoVulkan();
 							if (imageInfo.imageView != WriteDescriptorMap[currentFrameIndex].at(set).at(binding).ResourceHandles[i])
@@ -647,7 +647,7 @@ namespace Zenith {
 			descriptorSetCount = 1;
 
 
-		// TODO(Yan): handle these if they fail (although Vulkan will probably give us a validation error if they do anyway)
+		// TODO: handle these if they fail (although Vulkan will probably give us a validation error if they do anyway)
 		for (const auto& [set, setData] : InvalidatedInputResources)
 		{
 			uint32_t descriptorCountInSet = bufferSets.find(set) != bufferSets.end() ? descriptorSetCount : 1;

@@ -155,7 +155,7 @@ namespace Zenith {
 			m_ImageData = TextureImporter::ToBufferFromMemory(Buffer(data.Data, m_Specification.Width), m_Specification.Format, m_Specification.Width, m_Specification.Height);
 			if (!m_ImageData)
 			{
-				// TODO(Yan): move this to asset manager
+				// TODO: move this to asset manager
 				m_ImageData = TextureImporter::ToBufferFromFile("Resources/Textures/ErrorTexture.png", m_Specification.Format, m_Specification.Width, m_Specification.Height);
 			}
 
@@ -318,7 +318,7 @@ namespace Zenith {
 		//if (m_ImageData && m_Specification.GenerateMips && mipCount > 1)
 		//	GenerateMips();
 
-		// TODO(Yan): option for local storage
+		// TODO: option for local storage
 		m_ImageData.Release();
 		m_ImageData = Buffer();
 	}

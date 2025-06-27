@@ -92,5 +92,7 @@ Zenith::Application* Zenith::CreateApplication(int argc, char** argv)
 	specification.StartMaximized = true;
 	specification.VSync = true;
 
+	specification.CoreThreadingPolicy = ThreadingPolicy::SingleThreaded;
+
 	return new ZenithEditorApplication(specification, projectPath);
 }

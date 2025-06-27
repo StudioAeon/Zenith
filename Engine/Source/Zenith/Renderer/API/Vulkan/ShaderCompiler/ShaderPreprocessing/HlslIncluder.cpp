@@ -42,7 +42,7 @@ namespace Zenith
 			source.clear();
 		}
 
-		//TODO(Karim): Get real values for IncludeDepth and IsRelative?
+		//TODO: Get real values for IncludeDepth and IsRelative?
 		m_includeData.emplace(IncludeData{ filePath, 0, false, isGuarded, sourceHash, stages });
 
 		IDxcBlobEncoding* pEncoding;

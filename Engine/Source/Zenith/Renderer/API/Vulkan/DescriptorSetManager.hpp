@@ -11,7 +11,7 @@
 
 namespace Zenith {
 
-	// TODO(Yan):
+	// TODO:
 	// - Move these enums/structs to a non-API specific place
 	// - Maybe rename from RenderPassXXX to DescriptorXXX or something more
 	//   generic, because these are also used for compute & materials

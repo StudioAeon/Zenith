@@ -30,7 +30,7 @@ namespace Zenith {
 
 	EditorAssetManager::~EditorAssetManager()
 	{
-		// TODO(Yan): shutdown explicitly?
+		// TODO: shutdown explicitly?
 		Shutdown();
 	}
 

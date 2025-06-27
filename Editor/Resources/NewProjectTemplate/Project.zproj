@@ -1,0 +1,8 @@
+{
+	"Project": {
+		"Name": "$PROJECT_NAME$",
+		"AssetDirectory": "Assets",
+		"AssetRegistry": "Assets/AssetRegistry.znr",
+		"StartScene": "Scenes\\Main.zscene"
+	}
+}

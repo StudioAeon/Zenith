@@ -5,7 +5,7 @@
 
 #include "Zenith/Renderer/RendererAPI.hpp"
 
-// TODO(Robert): WIP
+// TODO: WIP
 
 namespace Zenith {
 
