@@ -85,7 +85,7 @@ namespace Zenith {
 		if (!m_Specification.IconPath.empty())
 			windowSpec.IconPath = m_Specification.IconPath;
 
-		m_Window = Window::Create(windowSpec);
+		m_Window = Window::Create(windowSpec, this);
 		m_Window->SetEventCallback([this](Event& e) { OnEvent(e); });
 
 		m_ApplicationContext = std::make_shared<ApplicationContext>(*this);
@@ -195,18 +195,11 @@ namespace Zenith {
 			return false;
 		}
 
-		if (m_Specification.CoreThreadingPolicy == ThreadingPolicy::SingleThreaded)
+		auto& window = m_Window;
+		Renderer::Submit([&window, width, height]() mutable
 		{
-			m_Window->GetSwapChain().OnResize(width, height);
-		}
-		else
-		{
-			auto& window = m_Window;
-			Renderer::Submit([&window, width, height]() mutable
-			{
-				window->GetSwapChain().OnResize(width, height);
-			});
-		}
+			window->GetSwapChain().OnResize(width, height);
+		});
 
 		return false;
 	}

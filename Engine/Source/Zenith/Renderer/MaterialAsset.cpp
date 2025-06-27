@@ -25,9 +25,9 @@ namespace Zenith {
 		Handle = {};
 		
 		if (transparent)
-			m_Material = Material::Create(Renderer::GetShaderLibrary()->Get("ZenithPBR_Transparent"));
+			m_Material = Material::Create(Renderer::GetShaderLibrary()->Get("PBR_TransparentMesh"));
 		else
-			m_Material = Material::Create(Renderer::GetShaderLibrary()->Get("ZenithPBR_Static"));
+			m_Material = Material::Create(Renderer::GetShaderLibrary()->Get("PBR_StaticMesh"));
 
 		SetDefaults();
 	}

@@ -10,6 +10,7 @@
 #include <SDL3/SDL.h>
 
 namespace Zenith {
+	class Application;
 
 	struct WindowSpecification
 	{
@@ -30,7 +31,7 @@ namespace Zenith {
 	public:
 		using EventCallbackFn = std::function<void(Event&)>;
 
-		Window(const WindowSpecification& specification);
+		Window(const WindowSpecification& specification, Application* application = nullptr);
 		~Window();
 
 		virtual void Init();
@@ -62,12 +63,14 @@ namespace Zenith {
 		virtual Ref<RendererContext> GetRenderContext() { return m_RendererContext; }
 		virtual VulkanSwapChain& GetSwapChain();
 	public:
-		static std::unique_ptr<Window> Create(const WindowSpecification& specification = WindowSpecification());
+		static std::unique_ptr<Window> Create(const WindowSpecification& specification = WindowSpecification(), Application* application = nullptr);
 
 	private:
 		virtual void Shutdown();
 		virtual void PollEvents();
 	private:
+		Application* m_Application = nullptr;
+
 		SDL_Window* m_Window = nullptr;
 		SDL_Event m_Event{};
 

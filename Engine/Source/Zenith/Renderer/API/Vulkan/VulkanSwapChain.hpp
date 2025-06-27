@@ -19,7 +19,7 @@ namespace Zenith {
 	public:
 		VulkanSwapChain() = default;
 
-		void Init(VkInstance instance, const Ref<VulkanDevice>& device);
+		void Init(VkInstance instance, const Ref<VulkanDevice>& device, Application* application = nullptr);
 		void InitSurface(SDL_Window* windowHandle);
 		void Create(uint32_t* width, uint32_t* height, bool vsync);
 		void Destroy();

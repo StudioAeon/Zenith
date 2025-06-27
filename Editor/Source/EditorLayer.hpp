@@ -8,6 +8,9 @@
 
 #include "Zenith/Project/UserPreferences.hpp"
 
+#include "Zenith/Renderer/Mesh.hpp"
+#include "Zenith/Asset/AssetManager.hpp"
+
 #include <future>
 
 namespace Zenith {
@@ -38,6 +41,9 @@ namespace Zenith {
 		void SaveProject();
 		void CloseProject(bool unloadProject = true);
 	private:
+		void TestLoadMesh();
+		void RenderMeshTestUI();
+	private:
 		std::string m_ProjectNameBuffer;
 		std::string m_OpenProjectFilePathBuffer;
 		std::string m_NewProjectFilePathBuffer;
@@ -45,6 +51,13 @@ namespace Zenith {
 		Ref<UserPreferences> m_UserPreferences;
 
 		std::shared_ptr<ApplicationContext> m_ApplicationContext;
+
+		Ref<MeshSource> m_TestMeshSource;
+		std::string m_MeshTestLog;
+		bool m_MeshLoadSuccess = false;
+		uint32_t m_LoadedVertexCount = 0;
+		uint32_t m_LoadedIndexCount = 0;
+		uint32_t m_LoadedSubmeshCount = 0;
 
 	private:
 		void UpdateWindowTitle(const std::string& sceneName);

@@ -22,15 +22,15 @@ namespace Zenith {
 
 	static bool s_SDLInitialized = false;
 
-	std::unique_ptr<Window> Window::Create(const WindowSpecification& specification)
+	std::unique_ptr<Window> Window::Create(const WindowSpecification& specification, Application* application)
 	{
-		auto window = std::make_unique<Window>(specification);
+		auto window = std::make_unique<Window>(specification, application);
 		window->Init();
 		return window;
 	}
 	
-	Window::Window(const WindowSpecification& specification)
-		: m_Specification(specification)
+	Window::Window(const WindowSpecification& specification, Application* application)
+		: m_Specification(specification), m_Application(application)
 	{}
 
 	Window::~Window()
@@ -134,7 +134,7 @@ namespace Zenith {
 		Ref<VulkanContext> context = m_RendererContext.As<VulkanContext>();
 
 		m_SwapChain = znew VulkanSwapChain();
-		m_SwapChain->Init(VulkanContext::GetInstance(), context->GetDevice());
+		m_SwapChain->Init(VulkanContext::GetInstance(), context->GetDevice(), m_Application);
 		m_SwapChain->InitSurface(m_Window);
 
 		m_SwapChain->Create(&m_Data.Width, &m_Data.Height, m_Specification.VSync);

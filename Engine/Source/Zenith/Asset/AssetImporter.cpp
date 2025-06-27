@@ -1,6 +1,7 @@
 #include "znpch.hpp"
 #include "AssetImporter.hpp"
 #include "AssetManager.hpp"
+#include "MeshSerializer.hpp"
 
 #include "Zenith/Debug/Profiler.hpp"
 
@@ -9,8 +10,11 @@ namespace Zenith {
 	void AssetImporter::Init()
 	{
 		s_Serializers.clear();
-		s_Serializers[AssetType::Font] = CreateScope<FontSerializer>();
 		s_Serializers[AssetType::Texture] = CreateScope<TextureSerializer>();
+		s_Serializers[AssetType::StaticMesh] = CreateScope<StaticMeshSerializer>();
+		s_Serializers[AssetType::MeshSource] = CreateScope<MeshSourceSerializer>();
+		s_Serializers[AssetType::Material] = CreateScope<MaterialAssetSerializer>();
+		s_Serializers[AssetType::Font] = CreateScope<FontSerializer>();
 	}
 
 	void AssetImporter::Serialize(const AssetMetadata& metadata, const Ref<Asset>& asset)

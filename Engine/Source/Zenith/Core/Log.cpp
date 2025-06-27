@@ -15,8 +15,13 @@ namespace Zenith {
 
 	std::map<std::string, Log::TagDetails> Log::s_DefaultTagDetails = {
 		{ "Core",              TagDetails{  true, Level::Trace } },
-		{ "SDL",              TagDetails{  true, Level::Error } },
+		{ "AssetManager",      TagDetails{  true, Level::Info  } },
+		{ "AssetSystem",       TagDetails{  true, Level::Info  } },
+		{ "SDL",               TagDetails{  true, Level::Error } },
+		{ "Mesh",              TagDetails{  true, Level::Warn  } },
+		{ "Project",           TagDetails{  true, Level::Warn  } },
 		{ "Memory",            TagDetails{  true, Level::Error } },
+		{ "Scene",             TagDetails{  true, Level::Info  } },
 		{ "Renderer",          TagDetails{  true, Level::Info  } },
 		{ "Timer",             TagDetails{ false, Level::Trace } },
 	};

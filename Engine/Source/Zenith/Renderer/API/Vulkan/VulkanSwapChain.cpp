@@ -55,10 +55,11 @@ VKAPI_ATTR void VKAPI_CALL vkGetQueueCheckpointDataNV(
 
 namespace Zenith {
 
-	void VulkanSwapChain::Init(VkInstance instance, const Ref<VulkanDevice>& device)
+	void VulkanSwapChain::Init(VkInstance instance, const Ref<VulkanDevice>& device, Application* application)
 	{
 		m_Instance = instance;
 		m_Device = device;
+		m_Application = application;
 
 		VkDevice vulkanDevice = m_Device->GetVulkanDevice();
 		GET_DEVICE_PROC_ADDR(vulkanDevice, CreateSwapchainKHR);
@@ -584,21 +585,35 @@ namespace Zenith {
 		// Make sure the frame we're requesting has finished rendering (from previous iterations)
 		{
 			ZN_PROFILE_SCOPE("VulkanSwapChain::AcquireNextImage - WaitForFences");
-			// auto& performanceTimers = m_Application->GetPerformanceTimers();
-			Timer gpuWaitTimer;
-			VK_CHECK_RESULT(vkWaitForFences(m_Device->GetVulkanDevice(), 1, &m_WaitFences[m_CurrentFrameIndex], VK_TRUE, UINT64_MAX));
-			// performanceTimers.RenderThreadGPUWaitTime = gpuWaitTimer.ElapsedMillis();
+			if (m_Application) {
+				auto& performanceTimers = m_Application->GetPerformanceTimers();
+				Timer gpuWaitTimer;
+				VK_CHECK_RESULT(vkWaitForFences(m_Device->GetVulkanDevice(), 1, &m_WaitFences[m_CurrentFrameIndex], VK_TRUE, UINT64_MAX));
+				performanceTimers.RenderThreadGPUWaitTime = gpuWaitTimer.ElapsedMillis();
+			} else {
+				VK_CHECK_RESULT(vkWaitForFences(m_Device->GetVulkanDevice(), 1, &m_WaitFences[m_CurrentFrameIndex], VK_TRUE, UINT64_MAX));
+			}
 		}
 
 		uint32_t imageIndex;
 		VkResult result = fpAcquireNextImageKHR(m_Device->GetVulkanDevice(), m_SwapChain, UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrameIndex], (VkFence)nullptr, &imageIndex);
-		if (result != VK_SUCCESS)
+
+		if (result == VK_ERROR_OUT_OF_DATE_KHR)
 		{
-			if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
-			{
-				OnResize(m_Width, m_Height);
-				VK_CHECK_RESULT(fpAcquireNextImageKHR(m_Device->GetVulkanDevice(), m_SwapChain, UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrameIndex], (VkFence)nullptr, &imageIndex));
-			}
+			// Swapchain is out of date and cannot be used - must resize immediately
+			OnResize(m_Width, m_Height);
+			result = fpAcquireNextImageKHR(m_Device->GetVulkanDevice(), m_SwapChain, UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrameIndex], (VkFence)nullptr, &imageIndex);
+			VK_CHECK_RESULT(result);
+		}
+		else if (result == VK_SUBOPTIMAL_KHR)
+		{
+			ZN_CORE_WARN_TAG("Renderer", "Swapchain is suboptimal, continuing with current frame");
+			// Note: We don't resize here to avoid the semaphore conflict
+			// The Present() function will handle resize if needed
+		}
+		else
+		{
+			VK_CHECK_RESULT(result);
 		}
 
 		return imageIndex;

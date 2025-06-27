@@ -145,9 +145,15 @@ set(FASTGLTF_ENABLE_DOCS OFF)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/Assets/fastgltf SYSTEM)
 
 # ==== ufbx (Single-file FBX loader) ====
-add_library(ufbx INTERFACE)
-target_include_directories(ufbx INTERFACE ${CMAKE_CURRENT_LIST_DIR}/Assets/ufbx)
+add_library(ufbx STATIC ${CMAKE_CURRENT_LIST_DIR}/Assets/ufbx/ufbx.c)
 
+target_include_directories(ufbx PUBLIC ${CMAKE_CURRENT_LIST_DIR}/Assets/ufbx)
+
+target_compile_definitions(ufbx PRIVATE $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>)
+
+set_target_properties(ufbx PROPERTIES LINKER_LANGUAGE C)
+
+# ==== Lua ====
 file(GLOB LUA_SOURCES
 		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lapi.c
 		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lcode.c
