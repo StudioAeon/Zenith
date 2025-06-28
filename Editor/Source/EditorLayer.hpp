@@ -13,6 +13,9 @@
 
 #include <future>
 
+#include "Zenith/Renderer/MeshRenderer.hpp"
+#include <memory>
+
 namespace Zenith {
 
 	class EditorLayer : public Layer
@@ -58,6 +61,12 @@ namespace Zenith {
 		uint32_t m_LoadedVertexCount = 0;
 		uint32_t m_LoadedIndexCount = 0;
 		uint32_t m_LoadedSubmeshCount = 0;
+		std::unique_ptr<MeshRenderer> m_MeshRenderer;
+		glm::mat4 m_MeshTransform = glm::mat4(1.0f);
+		float m_MeshRotation = 0.0f;
+		bool m_EnableMeshRendering = false;
+
+		ImVec2 m_LastViewportSize = {0, 0};
 
 	private:
 		void UpdateWindowTitle(const std::string& sceneName);

@@ -8,14 +8,17 @@
 #include "Zenith/Utilities/FileSystem.hpp"
 #include "Zenith/Utilities/StringUtils.hpp"
 
-#include "Zenith/Asset/MeshImporter.hpp"
-
 #include <imgui/imgui_internal.h>
 
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <future>
+
+#include "Zenith/Renderer/MeshRenderer.hpp"
+#include <glm/gtc/matrix_transform.hpp>
+
+#include "Zenith/Asset/MeshImporter.hpp"
 
 namespace Zenith {
 
@@ -46,6 +49,9 @@ namespace Zenith {
 
 		if (!Project::GetActive())
 			EmptyProject();
+
+		m_MeshRenderer = std::make_unique<MeshRenderer>();
+		m_MeshRenderer->Initialize();
 	}
 
 	void EditorLayer::SetApplicationContext(std::shared_ptr<ApplicationContext> context)
@@ -57,6 +63,12 @@ namespace Zenith {
 	{
 		CloseProject(true);
 		Project::SetActive(nullptr);
+
+		if (m_MeshRenderer)
+		{
+			m_MeshRenderer->Shutdown();
+			m_MeshRenderer.reset();
+		}
 	}
 
 	void EditorLayer::UpdateWindowTitle(const std::string& sceneName)
@@ -273,20 +285,95 @@ namespace Zenith {
 		}
 	}
 
+	void EditorLayer::OnUpdate(Timestep ts)
+	{
+		ZN_PROFILE_FUNC();
+
+		AssetManager::SyncWithAssetThread();
+
+		if (m_EnableMeshRendering && m_TestMeshSource && m_MeshRenderer)
+		{
+			// Update mesh rotation
+			m_MeshRotation += ts * 45.0f;
+			m_MeshTransform = glm::rotate(glm::mat4(1.0f), glm::radians(m_MeshRotation), glm::vec3(0.0f, 1.0f, 0.0f));
+
+			// Set up camera matrices
+			float aspectRatio = m_ApplicationContext->GetWindow().GetWidth() / (float)m_ApplicationContext->GetWindow().GetHeight();
+
+			// Use viewport size if available
+			if (m_LastViewportSize.x > 0 && m_LastViewportSize.y > 0)
+			{
+				aspectRatio = m_LastViewportSize.x / m_LastViewportSize.y;
+			}
+
+			glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
+			glm::mat4 view = glm::lookAt(
+				glm::vec3(0.0f, 2.0f, 5.0f),  // Eye position
+				glm::vec3(0.0f, 0.0f, 0.0f),  // Look at center
+				glm::vec3(0.0f, 1.0f, 0.0f)   // Up vector
+			);
+			glm::mat4 viewProjection = projection * view;
+
+			// Render the mesh to our offscreen framebuffer
+			m_MeshRenderer->BeginScene(viewProjection);
+			m_MeshRenderer->DrawMesh(m_TestMeshSource, m_MeshTransform);
+			m_MeshRenderer->EndScene();
+		}
+	}
+
 	void EditorLayer::RenderMeshTestUI()
 	{
-		if (ImGui::Begin("Mesh Loading Test"))
+		if (ImGui::Begin("Mesh Renderer Test"))
 		{
-			ImGui::SeparatorText("Mesh Loading Test");
+			ImGui::SeparatorText("Mesh Loading");
 			if (ImGui::Button("Load Cube.glb", ImVec2(-1, 30)))
 			{
 				TestLoadMesh();
 			}
+
 			ImGui::Separator();
 
 			if (m_MeshLoadSuccess)
 			{
 				ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Mesh Loaded Successfully");
+				ImGui::Text("Vertices: %u", m_LoadedVertexCount);
+				ImGui::Text("Indices: %u", m_LoadedIndexCount);
+				ImGui::Text("Submeshes: %u", m_LoadedSubmeshCount);
+
+				ImGui::Separator();
+				ImGui::SeparatorText("Rendering");
+
+				ImGui::Checkbox("Enable Mesh Rendering", &m_EnableMeshRendering);
+
+				if (m_EnableMeshRendering)
+				{
+					ImGui::DragFloat("Rotation Speed", &m_MeshRotation, 1.0f, -360.0f, 360.0f);
+
+					static glm::vec3 translation(0.0f);
+					static glm::vec3 scale(1.0f);
+
+					if (ImGui::DragFloat3("Position", &translation.x, 0.1f))
+					{
+						m_MeshTransform = glm::translate(glm::mat4(1.0f), translation) *
+										  glm::rotate(glm::mat4(1.0f), glm::radians(m_MeshRotation), glm::vec3(0.0f, 1.0f, 0.0f)) *
+										  glm::scale(glm::mat4(1.0f), scale);
+					}
+
+					if (ImGui::DragFloat3("Scale", &scale.x, 0.1f, 0.1f, 10.0f))
+					{
+						m_MeshTransform = glm::translate(glm::mat4(1.0f), translation) *
+										  glm::rotate(glm::mat4(1.0f), glm::radians(m_MeshRotation), glm::vec3(0.0f, 1.0f, 0.0f)) *
+										  glm::scale(glm::mat4(1.0f), scale);
+					}
+
+					if (ImGui::Button("Reset Transform"))
+					{
+						translation = glm::vec3(0.0f);
+						scale = glm::vec3(1.0f);
+						m_MeshRotation = 0.0f;
+						m_MeshTransform = glm::mat4(1.0f);
+					}
+				}
 			}
 			else if (!m_MeshTestLog.empty())
 			{
@@ -294,82 +381,109 @@ namespace Zenith {
 			}
 			else
 			{
-				ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "No test performed yet");
-			}
-
-			if (m_MeshLoadSuccess && m_TestMeshSource)
-			{
-				ImGui::SeparatorText("Mesh Statistics");
-
-				ImGui::Text("Vertices: %u", m_LoadedVertexCount);
-				ImGui::Text("Indices: %u", m_LoadedIndexCount);
-				ImGui::Text("Submeshes: %u", m_LoadedSubmeshCount);
-				ImGui::Text("Materials: %zu", m_TestMeshSource->GetMaterials().size());
-
-				const auto& bb = m_TestMeshSource->GetBoundingBox();
-				ImGui::Text("Bounding Box:");
-				ImGui::Text("  Min: (%.2f, %.2f, %.2f)", bb.Min.x, bb.Min.y, bb.Min.z);
-				ImGui::Text("  Max: (%.2f, %.2f, %.2f)", bb.Max.x, bb.Max.y, bb.Max.z);
-
-				if (ImGui::TreeNode("Submesh Details"))
-				{
-					const auto& submeshes = m_TestMeshSource->GetSubmeshes();
-					for (size_t i = 0; i < submeshes.size(); i++)
-					{
-						const auto& submesh = submeshes[i];
-						if (ImGui::TreeNode(("Submesh " + std::to_string(i)).c_str()))
-						{
-							ImGui::Text("Name: %s", submesh.MeshName.c_str());
-							ImGui::Text("Vertices: %u (Base: %u)", submesh.VertexCount, submesh.BaseVertex);
-							ImGui::Text("Indices: %u (Base: %u)", submesh.IndexCount, submesh.BaseIndex);
-							ImGui::Text("Material Index: %u", submesh.MaterialIndex);
-
-							const auto& subBB = submesh.BoundingBox;
-							ImGui::Text("Bounding Box:");
-							ImGui::Text("  Min: (%.2f, %.2f, %.2f)", subBB.Min.x, subBB.Min.y, subBB.Min.z);
-							ImGui::Text("  Max: (%.2f, %.2f, %.2f)", subBB.Max.x, subBB.Max.y, subBB.Max.z);
-
-							ImGui::TreePop();
-						}
-					}
-					ImGui::TreePop();
-				}
-
-				if (ImGui::TreeNode("GPU Buffers"))
-				{
-					auto vertexBuffer = m_TestMeshSource->GetVertexBuffer();
-					if (vertexBuffer)
-						ImGui::Text("Vertex Buffer: %u bytes", vertexBuffer->GetSize());
-					else
-						ImGui::Text("Vertex Buffer: Not created");
-
-					auto indexBuffer = m_TestMeshSource->GetIndexBuffer();
-					if (indexBuffer)
-						ImGui::Text("Index Buffer: %u indices", indexBuffer->GetCount());
-					else
-						ImGui::Text("Index Buffer: Not created");
-
-					ImGui::TreePop();
-				}
+				ImGui::TextDisabled("No mesh loaded");
 			}
 
 			if (!m_MeshTestLog.empty())
 			{
-				ImGui::SeparatorText("Log Output");
+				ImGui::Separator();
 				ImGui::TextWrapped("%s", m_MeshTestLog.c_str());
 			}
 		}
 		ImGui::End();
 	}
 
-	void EditorLayer::OnUpdate(Timestep ts)
-	{
-		ZN_PROFILE_FUNC();
-	}
-
 	void EditorLayer::OnImGuiRender()
 	{
 		ZN_PROFILE_FUNC();
+
+		// ImGui + Dockspace Setup ------------------------------------------------------------------------------
+		ImGuiIO& io = ImGui::GetIO();
+		ImGuiStyle& style = ImGui::GetStyle();
+		auto boldFont = io.Fonts->Fonts[0];
+		auto largeFont = io.Fonts->Fonts[1];
+
+		io.ConfigWindowsResizeFromEdges = io.BackendFlags & ImGuiBackendFlags_HasMouseCursors;
+
+		// We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
+		// because it would be confusing to have two docking targets within each others.
+		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
+
+		ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowPos(viewport->Pos);
+		ImGui::SetNextWindowSize(viewport->Size);
+		ImGui::SetNextWindowViewport(viewport->ID);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+		window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+		window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+		auto& window = m_ApplicationContext->GetWindow();
+		bool isMaximized = (SDL_GetWindowFlags(window.GetNativeWindow()) & SDL_WINDOW_MAXIMIZED) != 0;
+
+#ifdef ZN_PLATFORM_WINDOWS
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, isMaximized ? ImVec2(6.0f, 6.0f) : ImVec2(1.0f, 1.0f));
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 3.0f);
+#else
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+#endif
+
+		ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImVec4{ 0.0f, 0.0f, 0.0f, 0.0f });
+		ImGui::Begin("DockSpace Demo", nullptr, window_flags);
+		ImGui::PopStyleColor(); // MenuBarBg
+		ImGui::PopStyleVar(2);
+
+		ImGui::PopStyleVar(2);
+
+		// Dockspace
+		float minWinSizeX = style.WindowMinSize.x;
+		style.WindowMinSize.x = 370.0f;
+		ImGui::DockSpace(ImGui::GetID("MyDockspace"));
+		style.WindowMinSize.x = minWinSizeX;
+
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+		if (ImGui::Begin("Viewport"))
+		{
+			ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+
+			if (m_MeshRenderer && (viewportSize.x != m_LastViewportSize.x || viewportSize.y != m_LastViewportSize.y))
+			{
+				if (viewportSize.x > 0 && viewportSize.y > 0)
+				{
+					m_LastViewportSize = viewportSize;
+				}
+			}
+
+			if (m_MeshRenderer && viewportSize.x > 0 && viewportSize.y > 0)
+			{
+				Ref<Image2D> renderedImage = m_MeshRenderer->GetImage(0);
+				if (renderedImage)
+				{
+					ImTextureID textureID = m_MeshRenderer->GetTextureImGuiID(renderedImage);
+					if (textureID)
+					{
+						ImGui::Image(textureID, viewportSize);
+					}
+					else
+					{
+						ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Waiting for texture...");
+					}
+				}
+				else
+				{
+					ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "No rendered image available");
+				}
+			}
+			else
+			{
+				ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Viewport (Empty)");
+			}
+		}
+		ImGui::End();
+		ImGui::PopStyleVar();
+
+		ImGui::End();
 
 		if (ImGui::Begin("Settings"))
 		{

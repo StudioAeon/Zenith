@@ -9,6 +9,8 @@
 
 #include "vulkan/vulkan.h"
 
+#include <set>
+
 namespace Zenith {
 
 	// TODO:

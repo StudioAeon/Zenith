@@ -56,7 +56,7 @@ namespace Zenith {
 		virtual const std::string& GetTitle() const { return m_Data.Title; }
 		virtual void SetTitle(const std::string& title);
 
-		inline void* GetNativeWindow() const { return m_Window; }
+		SDL_Window* GetNativeWindow() const { return m_Window; }
 
 		void SetRenderContext(Ref<RendererContext> context) { m_RendererContext = context; }
 

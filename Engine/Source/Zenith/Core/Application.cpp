@@ -320,8 +320,6 @@ namespace Zenith {
 				// On Render thread
 				Renderer::Submit([&]()
 				{
-					// m_Window->GetSwapChain().BeginFrame();
-					// Renderer::WaitAndRender();
 					m_Window->SwapBuffers();
 				});
 
