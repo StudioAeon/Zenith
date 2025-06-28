@@ -798,8 +798,9 @@ namespace Zenith {
 		ZN_CORE_TRACE_TAG("Renderer", "  Member Count: {0}", memberCount);
 		ZN_CORE_TRACE_TAG("Renderer", "  Size: {0}", bufferSize);
 
-		// Skip empty push constant buffers - these are for the renderer only
-		if (strlen(bufferName) == 0 || strcmp(bufferName, "u_Renderer") == 0)
+		// If bufferName can be std::string_view or const char*
+		std::string_view name{bufferName ? bufferName : ""};
+		if (name.empty() || name == "u_Renderer")
 			return;
 
 		ShaderBuffer& buffer = m_ReflectionData.ConstantBuffers[bufferName];

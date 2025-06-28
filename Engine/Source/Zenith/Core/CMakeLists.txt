@@ -1,0 +1,51 @@
+set(CORE_SOURCES
+		Application.cpp
+		ApplicationContext.cpp
+		Base.cpp
+		FatalSignal.cpp
+		Hash.cpp
+		Input.cpp
+		Layer.cpp
+		LayerStack.cpp
+		Log.cpp
+		Memory.cpp
+		Platform.cpp
+		Ref.cpp
+		SplashScreen.cpp
+		UUID.cpp
+		Window.cpp
+)
+
+set(CORE_HEADERS
+		Application.hpp
+		ApplicationContext.hpp
+		Assert.hpp
+		Base.hpp
+		Buffer.hpp
+		FastRandom.hpp
+		FatalSignal.hpp
+		Hash.hpp
+		Identifier.hpp
+		Input.hpp
+		KeyCodes.hpp
+		Layer.hpp
+		LayerStack.hpp
+		Log.hpp
+		LogCustomFormatters.hpp
+		Memory.hpp
+		Platform.hpp
+		Ref.hpp
+		SplashScreen.hpp
+		Thread.hpp
+		Timer.hpp
+		TimeStep.hpp
+		UUID.hpp
+		Version.hpp
+		Window.hpp
+)
+
+target_sources(Zenith
+		PRIVATE
+		${CORE_SOURCES}
+		${CORE_HEADERS}
+)

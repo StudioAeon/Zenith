@@ -1,0 +1,35 @@
+set(ASSET_SOURCES
+		AssetManager/EditorAssetManager.cpp
+		AssetSystem/EditorAssetSystem.cpp
+		AssetImporter.cpp
+		AssetManager.cpp
+		AssetRegistry.cpp
+		AssetSerializer.cpp
+		MeshImporter.cpp
+		MeshSerializer.cpp
+		TextureImporter.cpp
+)
+
+set(ASSET_HEADERS
+		AssetManager/AssetManagerBase.hpp
+		AssetManager/EditorAssetManager.hpp
+		AssetSystem/EditorAssetSystem.hpp
+		Asset.hpp
+		AssetExtensions.hpp
+		AssetImporter.hpp
+		AssetManager.hpp
+		AssetMetadata.hpp
+		AssetRegistry.hpp
+		AssetSerializer.hpp
+		AssetTypes.hpp
+		MeshImporter.hpp
+		MeshSerializer.hpp
+		MeshSourceFile.hpp
+		TextureImporter.hpp
+)
+
+target_sources(Zenith
+		PRIVATE
+		${ASSET_SOURCES}
+		${ASSET_HEADERS}
+)

@@ -1,45 +1,43 @@
 set(ZENITH_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Source)
 
-file(GLOB_RECURSE ZENITH_SOURCES CONFIGURE_DEPENDS
-		${ZENITH_SRC_DIR}/Zenith/*.cpp
-		${ZENITH_SRC_DIR}/Zenith/*.hpp
-		${ZENITH_SRC_DIR}/Zenith/*.c
-		${ZENITH_SRC_DIR}/Zenith/*.h
+# ==== Root-level infrastructure files ====
+set(ZENITH_ROOT_SOURCES
+		${ZENITH_SRC_DIR}/znpch.cpp
 )
 
-list(FILTER ZENITH_SOURCES EXCLUDE REGEX ".*/Platform/.*")
+set(ZENITH_ROOT_HEADERS
+		${ZENITH_SRC_DIR}/Zenith.hpp
+		${ZENITH_SRC_DIR}/Zenith/EntryPoint.hpp
+)
 
-list(FILTER ZENITH_SOURCES EXCLUDE REGEX ".*/Platform/.*")
-
-# Platform-specific source collection
-if(WIN32)
-	file(GLOB_RECURSE ZENITH_PLATFORM_SOURCES CONFIGURE_DEPENDS
-			${ZENITH_SRC_DIR}/Zenith/Platform/Windows/*.cpp
-			${ZENITH_SRC_DIR}/Zenith/Platform/Windows/*.hpp
-			${ZENITH_SRC_DIR}/Zenith/Platform/Windows/*.c
-			${ZENITH_SRC_DIR}/Zenith/Platform/Windows/*.h
-	)
-elseif(UNIX)
-	file(GLOB_RECURSE ZENITH_PLATFORM_SOURCES CONFIGURE_DEPENDS
-			${ZENITH_SRC_DIR}/Zenith/Platform/Unix/*.cpp
-			${ZENITH_SRC_DIR}/Zenith/Platform/Unix/*.hpp
-			${ZENITH_SRC_DIR}/Zenith/Platform/Unix/*.c
-			${ZENITH_SRC_DIR}/Zenith/Platform/Unix/*.h
-	)
-else()
-	message(FATAL_ERROR "Unsupported platform! Zenith Engine currently supports Windows and Unix-like systems only.")
-endif()
-
-list(APPEND ZENITH_SOURCES ${ZENITH_PLATFORM_SOURCES})
+# ==== Third-party implementation files ====
+set(ZENITH_THIRDPARTY_IMPL_SOURCES
+		${ZENITH_SRC_DIR}/Zenith/ThirdParty/stb_impl.cpp
+		${ZENITH_SRC_DIR}/Zenith/ThirdParty/VMAImplementation.cpp
+		${ZENITH_SRC_DIR}/Zenith/ThirdParty/miniaudio_impl.cpp
+		${ZENITH_SRC_DIR}/Zenith/ThirdParty/modelloading_impl.cpp
+)
 
 add_library(Zenith STATIC)
 
-target_sources(Zenith PRIVATE ${ZENITH_SOURCES})
+target_sources(Zenith PRIVATE ${ZENITH_ROOT_SOURCES} ${ZENITH_ROOT_HEADERS} ${ZENITH_THIRDPARTY_IMPL_SOURCES})
+
+add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Asset)
+add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Core)
+add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Debug)
+add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Events)
+add_subdirectory(${ZENITH_SRC_DIR}/Zenith/ImGui)
+add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Math)
+add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Platform)
+add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Project)
+add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Reflection)
+add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Renderer)
+add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Serialization)
+add_subdirectory(${ZENITH_SRC_DIR}/Zenith/UI)
+add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Utilities)
 
 target_precompile_headers(Zenith PRIVATE ${ZENITH_SRC_DIR}/znpch.hpp)
-
 target_compile_features(Zenith PUBLIC cxx_std_20)
-
 target_include_directories(Zenith PUBLIC ${ZENITH_SRC_DIR})
 
 # ==== Compile Definitions ====

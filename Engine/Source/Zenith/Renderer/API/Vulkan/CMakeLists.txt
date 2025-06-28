@@ -1,0 +1,72 @@
+set(VULKAN_SOURCES
+		DescriptorSetManager.cpp
+		Vulkan.cpp
+		VulkanAllocator.cpp
+		VulkanAPI.cpp
+		VulkanContext.cpp
+		VulkanDevice.cpp
+		VulkanDiagnostics.cpp
+		VulkanFramebuffer.cpp
+		VulkanImage.cpp
+		VulkanImGuiLayer.cpp
+		VulkanIndexBuffer.cpp
+		VulkanMaterial.cpp
+		VulkanPipeline.cpp
+		VulkanRenderCommandBuffer.cpp
+		VulkanRenderer.cpp
+		VulkanRenderPass.cpp
+		VulkanShader.cpp
+		VulkanShaderUtils.cpp
+		VulkanStorageBuffer.cpp
+		VulkanSwapChain.cpp
+		VulkanTexture.cpp
+		VulkanUniformBuffer.cpp
+		VulkanVertexBuffer.cpp
+
+		ShaderCompiler/VulkanShaderCache.cpp
+		ShaderCompiler/VulkanShaderCompiler.cpp
+
+		ShaderCompiler/ShaderPreprocessing/HlslIncluder.cpp
+		ShaderCompiler/ShaderPreprocessing/ShaderPreprocessor.cpp
+)
+
+set(VULKAN_HEADERS
+		DescriptorSetManager.hpp
+		Vulkan.hpp
+		VulkanAllocator.hpp
+		VulkanAPI.hpp
+		VulkanContext.hpp
+		VulkanDevice.hpp
+		VulkanDiagnostics.hpp
+		VulkanFramebuffer.hpp
+		VulkanImage.hpp
+		VulkanImGuiLayer.hpp
+		VulkanIndexBuffer.hpp
+		VulkanMaterial.hpp
+		VulkanPipeline.hpp
+		VulkanRenderCommandBuffer.hpp
+		VulkanRenderer.hpp
+		VulkanRenderPass.hpp
+		VulkanShader.hpp
+		VulkanShaderResource.hpp
+		VulkanShaderUtils.hpp
+		VulkanStorageBuffer.hpp
+		VulkanStorageBufferSet.hpp
+		VulkanSwapChain.hpp
+		VulkanTexture.hpp
+		VulkanUniformBuffer.hpp
+		VulkanUniformBufferSet.hpp
+		VulkanVertexBuffer.hpp
+
+		ShaderCompiler/VulkanShaderCache.hpp
+		ShaderCompiler/VulkanShaderCompiler.hpp
+
+		ShaderCompiler/ShaderPreprocessing/HlslIncluder.hpp
+		ShaderCompiler/ShaderPreprocessing/ShaderPreprocessor.hpp
+)
+
+target_sources(Zenith
+		PRIVATE
+		${VULKAN_SOURCES}
+		${VULKAN_HEADERS}
+)

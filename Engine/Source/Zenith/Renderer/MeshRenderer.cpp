@@ -29,6 +29,7 @@ namespace Zenith {
 			fbSpec.SwapChainTarget = false;
 			fbSpec.Width = 1920;
 			fbSpec.Height = 1080;
+			fbSpec.ClearColor = { 0.1f, 0.1f, 0.1f, 1.0f };
 			fbSpec.DebugName = "MeshRenderer-SwapChain";
 
 			fbSpec.Attachments = FramebufferAttachmentSpecification{
@@ -77,6 +78,8 @@ namespace Zenith {
 		pipelineSpec.BackfaceCulling = false;
 		pipelineSpec.DepthTest = true;
 		pipelineSpec.DepthWrite = true;
+		pipelineSpec.Wireframe = false;
+		//pipelineSpec.DepthOperator = DepthCompareOperator::Never;
 		pipelineSpec.Topology = PrimitiveTopology::Triangles;
 
 		m_Pipeline = Pipeline::Create(pipelineSpec);

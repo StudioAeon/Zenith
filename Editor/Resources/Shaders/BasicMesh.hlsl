@@ -54,7 +54,7 @@ FragmentOutput main(VertexOutput input)
 	float ndotl = max(dot(normal, lightDir), 0.4);
 
 	// Bright red color for visibility
-	float3 baseColor = float3(1.0, 0.2, 0.2);
+	float3 baseColor = float3(0.2, 0.3, 0.8);
 	float3 finalColor = baseColor * ndotl;
 
 	output.Color = float4(finalColor, 1.0);

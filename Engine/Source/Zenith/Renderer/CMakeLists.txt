@@ -1,0 +1,65 @@
+set(RENDERER_SOURCES
+		Framebuffer.cpp
+		Image.cpp
+		IndexBuffer.cpp
+		Material.cpp
+		MaterialAsset.cpp
+		Mesh.cpp
+		MeshFactory.cpp
+		MeshRenderer.cpp
+		Pipeline.cpp
+		RenderCommandBuffer.cpp
+		RenderCommandQueue.cpp
+		Renderer.cpp
+		RendererContext.cpp
+		RendererStats.cpp
+		RenderPass.cpp
+		Shader.cpp
+		StorageBuffer.cpp
+		StorageBufferSet.cpp
+		Texture.cpp
+		UniformBuffer.cpp
+		UniformBufferSet.cpp
+		VertexBuffer.cpp
+)
+
+set(RENDERER_HEADERS
+		Framebuffer.hpp
+		GPUStats.hpp
+		Image.hpp
+		IndexBuffer.hpp
+		Material.hpp
+		MaterialAsset.hpp
+		Mesh.hpp
+		MeshFactory.hpp
+		MeshRenderer.hpp
+		Pipeline.hpp
+		RenderCommandBuffer.hpp
+		RenderCommandQueue.hpp
+		Renderer.hpp
+		RendererAPI.hpp
+		RendererCapabilities.hpp
+		RendererConfig.hpp
+		RendererContext.hpp
+		RendererResource.hpp
+		RendererStats.hpp
+		RendererTypes.hpp
+		RenderPass.hpp
+		RenderThread.hpp
+		Shader.hpp
+		ShaderUniform.hpp
+		StorageBuffer.hpp
+		StorageBufferSet.hpp
+		Texture.hpp
+		UniformBuffer.hpp
+		UniformBufferSet.hpp
+		VertexBuffer.hpp
+)
+
+add_subdirectory(API/Vulkan)
+
+target_sources(Zenith
+		PRIVATE
+		${RENDERER_SOURCES}
+		${RENDERER_HEADERS}
+)
