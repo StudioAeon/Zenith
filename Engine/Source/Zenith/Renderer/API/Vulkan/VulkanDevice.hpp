@@ -5,6 +5,8 @@
 #include "Vulkan.hpp"
 
 #include <unordered_set>
+#include <thread>
+#include <unordered_map>
 
 namespace Zenith {
 
@@ -28,10 +30,15 @@ namespace Zenith {
 		const QueueFamilyIndices& GetQueueFamilyIndices() const { return m_QueueFamilyIndices; }
 
 		const VkPhysicalDeviceProperties& GetProperties() const { return m_Properties; }
+		const VkPhysicalDeviceFeatures& GetFeatures() const { return m_Features; }
 		const VkPhysicalDeviceLimits& GetLimits() const { return m_Properties.limits; }
 		const VkPhysicalDeviceMemoryProperties& GetMemoryProperties() const { return m_MemoryProperties; }
 
 		VkFormat GetDepthFormat() const { return m_DepthFormat; }
+
+		// Hardware detection utilities
+		bool IsIntelGPU() const;
+		void LogDeviceInfo() const;
 
 		static Ref<VulkanPhysicalDevice> Select();
 	private:
@@ -95,7 +102,13 @@ namespace Zenith {
 	private:
 		Ref<VulkanCommandPool> GetThreadLocalCommandPool();
 		Ref<VulkanCommandPool> GetOrCreateThreadLocalCommandPool();
+
+		const VkPhysicalDeviceFeatures& GetEnabledFeatures() const { return m_EnabledFeatures; }
+		bool IsDebugMarkersEnabled() const { return m_EnableDebugMarkers; }
 	private:
+		VkPhysicalDeviceFeatures ValidateFeaturesForDevice(const VkPhysicalDeviceFeatures& requestedFeatures);
+		bool TryCreateDeviceWithMinimalFeatures(const std::vector<const char*>& deviceExtensions);
+
 		VkDevice m_LogicalDevice = nullptr;
 		Ref<VulkanPhysicalDevice> m_PhysicalDevice;
 		VkPhysicalDeviceFeatures m_EnabledFeatures;
