@@ -160,6 +160,8 @@ set(FASTGLTF_COMPILE_AS_CPP20 ON)
 set(FASTGLTF_ENABLE_TESTS OFF)
 set(FASTGLTF_ENABLE_EXAMPLES OFF)
 set(FASTGLTF_ENABLE_DOCS OFF)
+
+set(SIMDJSON_DL_DIR "${CMAKE_CURRENT_LIST_DIR}/Assets/fastgltf/deps")
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/Assets/fastgltf SYSTEM)
 
 # ==== ufbx (Single-file FBX loader) ====
