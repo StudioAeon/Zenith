@@ -99,13 +99,13 @@ namespace Zenith {
 		}
 	}
 
-	static void ReplaceToken(std::string& str, const char* token, const std::string& value)
+	static void ReplaceToken(std::string& str, std::string_view token, const std::string& value)
 	{
 		size_t pos = 0;
 		while ((pos = str.find(token, pos)) != std::string::npos)
 		{
-			str.replace(pos, strlen(token), value);
-			pos += strlen(token);
+			str.replace(pos, token.length(), value);
+			pos += token.length();
 		}
 	}
 

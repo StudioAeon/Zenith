@@ -32,15 +32,10 @@ namespace Zenith::Utils {
 			return result;
 		}
 
-		void Erase(std::string& str, const char* chars)
+		void Erase(std::string& str, std::string_view chars)
 		{
-			for (size_t i = 0; i < strlen(chars); ++i)
-				str.erase(std::remove(str.begin(), str.end(), chars[i]), str.end());
-		}
-
-		void Erase(std::string& str, const std::string& chars)
-		{
-			Erase(str, chars.c_str());
+			for (char c : chars)
+				str.erase(std::remove(str.begin(), str.end(), c), str.end());
 		}
 
 		std::string SubStr(const std::string& str, size_t offset, size_t count)

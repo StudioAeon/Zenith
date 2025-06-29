@@ -16,8 +16,11 @@ namespace Zenith::Utils {
 
 		s_CheckpointStorageIndex = (s_CheckpointStorageIndex + 1) % 1024;
 		VulkanCheckpointData& checkpoint = s_CheckpointStorage[s_CheckpointStorageIndex];
-		memset(checkpoint.Data, 0, sizeof(checkpoint.Data));
-		strcpy(checkpoint.Data, data.data());
+
+		const size_t copyLen = std::min(data.size(), sizeof(checkpoint.Data) - 1);
+		std::memcpy(checkpoint.Data, data.data(), copyLen);
+		checkpoint.Data[copyLen] = '\0';
+
 		vkCmdSetCheckpointNV(commandBuffer, &checkpoint);
 	}
 

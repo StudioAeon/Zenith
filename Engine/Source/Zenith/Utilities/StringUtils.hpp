@@ -11,8 +11,7 @@ namespace Zenith::Utils {
 		bool EqualsIgnoreCase(const std::string_view a, const std::string_view b);
 		std::string& ToLower(std::string& string);
 		std::string ToLowerCopy(std::string_view string);
-		void Erase(std::string& str, const char* chars);
-		void Erase(std::string& str, const std::string& chars);
+		void Erase(std::string& str, std::string_view chars);
 		std::string SubStr(const std::string& string, size_t offset, size_t count = std::string::npos);
 		std::string TrimWhitespace(const std::string& str);
 		std::string RemoveWhitespace(const std::string& str);

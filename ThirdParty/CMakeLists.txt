@@ -46,6 +46,18 @@ endif()
 # ==== VulkanMemoryAllocator ====
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/Rendering/VulkanMemoryAllocator SYSTEM)
 
+# ==== SPIRV-Reflect ====
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/Rendering/SPIRV-Reflect SYSTEM)
+
+add_library(zenith-reflect STATIC ${CMAKE_CURRENT_LIST_DIR}/Rendering/SPIRV-Reflect/spirv_reflect.c)
+
+target_include_directories(zenith-reflect PUBLIC ${CMAKE_CURRENT_LIST_DIR}/Rendering/SPIRV-Reflect)
+target_compile_definitions(zenith-reflect PUBLIC SPV_REFLECT_USE_SYSTEM_SPIRV_H)
+
+set_target_properties(zenith-reflect PROPERTIES SKIP_PRECOMPILE_HEADERS ON LINKER_LANGUAGE C)
+
+target_link_libraries(zenith-reflect PUBLIC Vulkan::Headers)
+
 # ==== DirectXShaderCompiler (DXC) ====
 include(FetchContent)
 
@@ -74,24 +86,6 @@ else()
 	target_link_libraries(dxcompiler INTERFACE "${dxc_bin_SOURCE_DIR}/lib/libdxcompiler.so")
 	target_include_directories(dxcompiler INTERFACE "${dxc_bin_SOURCE_DIR}/include")
 endif()
-
-# ==== SPIRV-Reflect (Lightweight reflection for SPIR-V) ====
-FetchContent_Declare(
-		spirv_reflect
-		GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Reflect.git
-		GIT_TAG        vulkan-sdk-1.3.283.0
-)
-
-FetchContent_MakeAvailable(spirv_reflect)
-
-add_library(zenith-reflect STATIC ${spirv_reflect_SOURCE_DIR}/spirv_reflect.c)
-
-target_include_directories(zenith-reflect PUBLIC ${spirv_reflect_SOURCE_DIR})
-target_compile_definitions(zenith-reflect PUBLIC SPV_REFLECT_USE_SYSTEM_SPIRV_H)
-
-set_target_properties(zenith-reflect PROPERTIES SKIP_PRECOMPILE_HEADERS ON LINKER_LANGUAGE C)
-
-target_link_libraries(zenith-reflect PUBLIC Vulkan::Headers)
 
 # ==== Backward-cpp (Stack traces) ====
 set(BACKWARD_ENABLE TRUE)
@@ -175,39 +169,10 @@ set_target_properties(ufbx PROPERTIES LINKER_LANGUAGE C)
 
 # ==== Lua ====
 file(GLOB LUA_SOURCES
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lapi.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lcode.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lctype.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/ldebug.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/ldo.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/ldump.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lfunc.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lgc.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/llex.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lmem.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lobject.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lopcodes.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lparser.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lstate.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lstring.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/ltable.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/ltm.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lundump.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lvm.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lzio.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lauxlib.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lbaselib.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lcorolib.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/ldblib.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/liolib.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lmathlib.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/loslib.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lstrlib.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/ltablib.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/lutf8lib.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/loadlib.c
-		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/linit.c
+		${CMAKE_CURRENT_LIST_DIR}/Scripting/lua/*.c
 )
+
+list(FILTER LUA_SOURCES EXCLUDE REGEX ".*(lua|luac)\\.c$")
 
 add_library(lua STATIC ${LUA_SOURCES})
 
@@ -217,10 +182,7 @@ target_compile_definitions(lua PRIVATE
 		$<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>
 )
 
-set_target_properties(lua PROPERTIES
-		LINKER_LANGUAGE CXX
-)
-
+set_target_properties(lua PROPERTIES LINKER_LANGUAGE C)
 add_library(lua::lua ALIAS lua)
 
 # ==== Sol2 v3 (Header-Only) ====

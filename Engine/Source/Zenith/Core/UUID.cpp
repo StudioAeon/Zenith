@@ -1,6 +1,8 @@
 #include "znpch.hpp"
 #include "UUID.hpp"
 
+#include "FastRandom.hpp"
+
 namespace Zenith {
 
 	// UUID32 Implementation
@@ -9,9 +11,12 @@ namespace Zenith {
 	uint32_t UUID32::generateRandom()
 	{
 		static thread_local std::random_device rd;
-		static thread_local std::mt19937 gen(rd());
-		static thread_local std::uniform_int_distribution<uint32_t> dis;
-		return dis(gen);
+		static thread_local FastRandom rng = []() {
+			uint64_t seed = (static_cast<uint64_t>(rd()) << 32) | rd();
+			return FastRandom{seed};
+		}();
+
+		return rng.NextUInt32();
 	}
 
 	std::string UUID32::toString() const
@@ -38,9 +43,14 @@ namespace Zenith {
 	uint64_t UUID64::generateRandom()
 	{
 		static thread_local std::random_device rd;
-		static thread_local std::mt19937_64 gen(rd());
-		static thread_local std::uniform_int_distribution<uint64_t> dis;
-		return dis(gen);
+		static thread_local FastRandom rng = []() {
+			uint64_t seed = (static_cast<uint64_t>(rd()) << 32) | rd();
+			return FastRandom{seed};
+		}();
+
+		uint64_t high = static_cast<uint64_t>(rng.NextUInt32()) << 32;
+		uint64_t low = rng.NextUInt32();
+		return high | low;
 	}
 
 	std::string UUID64::toString() const
@@ -143,12 +153,14 @@ namespace Zenith {
 	UUID128::uuid_array UUID128::generateRFC4122v4()
 	{
 		static thread_local std::random_device rd;
-		static thread_local std::mt19937_64 gen(rd());
-		static thread_local std::uniform_int_distribution<unsigned int> dis(0, 255);
+		static thread_local FastRandom rng = []() {
+			uint64_t seed = (static_cast<uint64_t>(rd()) << 32) | rd();
+			return FastRandom{seed};
+		}();
 
 		uuid_array result;
 		for (auto& byte : result)
-			byte = static_cast<uint8_t>(dis(gen));
+			byte = rng.NextUInt8();
 
 		applyRFC4122v4Format(result);
 		return result;
