@@ -37,6 +37,12 @@ add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Serialization)
 add_subdirectory(${ZENITH_SRC_DIR}/Zenith/UI)
 add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Utilities)
 
+if(UNIX AND NOT APPLE)
+	target_compile_definitions(Zenith PRIVATE
+			DXC_EXECUTABLE_PATH="${CMAKE_BINARY_DIR}/_deps/dxc_bin-src/bin/dxc"
+	)
+endif()
+
 target_precompile_headers(Zenith PRIVATE ${ZENITH_SRC_DIR}/znpch.hpp)
 target_compile_features(Zenith PUBLIC cxx_std_20)
 target_include_directories(Zenith PUBLIC ${ZENITH_SRC_DIR})

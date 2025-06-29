@@ -16,7 +16,7 @@ namespace Zenith {
 
 	static AssetMetadata s_NullMetadata;
 
-	EditorAssetManager::EditorAssetManager()
+	EditorAssetManager::EditorAssetManager(ApplicationContext& context) : m_Context(context)
 	{
 #if ASYNC_ASSETS
 		m_AssetThread = Ref<EditorAssetSystem>::Create();

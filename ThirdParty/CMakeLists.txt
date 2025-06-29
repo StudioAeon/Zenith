@@ -68,12 +68,12 @@ add_library(dxcompiler INTERFACE)
 if(WIN32)
 	set(DXC_BINARY_DIR "${dxc_bin_SOURCE_DIR}/bin/x64")
 	target_link_libraries(dxcompiler INTERFACE "${dxc_bin_SOURCE_DIR}/lib/x64/dxcompiler.lib")
+	target_include_directories(dxcompiler INTERFACE "${dxc_bin_SOURCE_DIR}/inc")
 else()
 	set(DXC_BINARY_DIR "${dxc_bin_SOURCE_DIR}/lib")
 	target_link_libraries(dxcompiler INTERFACE "${dxc_bin_SOURCE_DIR}/lib/libdxcompiler.so")
+	target_include_directories(dxcompiler INTERFACE "${dxc_bin_SOURCE_DIR}/include")
 endif()
-
-target_include_directories(dxcompiler INTERFACE "${dxc_bin_SOURCE_DIR}/inc")
 
 # ==== SPIRV-Reflect (Lightweight reflection for SPIR-V) ====
 FetchContent_Declare(

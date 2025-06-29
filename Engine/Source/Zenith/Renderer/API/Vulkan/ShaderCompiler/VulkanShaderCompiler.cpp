@@ -247,18 +247,35 @@ namespace Zenith {
 
 		return error;
 #elif defined(ZN_PLATFORM_LINUX)
-		// Note(Emily): This is *atrocious* but dxc's integration refuses to process builtin HLSL without ICE'ing
-		//				from the integration.
+		char tempSourceName[] = "Zenith-hlsl-src-XXXXXX.hlsl";
+		int srcFile = mkstemps(tempSourceName, 5);
+		if (srcFile == -1) {
+			return std::format("Failed to create temporary source file: {}", strerror(errno));
+		}
+
+		if (write(srcFile, stageSource.c_str(), stageSource.size()) == -1) {
+			close(srcFile);
+			unlink(tempSourceName);
+			return std::format("Failed to write temporary source file: {}", strerror(errno));
+		}
+		close(srcFile);
 
 		char tempfileName[] = "Zenith-hlsl-XXXXXX.spv";
 		int outfile = mkstemps(tempfileName, 4);
+		if (outfile == -1) {
+			unlink(tempSourceName);
+			return std::format("Failed to create temporary output file: {}", strerror(errno));
+		}
 
-		std::string dxc = std::format("{}/bin/dxc", FileSystem::GetEnvironmentVariable("VULKAN_SDK"));
-		std::string sourcePath = m_ShaderSourcePath.string();
+#ifdef DXC_EXECUTABLE_PATH
+		std::string dxc = DXC_EXECUTABLE_PATH;
+#else
+	std::string dxc = "dxc";
+#endif
 
 		std::vector<const char*> exec{
 			dxc.c_str(),
-			sourcePath.c_str(),
+			tempSourceName,
 
 			"-E", "main",
 			"-T", ShaderUtils::HLSLShaderProfile(stage),
@@ -284,23 +301,42 @@ namespace Zenith {
 
 		exec.push_back(NULL);
 
-		// TODO: Error handling
+		std::vector<std::string> env_strings;
+		std::vector<char*> env_ptrs;
+
+		const char* existing_ld_path = getenv("LD_LIBRARY_PATH");
+		if (existing_ld_path) {
+			env_strings.push_back(std::format("LD_LIBRARY_PATH={}", existing_ld_path));
+		} else {
+			env_strings.push_back("LD_LIBRARY_PATH=");
+		}
+
+		for (auto& str : env_strings) {
+			env_ptrs.push_back(str.data());
+		}
+		env_ptrs.push_back(nullptr);
+
 		pid_t pid;
 		posix_spawnattr_t attr;
 		posix_spawnattr_init(&attr);
 
-		std::string ld_lib_path = std::format("LD_LIBRARY_PATH={}", getenv("LD_LIBRARY_PATH"));
-		char* env[] = { ld_lib_path.data(), NULL };
-		if (posix_spawn(&pid, exec[0], NULL, &attr, (char**)exec.data(), env))
+		if (posix_spawn(&pid, exec[0], NULL, &attr, (char**)exec.data(), env_ptrs.data()))
 		{
-			return std::format("Could not execute `{}` for shader compilation: {} {}", exec[0], m_ShaderSourcePath.string(), ShaderUtils::ShaderStageToString(stage));
+			close(outfile);
+			unlink(tempfileName);
+			unlink(tempSourceName);
+			return std::format("Could not execute `{}` for shader compilation: {} {}", exec[0], tempSourceName, ShaderUtils::ShaderStageToString(stage));
 		}
+
 		int status;
 		waitpid(pid, &status, 0);
 
 		if (WEXITSTATUS(status))
 		{
-			return std::format("Compilation failed\nWhile compiling shader file: {} \nAt stage: {}", m_ShaderSourcePath.string(), ShaderUtils::ShaderStageToString(stage));
+			close(outfile);
+			unlink(tempfileName);
+			unlink(tempSourceName);
+			return std::format("Compilation failed\nWhile compiling shader file: {} \nAt stage: {}", tempSourceName, ShaderUtils::ShaderStageToString(stage));
 		}
 
 		off_t size = lseek(outfile, 0, SEEK_END);
@@ -308,7 +344,9 @@ namespace Zenith {
 		outputBinary.resize(size / sizeof(uint32_t));
 		read(outfile, outputBinary.data(), size);
 		close(outfile);
+
 		unlink(tempfileName);
+		unlink(tempSourceName);
 
 		return {};
 #endif

@@ -11,7 +11,7 @@ namespace Zenith {
 	Project::~Project()
 	{}
 
-	void Project::SetActive(Ref<Project> project)
+	void Project::SetActive(Ref<Project> project, ApplicationContext* context)
 	{
 		if (s_ActiveProject)
 		{
@@ -20,9 +20,9 @@ namespace Zenith {
 		}
 
 		s_ActiveProject = project;
-		if (s_ActiveProject)
+		if (s_ActiveProject && context)
 		{
-			s_AssetManager = Ref<EditorAssetManager>::Create();
+			s_AssetManager = Ref<EditorAssetManager>::Create(*context);
 		}
 	}
 

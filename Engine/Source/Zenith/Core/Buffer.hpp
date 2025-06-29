@@ -2,6 +2,8 @@
 
 #include "Zenith/Core/Assert.hpp"
 
+#include <cstring>
+
 namespace Zenith {
 
 	struct Buffer

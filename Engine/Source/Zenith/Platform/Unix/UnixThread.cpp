@@ -13,6 +13,11 @@ namespace Zenith {
 		bool manualReset = false;
 	};
 
+	Thread::Thread(const std::string& name)
+		: m_Name(name)
+	{
+	}
+
 	ThreadSignal::ThreadSignal(const std::string& name, bool manualReset)
 	{
 		(void)name; // optional
@@ -22,6 +27,17 @@ namespace Zenith {
 		data->manualReset = manualReset;
 		data->signaled = false;
 		m_SignalHandle = data;
+	}
+
+	void Thread::SetName(const std::string& name)
+	{
+		pthread_setname_np(m_Thread.native_handle(), name.substr(0, 15).c_str());
+	}
+
+	void Thread::Join()
+	{
+		if (m_Thread.joinable())
+			m_Thread.join();
 	}
 
 	ThreadSignal::~ThreadSignal()
@@ -64,6 +80,11 @@ namespace Zenith {
 		pthread_mutex_lock(&data->mutex);
 		data->signaled = false;
 		pthread_mutex_unlock(&data->mutex);
+	}
+
+	std::thread::id Thread::GetID() const
+	{
+		return m_Thread.get_id();
 	}
 
 }

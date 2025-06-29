@@ -3,6 +3,8 @@
 #include "AssetManagerBase.hpp"
 
 #include "Zenith/Core/Application.hpp"
+#include "Zenith/Core/ApplicationContext.hpp"
+
 #include "Zenith/Asset/AssetImporter.hpp"
 #include "Zenith/Asset/AssetRegistry.hpp"
 #include "Zenith/Asset/AssetSystem/EditorAssetSystem.hpp"
@@ -16,7 +18,8 @@ namespace Zenith {
 	class EditorAssetManager : public AssetManagerBase
 	{
 	public:
-		EditorAssetManager();
+		//EditorAssetManager();
+		explicit EditorAssetManager(ApplicationContext& context);
 		virtual ~EditorAssetManager();
 
 		virtual void Shutdown() override;
@@ -135,7 +138,7 @@ namespace Zenith {
 				ZN_CORE_INFO_TAG("AssetManager", "Replaced asset {}", metadata.FilePath.string());
 				UpdateDependents(metadata.Handle);
 				auto event = std::make_unique<AssetReloadedEvent>(metadata.Handle);
-				Application::Get().GetEventBus().Dispatch(*event);
+				m_Context.GetEventBus().Dispatch(*event);
 			}
 
 			return asset;
@@ -182,6 +185,8 @@ namespace Zenith {
 		// It is _written to_ only by main thread, so reading in main thread can be done without mutex
 		AssetRegistry m_AssetRegistry;
 		std::shared_mutex m_AssetRegistryMutex;
+
+		ApplicationContext& m_Context;
 
 		friend class EditorAssetSystem;
 	};

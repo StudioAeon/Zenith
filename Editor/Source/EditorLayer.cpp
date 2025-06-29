@@ -74,7 +74,7 @@ namespace Zenith {
 	void EditorLayer::OnDetach()
 	{
 		CloseProject(true);
-		Project::SetActive(nullptr);
+		Project::SetActive(nullptr, nullptr);
 
 		if (m_MeshRenderer)
 		{
@@ -157,7 +157,7 @@ namespace Zenith {
 			CloseProject();
 
 		Ref<Project> project = Ref<Project>::Create();
-		Project::SetActive(project);
+		Project::SetActive(project, m_ApplicationContext.get());
 
 		m_ProjectNameBuffer.clear();
 		m_OpenProjectFilePathBuffer.clear();
@@ -212,7 +212,7 @@ namespace Zenith {
 		ProjectSerializer serializer(project);
 		serializer.Deserialize(filepath);
 
-		Project::SetActive(project);
+		Project::SetActive(project, m_ApplicationContext.get());
 
 		m_ProjectNameBuffer.clear();
 		m_OpenProjectFilePathBuffer.clear();

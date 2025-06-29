@@ -35,7 +35,7 @@ namespace Zenith {
 		const ProjectConfig& GetConfig() const { return m_Config; }
 
 		static Ref<Project> GetActive() { return s_ActiveProject; }
-		static void SetActive(Ref<Project> project);
+		static void SetActive(Ref<Project> project, ApplicationContext* context = nullptr);
 
 		inline static Ref<AssetManagerBase> GetAssetManager() { return s_AssetManager; }
 		inline static Ref<EditorAssetManager> GetEditorAssetManager() { return s_AssetManager.As<EditorAssetManager>(); }

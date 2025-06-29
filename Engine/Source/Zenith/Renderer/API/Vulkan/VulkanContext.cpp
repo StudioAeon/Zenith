@@ -173,13 +173,23 @@ namespace Zenith {
 		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		// Extensions and Validation
 		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// TODO: SDL can handle this for us
-#ifdef ZN_PLATFORM_WINDOWS
-#define VK_KHR_WIN32_SURFACE_EXTENSION_NAME "VK_KHR_win32_surface"
-#elif defined(ZN_PLATFORM_LINUX)
-#define VK_KHR_WIN32_SURFACE_EXTENSION_NAME "VK_KHR_xcb_surface"
-#endif
-		std::vector<const char*> instanceExtensions = { VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME };
+		// Let SDL3 determine required Vulkan extensions
+		unsigned int extensionCount = 0;
+		const char* const* extensions = SDL_Vulkan_GetInstanceExtensions(&extensionCount);
+		if (!extensions) {
+			ZN_CORE_ERROR("Failed to get Vulkan instance extensions: {}", SDL_GetError());
+			return;
+		}
+
+		std::vector<const char*> instanceExtensions;
+		for (unsigned int i = 0; i < extensionCount; i++) {
+			instanceExtensions.push_back(extensions[i]);
+		}
+
+		ZN_CORE_INFO("SDL3 required Vulkan extensions:");
+		for (const char* ext : instanceExtensions) {
+			ZN_CORE_INFO("  - {}", ext);
+		}
 		instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME); // Very little performance hit, can be used in Release.
 		if (s_Validation)
 		{

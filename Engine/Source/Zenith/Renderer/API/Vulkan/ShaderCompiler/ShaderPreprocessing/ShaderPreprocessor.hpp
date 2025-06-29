@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <format>
+#include <iterator>
 #include <sstream>
 #include <unordered_set>
 
