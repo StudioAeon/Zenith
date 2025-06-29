@@ -319,7 +319,7 @@ namespace Zenith {
 
 		if (m_EditorCamera)
 		{
-			bool shouldActivateCamera = m_ViewportFocused || m_ViewportHovered;
+			bool shouldActivateCamera = m_ViewportFocused;
 			m_EditorCamera->SetActive(shouldActivateCamera);
 			m_EditorCamera->OnUpdate(ts);
 		}
@@ -348,6 +348,10 @@ namespace Zenith {
 			glm::vec3 position = m_EditorCamera->GetPosition();
 			ImGui::Text("Position: (%.2f, %.2f, %.2f)", position.x, position.y, position.z);
 			ImGui::Text("Distance: %.2f", m_EditorCamera->GetDistance());
+
+			float yaw = glm::degrees(m_EditorCamera->GetYaw());
+			float pitch = glm::degrees(m_EditorCamera->GetPitch());
+			ImGui::Text("Rotation: Yaw %.1f°, Pitch %.1f°", yaw, pitch);
 			ImGui::Text("FOV: %.1f°", glm::degrees(m_EditorCamera->GetVerticalFOV()));
 			ImGui::Text("Mode: %s",
 				m_EditorCamera->GetCurrentMode() == CameraMode::FLYCAM ? "Fly Camera" :
@@ -373,8 +377,10 @@ namespace Zenith {
 			}
 
 			float distance = m_EditorCamera->GetDistance();
-			if (ImGui::SliderFloat("Distance", &distance, 1.0f, 100.0f))
+			ImGui::Text("Current Distance: %.3f", distance);
+			if (ImGui::SliderFloat("Distance", &distance, 0.1f, 100.0f))
 			{
+				ZN_CORE_INFO("UI Setting distance to: {}", distance);
 				m_EditorCamera->SetDistance(distance);
 			}
 

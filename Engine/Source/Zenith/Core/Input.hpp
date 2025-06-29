@@ -62,6 +62,9 @@ namespace Zenith {
 		static float GetMouseY();
 		static std::pair<float, float> GetMousePosition();
 
+		static glm::vec2 GetRelativeMouseMotion();
+		static void SetMousePosition(float x, float y);
+
 		static void SetApplicationWindow(SDL_Window* window);
 		static SDL_Window* GetApplicationWindow();
 

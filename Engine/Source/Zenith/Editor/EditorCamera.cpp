@@ -36,40 +36,48 @@ namespace Zenith {
 
 	void EditorCamera::OnUpdate(const Timestep ts)
 	{
-		const glm::vec2& mouse{ Input::GetMouseX(), Input::GetMouseY() };
-		const glm::vec2 delta = (mouse - m_InitialMousePosition) * 0.002f;
-
 		if (!m_IsActive)
 		{
+			if (m_CursorCaptured)
+			{
+				RestoreCursor();
+			}
+
 			if (!m_MouseInputEnabled)
 				m_MouseInputEnabled = true;
-
 			return;
 		}
 
+		// Get relative mouse motion for camera controls
+		glm::vec2 delta = GetMouseDelta();
+
 		if (Input::IsMouseButtonDown(MouseButton::Right) && !Input::IsKeyDown(KeyCode::LeftAlt))
 		{
-			m_CameraMode = CameraMode::FLYCAM;
+			if (!m_CursorCaptured)
+			{
+				CaptureCursor();
+			}
 
-			// Lock cursor and disable mouse input for other systems
-			Input::SetCursorMode(CursorMode::Locked);
-			m_MouseInputEnabled = false;
+			m_CameraMode = CameraMode::FLYCAM;
 
 			const float yawSign = GetUpDirection().y < 0 ? -1.0f : 1.0f;
 			const float speed = GetCameraSpeed();
+
+			glm::vec3 horizontalForward = GetHorizontalForwardDirection();
+			glm::vec3 horizontalRight = GetHorizontalRightDirection();
 
 			if (Input::IsKeyDown(KeyCode::Q))
 				m_PositionDelta -= ts.GetMilliseconds() * speed * glm::vec3{ 0.f, yawSign, 0.f };
 			if (Input::IsKeyDown(KeyCode::E))
 				m_PositionDelta += ts.GetMilliseconds() * speed * glm::vec3{ 0.f, yawSign, 0.f };
 			if (Input::IsKeyDown(KeyCode::S))
-				m_PositionDelta -= ts.GetMilliseconds() * speed * m_Direction;
+				m_PositionDelta -= ts.GetMilliseconds() * speed * horizontalForward;
 			if (Input::IsKeyDown(KeyCode::W))
-				m_PositionDelta += ts.GetMilliseconds() * speed * m_Direction;
+				m_PositionDelta += ts.GetMilliseconds() * speed * horizontalForward;
 			if (Input::IsKeyDown(KeyCode::A))
-				m_PositionDelta -= ts.GetMilliseconds() * speed * m_RightDirection;
+				m_PositionDelta -= ts.GetMilliseconds() * speed * horizontalRight;
 			if (Input::IsKeyDown(KeyCode::D))
-				m_PositionDelta += ts.GetMilliseconds() * speed * m_RightDirection;
+				m_PositionDelta += ts.GetMilliseconds() * speed * horizontalRight;
 
 			constexpr float maxRate{ 0.12f };
 			m_YawDelta += glm::clamp(yawSign * delta.x * RotationSpeed(), -maxRate, maxRate);
@@ -90,35 +98,44 @@ namespace Zenith {
 
 			if (Input::IsMouseButtonDown(MouseButton::Middle))
 			{
-				Input::SetCursorMode(CursorMode::Locked);
-				m_MouseInputEnabled = false;
+				if (!m_CursorCaptured)
+				{
+					CaptureCursor();
+				}
 				MousePan(delta);
 			}
 			else if (Input::IsMouseButtonDown(MouseButton::Left))
 			{
-				Input::SetCursorMode(CursorMode::Locked);
-				m_MouseInputEnabled = false;
+				if (!m_CursorCaptured)
+				{
+					CaptureCursor();
+				}
 				MouseRotate(delta);
 			}
 			else if (Input::IsMouseButtonDown(MouseButton::Right))
 			{
-				Input::SetCursorMode(CursorMode::Locked);
-				m_MouseInputEnabled = false;
-				MouseZoom((delta.x + delta.y) * 0.1f);
+				if (!m_CursorCaptured)
+				{
+					CaptureCursor();
+				}
+				MouseZoom((delta.x + delta.y) * 2.0f);
 			}
 			else
 			{
-				Input::SetCursorMode(CursorMode::Normal);
-				m_MouseInputEnabled = true;
+				if (m_CursorCaptured)
+				{
+					RestoreCursor();
+				}
 			}
 		}
 		else
 		{
-			Input::SetCursorMode(CursorMode::Normal);
-			m_MouseInputEnabled = true;
+			if (m_CursorCaptured)
+			{
+				RestoreCursor();
+			}
 		}
 
-		m_InitialMousePosition = mouse;
 		m_Position += m_PositionDelta;
 		m_Yaw += m_YawDelta;
 		m_Pitch += m_PitchDelta;
@@ -129,13 +146,65 @@ namespace Zenith {
 		UpdateCameraView();
 	}
 
+	glm::vec2 EditorCamera::GetMouseDelta()
+	{
+		if (m_CursorCaptured)
+		{
+			// Use consistent scaling with movement speed
+			float mouseSpeed = m_MouseSensitivity * 0.002f; // Base sensitivity
+
+			// Apply same modifiers as WASD movement
+			if (Input::IsKeyDown(KeyCode::LeftControl))
+				mouseSpeed /= 2.0f; // Slower precision mode
+			if (Input::IsKeyDown(KeyCode::LeftShift))
+				mouseSpeed *= 2.0f; // Faster mode
+
+			return Input::GetRelativeMouseMotion() * mouseSpeed;
+		}
+		else
+		{
+			const glm::vec2& mouse{ Input::GetMouseX(), Input::GetMouseY() };
+			const glm::vec2 delta = (mouse - m_InitialMousePosition) * 0.002f;
+			m_InitialMousePosition = mouse;
+			return delta;
+		}
+	}
+
+	void EditorCamera::CaptureCursor()
+	{
+		// Store current cursor position before capturing
+		auto [x, y] = Input::GetMousePosition();
+		m_CursorPositionBeforeCapture = { x, y };
+
+		// Lock cursor for camera controls
+		Input::SetCursorMode(CursorMode::Locked);
+		m_MouseInputEnabled = false;
+		m_CursorCaptured = true;
+
+		// Clear any accumulated relative motion
+		Input::GetRelativeMouseMotion();
+	}
+
+	void EditorCamera::RestoreCursor()
+	{
+		// Restore cursor to original position
+		Input::SetCursorMode(CursorMode::Normal);
+		Input::SetMousePosition(m_CursorPositionBeforeCapture.x, m_CursorPositionBeforeCapture.y);
+
+		m_MouseInputEnabled = true;
+		m_CursorCaptured = false;
+
+		// Update initial mouse position for next time
+		m_InitialMousePosition = m_CursorPositionBeforeCapture;
+	}
+
 	float EditorCamera::GetCameraSpeed() const
 	{
 		float speed = m_NormalSpeed;
 		if (Input::IsKeyDown(KeyCode::LeftControl))
-			speed /= 2 - glm::log(m_NormalSpeed);
+			speed /= glm::min(2 - glm::log(m_NormalSpeed), 2.5f);
 		if (Input::IsKeyDown(KeyCode::LeftShift))
-			speed *= 2 - glm::log(m_NormalSpeed);
+			speed *= glm::min(2 - glm::log(m_NormalSpeed), 2.5f);
 
 		return glm::clamp(speed, MIN_SPEED, MAX_SPEED);
 	}
@@ -144,19 +213,26 @@ namespace Zenith {
 	{
 		const float yawSign = GetUpDirection().y < 0 ? -1.0f : 1.0f;
 
-		// Extra step to handle the problem when the camera direction is the same as the up vector
-		const float cosAngle = glm::dot(GetForwardDirection(), GetUpDirection());
-		if (cosAngle * yawSign > 0.99f)
-			m_PitchDelta = 0.f;
+		// Normalize angles to prevent flipping
+		NormalizeAngles();
 
 		const glm::vec3 lookAt = m_Position + GetForwardDirection();
 		m_Direction = glm::normalize(lookAt - m_Position);
 		m_Distance = glm::distance(m_Position, m_FocalPoint);
+
+		m_Distance = glm::clamp(m_Distance, MIN_DISTANCE, MAX_DISTANCE);
+
 		m_ViewMatrix = glm::lookAt(m_Position, lookAt, glm::vec3{ 0.f, yawSign, 0.f });
 
-		//damping for smooth camera
-		m_YawDelta *= 0.6f;
-		m_PitchDelta *= 0.6f;
+		// Adaptive damping - reduce damping near pitch extremes to prevent shake
+		const float halfPi = glm::pi<float>() * 0.5f;
+		const float totalPitch = m_Pitch + m_PitchDelta;
+		const float pitchRatio = glm::abs(totalPitch) / halfPi; // 0.0 to 1.0
+		const float dampingFactor = glm::mix(0.6f, 0.9f, pitchRatio); // Less damping near poles
+
+		//adaptive damping for smooth camera
+		m_YawDelta *= dampingFactor;
+		m_PitchDelta *= dampingFactor;
 		m_PositionDelta *= 0.8f;
 	}
 
@@ -186,7 +262,7 @@ namespace Zenith {
 
 	float EditorCamera::RotationSpeed() const
 	{
-		return 0.3f;
+		return 1.0f; // Just a base multiplier, real scaling happens in GetMouseDelta
 	}
 
 	float EditorCamera::ZoomSpeed() const
@@ -226,9 +302,16 @@ namespace Zenith {
 
 	void EditorCamera::MousePan(const glm::vec2& delta)
 	{
-		auto [xSpeed, ySpeed] = PanSpeed();
-		m_FocalPoint -= GetRightDirection() * delta.x * xSpeed * m_Distance;
-		m_FocalPoint += GetUpDirection() * delta.y * ySpeed * m_Distance;
+		float modifier = 1.0f;
+		if (Input::IsKeyDown(KeyCode::LeftControl))
+			modifier = 0.5f;
+		if (Input::IsKeyDown(KeyCode::LeftShift))
+			modifier = 2.0f;
+
+		float panSpeed = m_Distance * 1.0f * modifier;
+
+		m_FocalPoint -= GetRightDirection() * delta.x * panSpeed;
+		m_FocalPoint += GetUpDirection() * delta.y * panSpeed;
 	}
 
 	void EditorCamera::MouseRotate(const glm::vec2& delta)
@@ -240,15 +323,27 @@ namespace Zenith {
 
 	void EditorCamera::MouseZoom(float delta)
 	{
-		m_Distance -= delta * ZoomSpeed();
+		float zoomRatio = 1.0f + (-delta * m_ZoomSensitivity * 0.5f);
+
+		if (Input::IsKeyDown(KeyCode::LeftControl))
+		{
+			float ratioChange = zoomRatio - 1.0f;
+			zoomRatio = 1.0f + (ratioChange * 0.4f);
+		}
+		if (Input::IsKeyDown(KeyCode::LeftShift))
+		{
+			float ratioChange = zoomRatio - 1.0f;
+			zoomRatio = 1.0f + (ratioChange * 2.5f);
+		}
+
+		float oldDistance = m_Distance;
+		float newDistance = m_Distance * zoomRatio;
+
+		newDistance = glm::clamp(newDistance, MIN_DISTANCE, MAX_DISTANCE);
+		m_Distance = newDistance;
+
 		const glm::vec3 forwardDir = GetForwardDirection();
 		m_Position = m_FocalPoint - forwardDir * m_Distance;
-		if (m_Distance < 1.0f)
-		{
-			m_FocalPoint += forwardDir * m_Distance;
-			m_Distance = 1.0f;
-		}
-		m_PositionDelta += delta * ZoomSpeed() * forwardDir;
 	}
 
 	glm::vec3 EditorCamera::GetUpDirection() const
@@ -275,4 +370,44 @@ namespace Zenith {
 	{
 		return glm::quat(glm::vec3(-m_Pitch - m_PitchDelta, -m_Yaw - m_YawDelta, 0.0f));
 	}
+
+	void EditorCamera::NormalizeAngles()
+	{
+		// Normalize yaw to [-π, π] range
+		while (m_Yaw > glm::pi<float>())
+			m_Yaw -= 2.0f * glm::pi<float>();
+		while (m_Yaw < -glm::pi<float>())
+			m_Yaw += 2.0f * glm::pi<float>();
+
+		// Improved pitch clamping with delta handling
+		const float halfPi = glm::pi<float>() * 0.5f;
+		const float pitchLimit = halfPi - 0.02f; // Slightly larger buffer
+		const float totalPitch = m_Pitch + m_PitchDelta;
+
+		if (totalPitch > pitchLimit)
+		{
+			m_Pitch = pitchLimit;
+			m_PitchDelta = 0.0f; // Stop delta accumulation
+		}
+		else if (totalPitch < -pitchLimit)
+		{
+			m_Pitch = -pitchLimit;
+			m_PitchDelta = 0.0f; // Stop delta accumulation
+		}
+	}
+
+	glm::vec3 EditorCamera::GetHorizontalForwardDirection() const
+	{
+		// Get current yaw rotation only (ignore pitch)
+		glm::quat yawOnlyRotation = glm::quat(glm::vec3(0.0f, -m_Yaw - m_YawDelta, 0.0f));
+		return glm::rotate(yawOnlyRotation, glm::vec3(0.0f, 0.0f, -1.0f));
+	}
+
+	glm::vec3 EditorCamera::GetHorizontalRightDirection() const
+	{
+		// Get current yaw rotation only (ignore pitch)
+		glm::quat yawOnlyRotation = glm::quat(glm::vec3(0.0f, -m_Yaw - m_YawDelta, 0.0f));
+		return glm::rotate(yawOnlyRotation, glm::vec3(1.0f, 0.0f, 0.0f));
+	}
+
 }

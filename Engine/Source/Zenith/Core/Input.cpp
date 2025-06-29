@@ -9,6 +9,7 @@
 namespace Zenith {
 
 	SDL_Window* Input::s_ApplicationWindow = nullptr;
+	inline static glm::vec2 s_RelativeMouseMotion{0.0f, 0.0f};
 
 	void Input::Update()
 	{
@@ -178,6 +179,9 @@ namespace Zenith {
 		case SDL_EVENT_MOUSE_MOTION:
 			s_MouseX = static_cast<int>(event.motion.x);
 			s_MouseY = static_cast<int>(event.motion.y);
+
+			s_RelativeMouseMotion.x = event.motion.xrel;
+			s_RelativeMouseMotion.y = event.motion.yrel;
 			break;
 		}
 	}
@@ -390,6 +394,33 @@ namespace Zenith {
 		return { static_cast<float>(s_MouseX), static_cast<float>(s_MouseY) };
 	}
 
+	glm::vec2 Input::GetRelativeMouseMotion()
+	{
+		glm::vec2 motion = s_RelativeMouseMotion;
+		s_RelativeMouseMotion = {0.0f, 0.0f};
+		return motion;
+	}
+
+	void Input::SetMousePosition(float x, float y)
+	{
+		SDL_Window* window = s_ApplicationWindow;
+		if (!window)
+		{
+			window = SDL_GetMouseFocus();
+			if (!window)
+			{
+				ZN_CORE_WARN("No window available for setting mouse position");
+				return;
+			}
+		}
+
+		SDL_WarpMouseInWindow(window, static_cast<int>(x), static_cast<int>(y));
+
+		// Update internal tracking
+		s_MouseX = static_cast<int>(x);
+		s_MouseY = static_cast<int>(y);
+	}
+
 	void Input::SetApplicationWindow(SDL_Window* window)
 	{
 		s_ApplicationWindow = window;
@@ -405,17 +436,19 @@ namespace Zenith {
 		SDL_Window* sdlWindow = s_ApplicationWindow;
 
 		if (!sdlWindow) {
-
 			sdlWindow = SDL_GetMouseFocus();
 			if (!sdlWindow) {
-				sdlWindow = SDL_GetKeyboardFocus();
+				ZN_CORE_WARN("No window for cursor mode change");
+				return;
 			}
 		}
 
-		if (!sdlWindow)
-		{
-			ZN_CORE_WARN("No active SDL window found for cursor mode change");
-			return;
+		if (mode == CursorMode::Locked) {
+			SDL_Window* keyboardFocus = SDL_GetKeyboardFocus();
+			if (keyboardFocus != sdlWindow) {
+				ZN_CORE_WARN("Refusing cursor lock - window not focused");
+				return;
+			}
 		}
 
 		switch (mode)

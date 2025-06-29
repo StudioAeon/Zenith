@@ -69,6 +69,11 @@ namespace Zenith {
 
 		glm::quat GetOrientation() const;
 
+		void SetMouseSensitivity(float sensitivity) { m_MouseSensitivity = sensitivity; }
+		float GetMouseSensitivity() const { return m_MouseSensitivity; }
+		void SetZoomSensitivity(float sensitivity) { m_ZoomSensitivity = sensitivity; }
+		float GetZoomSensitivity() const { return m_ZoomSensitivity; }
+
 		[[nodiscard]] float GetVerticalFOV() const { return m_VerticalFOV; }
 		[[nodiscard]] float GetAspectRatio() const { return m_AspectRatio; }
 		[[nodiscard]] float GetNearClip() const { return m_NearClip; }
@@ -82,6 +87,15 @@ namespace Zenith {
 
 	private:
 		void UpdateCameraView();
+
+		void CaptureCursor();
+		void RestoreCursor();
+		glm::vec2 GetMouseDelta();
+
+		void NormalizeAngles();
+
+		glm::vec3 GetHorizontalForwardDirection() const;
+		glm::vec3 GetHorizontalRightDirection() const;
 
 		bool OnMouseScroll(MouseScrolledEvent& e);
 
@@ -125,6 +139,15 @@ namespace Zenith {
 		uint32_t m_ViewportBottom = 1080;
 
 		constexpr static float MIN_SPEED{ 0.0005f }, MAX_SPEED{ 2.0f };
+		constexpr static float MIN_DISTANCE = 0.1f;
+		constexpr static float MAX_DISTANCE = 1000.0f;
+
+		bool m_CursorCaptured = false;
+		glm::vec2 m_CursorPositionBeforeCapture{0.0f};
+
+		float m_MouseSensitivity = 0.5f;
+		float m_ZoomSensitivity = 1.5f;
+
 		friend class EditorLayer;
 	};
 

@@ -78,7 +78,7 @@ namespace Zenith {
 		pipelineSpec.BackfaceCulling = false;
 		pipelineSpec.DepthTest = true;
 		pipelineSpec.DepthWrite = true;
-		pipelineSpec.Wireframe = false;
+		pipelineSpec.Wireframe = true;
 		//pipelineSpec.DepthOperator = DepthCompareOperator::Never;
 		pipelineSpec.Topology = PrimitiveTopology::Triangles;
 
