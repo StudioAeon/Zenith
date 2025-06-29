@@ -241,22 +241,10 @@ namespace Zenith::Utils {
 			auto fileSize = in.tellg();
 			const int skippedChars = SkipBOM(in);
 
-			fileSize -= skippedChars;
-
-			if (fileSize > 0) {
-				result.resize(static_cast<size_t>(fileSize) + 1);
-				result[0] = '\t';
-				in.read(result.data() + 1, fileSize);
-
-				if (in.fail() && !in.eof()) {
-					ZN_CORE_ERROR("Failed to read shader file: {}", filepath.string());
-					result.clear();
-				}
-			} else {
-				ZN_CORE_ERROR("Invalid file size after BOM skip: {}", filepath.string());
-			}
-		} else {
-			ZN_CORE_ERROR("Failed to open shader file: {}", filepath.string());
+			fileSize -= skippedChars - 1;
+			result.resize(fileSize);
+			in.read(result.data() + 1, fileSize);
+			result[0] = '\t';
 		}
 		in.close();
 		return result;
