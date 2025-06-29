@@ -27,4 +27,10 @@ namespace Zenith {
 		return nullptr;
 	}
 
+	void ImGuiLayer::AllowInputEvents(bool allowEvents)
+	{
+		// TODO
+		// g_DisableImGuiEvents = !allowEvents;
+	}
+
 }

@@ -1,4 +1,5 @@
 set(RENDERER_SOURCES
+		Camera.cpp
 		Framebuffer.cpp
 		Image.cpp
 		IndexBuffer.cpp
@@ -24,6 +25,7 @@ set(RENDERER_SOURCES
 )
 
 set(RENDERER_HEADERS
+		Camera.hpp
 		Framebuffer.hpp
 		GPUStats.hpp
 		Image.hpp

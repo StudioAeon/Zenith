@@ -130,7 +130,9 @@ namespace Zenith {
 
 		glm::mat4 mvpMatrix = m_ViewProjectionMatrix * transform;
 
-		Buffer ConstantBuffer = Buffer::Copy(&mvpMatrix, sizeof(glm::mat4));
+		glm::mat4 transposedMVP = glm::transpose(mvpMatrix);
+
+		Buffer ConstantBuffer = Buffer::Copy(&transposedMVP, sizeof(glm::mat4));
 
 		const auto& submeshes = meshSource->GetSubmeshes();
 		for (uint32_t i = 0; i < submeshes.size(); i++)

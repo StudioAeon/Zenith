@@ -19,13 +19,11 @@ struct FragmentOutput
 	float4 Color : SV_Target0;
 };
 
-// Push constant structure
 struct PushConstants
 {
 	float4x4 u_Transform;
 };
 
-// Declare push constants
 [[vk::push_constant]] PushConstants pc;
 
 #pragma stage : vert
@@ -33,10 +31,9 @@ VertexOutput main(VertexInput input)
 {
 	VertexOutput output;
 
-	// Use push constant transform
-	output.Position = mul(pc.u_Transform, float4(input.Position, 1.0));
+	float4 worldPos = float4(input.Position, 1.0);
+	output.Position = mul(worldPos, pc.u_Transform);
 
-	// Pass through normal and local position
 	output.Normal = input.Normal;
 	output.WorldPos = input.Position;
 
@@ -48,13 +45,11 @@ FragmentOutput main(VertexOutput input)
 {
 	FragmentOutput output;
 
-	// Simple lighting
 	float3 lightDir = normalize(float3(1.0, 1.0, 1.0));
 	float3 normal = normalize(input.Normal);
 	float ndotl = max(dot(normal, lightDir), 0.4);
 
-	// Bright red color for visibility
-	float3 baseColor = float3(0.2, 0.3, 0.8);
+	float3 baseColor = float3(0.8, 0.2, 0.2);
 	float3 finalColor = baseColor * ndotl;
 
 	output.Color = float4(finalColor, 1.0);

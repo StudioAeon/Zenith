@@ -16,12 +16,7 @@ namespace Zenith {
 		virtual void Begin() = 0;
 		virtual void End() = 0;
 
-		virtual void OnAttach() override = 0;
-		virtual void OnDetach() override = 0;
-
-		virtual void OnUpdate(Timestep ts) override {}
-		virtual void OnImGuiRender() override {}
-		virtual bool OnEvent(Event& event) override { return false; }
+		void AllowInputEvents(bool allowEvents);
 
 	protected:
 		explicit ImGuiLayer(ApplicationContext& context);

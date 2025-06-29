@@ -12,6 +12,7 @@
 #include "Zenith/Asset/AssetManager.hpp"
 
 #include <future>
+#include "Zenith/Editor/EditorCamera.hpp"
 
 #include "Zenith/Renderer/MeshRenderer.hpp"
 #include <memory>
@@ -46,6 +47,8 @@ namespace Zenith {
 	private:
 		void TestLoadMesh();
 		void RenderMeshTestUI();
+		void RenderCameraControlsUI();
+		void UpdateViewportBounds();
 	private:
 		std::string m_ProjectNameBuffer;
 		std::string m_OpenProjectFilePathBuffer;
@@ -66,7 +69,15 @@ namespace Zenith {
 		float m_MeshRotation = 0.0f;
 		bool m_EnableMeshRendering = false;
 
-		ImVec2 m_LastViewportSize = {0, 0};
+		Ref<EditorCamera> m_EditorCamera;
+		bool m_ViewportFocused = false;
+		bool m_ViewportHovered = false;
+		ImVec2 m_ViewportSize = {0, 0};
+		ImVec2 m_ViewportBounds[2];
+
+		bool m_UseIdentityTransform = false;
+		bool m_UseUnreversedProjection = true;
+		bool m_ForceCameraActive = false;
 
 	private:
 		void UpdateWindowTitle(const std::string& sceneName);

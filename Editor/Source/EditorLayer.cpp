@@ -52,6 +52,18 @@ namespace Zenith {
 
 		m_MeshRenderer = std::make_unique<MeshRenderer>();
 		m_MeshRenderer->Initialize();
+
+		m_EditorCamera = Ref<EditorCamera>::Create(45.0f, 1920.0f, 1080.0f, 0.1f, 1000.0f);
+		m_EditorCamera->SetActive(false);
+
+		m_EditorCamera->Focus(glm::vec3(0.0f, 0.0f, 0.0f));
+		m_EditorCamera->SetDistance(5.0f);
+
+		TestLoadMesh();
+		if (m_MeshLoadSuccess)
+		{
+			m_EnableMeshRendering = true;
+		}
 	}
 
 	void EditorLayer::SetApplicationContext(std::shared_ptr<ApplicationContext> context)
@@ -69,6 +81,8 @@ namespace Zenith {
 			m_MeshRenderer->Shutdown();
 			m_MeshRenderer.reset();
 		}
+
+		m_EditorCamera = nullptr;
 	}
 
 	void EditorLayer::UpdateWindowTitle(const std::string& sceneName)
@@ -103,7 +117,6 @@ namespace Zenith {
 		std::filesystem::copy("Resources/NewProjectTemplate", projectPath, std::filesystem::copy_options::recursive);
 
 		{
-			// Project File
 			std::ifstream stream(projectPath / "Project.zproj");
 			ZN_VERIFY(stream.is_open());
 			std::stringstream ss;
@@ -285,40 +298,90 @@ namespace Zenith {
 		}
 	}
 
+	void EditorLayer::UpdateViewportBounds()
+	{
+		if (m_EditorCamera && m_ViewportSize.x > 0 && m_ViewportSize.y > 0)
+		{
+			uint32_t left = static_cast<uint32_t>(m_ViewportBounds[0].x);
+			uint32_t top = static_cast<uint32_t>(m_ViewportBounds[0].y);
+			uint32_t right = static_cast<uint32_t>(m_ViewportBounds[1].x);
+			uint32_t bottom = static_cast<uint32_t>(m_ViewportBounds[1].y);
+
+			m_EditorCamera->SetViewportBounds(left, top, right, bottom);
+		}
+	}
+
 	void EditorLayer::OnUpdate(Timestep ts)
 	{
 		ZN_PROFILE_FUNC();
 
 		AssetManager::SyncWithAssetThread();
 
-		if (m_EnableMeshRendering && m_TestMeshSource && m_MeshRenderer)
+		if (m_EditorCamera)
 		{
-			// Update mesh rotation
-			m_MeshRotation += ts * 45.0f;
-			m_MeshTransform = glm::rotate(glm::mat4(1.0f), glm::radians(m_MeshRotation), glm::vec3(0.0f, 1.0f, 0.0f));
+			bool shouldActivateCamera = m_ViewportFocused || m_ViewportHovered;
+			m_EditorCamera->SetActive(shouldActivateCamera);
+			m_EditorCamera->OnUpdate(ts);
+		}
 
-			// Set up camera matrices
-			float aspectRatio = m_ApplicationContext->GetWindow().GetWidth() / (float)m_ApplicationContext->GetWindow().GetHeight();
+		if (m_EnableMeshRendering && m_TestMeshSource && m_MeshRenderer && m_EditorCamera)
+		{
+			m_MeshTransform = glm::scale(glm::mat4(1.0f), glm::vec3(2.0f));
 
-			// Use viewport size if available
-			if (m_LastViewportSize.x > 0 && m_LastViewportSize.y > 0)
-			{
-				aspectRatio = m_LastViewportSize.x / m_LastViewportSize.y;
-			}
+			glm::mat4 viewProjection = m_EditorCamera->GetUnReversedViewProjection();
 
-			glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
-			glm::mat4 view = glm::lookAt(
-				glm::vec3(0.0f, 2.0f, 5.0f),  // Eye position
-				glm::vec3(0.0f, 0.0f, 0.0f),  // Look at center
-				glm::vec3(0.0f, 1.0f, 0.0f)   // Up vector
-			);
-			glm::mat4 viewProjection = projection * view;
-
-			// Render the mesh to our offscreen framebuffer
 			m_MeshRenderer->BeginScene(viewProjection);
 			m_MeshRenderer->DrawMesh(m_TestMeshSource, m_MeshTransform);
 			m_MeshRenderer->EndScene();
 		}
+	}
+
+	void EditorLayer::RenderCameraControlsUI()
+	{
+		if (!m_EditorCamera)
+			return;
+
+		if (ImGui::Begin("Camera Controls"))
+		{
+			ImGui::SeparatorText("Camera Info");
+
+			glm::vec3 position = m_EditorCamera->GetPosition();
+			ImGui::Text("Position: (%.2f, %.2f, %.2f)", position.x, position.y, position.z);
+			ImGui::Text("Distance: %.2f", m_EditorCamera->GetDistance());
+			ImGui::Text("FOV: %.1f°", glm::degrees(m_EditorCamera->GetVerticalFOV()));
+			ImGui::Text("Mode: %s",
+				m_EditorCamera->GetCurrentMode() == CameraMode::FLYCAM ? "Fly Camera" :
+				m_EditorCamera->GetCurrentMode() == CameraMode::ARCBALL ? "Arc Ball" : "None");
+
+			ImGui::SeparatorText("Controls");
+			ImGui::TextWrapped("Fly Camera: Right mouse + WASD/QE");
+			ImGui::TextWrapped("Arc Ball: Alt + Left mouse (rotate), Middle mouse (pan), Right mouse (zoom)");
+			ImGui::TextWrapped("Scroll: Zoom in/out");
+
+			ImGui::SeparatorText("Camera Settings");
+
+			if (ImGui::Button("Focus on Origin"))
+			{
+				m_EditorCamera->Focus(glm::vec3(0.0f));
+			}
+
+			ImGui::SameLine();
+			if (ImGui::Button("View Cube"))
+			{
+				m_EditorCamera->Focus(glm::vec3(0.0f, 0.0f, 0.0f));
+				m_EditorCamera->SetDistance(8.0f);
+			}
+
+			float distance = m_EditorCamera->GetDistance();
+			if (ImGui::SliderFloat("Distance", &distance, 1.0f, 100.0f))
+			{
+				m_EditorCamera->SetDistance(distance);
+			}
+
+			ImGui::Separator();
+			ImGui::Text("Viewport Size: %.0fx%.0f", m_ViewportSize.x, m_ViewportSize.y);
+		}
+		ImGui::End();
 	}
 
 	void EditorLayer::RenderMeshTestUI()
@@ -347,32 +410,8 @@ namespace Zenith {
 
 				if (m_EnableMeshRendering)
 				{
-					ImGui::DragFloat("Rotation Speed", &m_MeshRotation, 1.0f, -360.0f, 360.0f);
-
-					static glm::vec3 translation(0.0f);
-					static glm::vec3 scale(1.0f);
-
-					if (ImGui::DragFloat3("Position", &translation.x, 0.1f))
-					{
-						m_MeshTransform = glm::translate(glm::mat4(1.0f), translation) *
-										  glm::rotate(glm::mat4(1.0f), glm::radians(m_MeshRotation), glm::vec3(0.0f, 1.0f, 0.0f)) *
-										  glm::scale(glm::mat4(1.0f), scale);
-					}
-
-					if (ImGui::DragFloat3("Scale", &scale.x, 0.1f, 0.1f, 10.0f))
-					{
-						m_MeshTransform = glm::translate(glm::mat4(1.0f), translation) *
-										  glm::rotate(glm::mat4(1.0f), glm::radians(m_MeshRotation), glm::vec3(0.0f, 1.0f, 0.0f)) *
-										  glm::scale(glm::mat4(1.0f), scale);
-					}
-
-					if (ImGui::Button("Reset Transform"))
-					{
-						translation = glm::vec3(0.0f);
-						scale = glm::vec3(1.0f);
-						m_MeshRotation = 0.0f;
-						m_MeshTransform = glm::mat4(1.0f);
-					}
+					ImGui::Text("Mesh is rendered with 2x scale at origin");
+					ImGui::Text("Use camera controls to move around and view it");
 				}
 			}
 			else if (!m_MeshTestLog.empty())
@@ -397,7 +436,7 @@ namespace Zenith {
 	{
 		ZN_PROFILE_FUNC();
 
-		// ImGui + Dockspace Setup ------------------------------------------------------------------------------
+		// ImGui + Dockspace Setup
 		ImGuiIO& io = ImGui::GetIO();
 		ImGuiStyle& style = ImGui::GetStyle();
 		auto boldFont = io.Fonts->Fonts[0];
@@ -405,8 +444,6 @@ namespace Zenith {
 
 		io.ConfigWindowsResizeFromEdges = io.BackendFlags & ImGuiBackendFlags_HasMouseCursors;
 
-		// We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
-		// because it would be confusing to have two docking targets within each others.
 		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
 
 		ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -431,12 +468,11 @@ namespace Zenith {
 
 		ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImVec4{ 0.0f, 0.0f, 0.0f, 0.0f });
 		ImGui::Begin("DockSpace Demo", nullptr, window_flags);
-		ImGui::PopStyleColor(); // MenuBarBg
+		ImGui::PopStyleColor();
 		ImGui::PopStyleVar(2);
 
 		ImGui::PopStyleVar(2);
 
-		// Dockspace
 		float minWinSizeX = style.WindowMinSize.x;
 		style.WindowMinSize.x = 370.0f;
 		ImGui::DockSpace(ImGui::GetID("MyDockspace"));
@@ -445,17 +481,29 @@ namespace Zenith {
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		if (ImGui::Begin("Viewport"))
 		{
-			ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+			m_ViewportFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
+			m_ViewportHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
 
-			if (m_MeshRenderer && (viewportSize.x != m_LastViewportSize.x || viewportSize.y != m_LastViewportSize.y))
+			ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
+
+			if (viewportPanelSize.x != m_ViewportSize.x || viewportPanelSize.y != m_ViewportSize.y)
 			{
-				if (viewportSize.x > 0 && viewportSize.y > 0)
+				if (viewportPanelSize.x > 0 && viewportPanelSize.y > 0)
 				{
-					m_LastViewportSize = viewportSize;
+					m_ViewportSize = viewportPanelSize;
+
+					ImVec2 windowPos = ImGui::GetWindowPos();
+					ImVec2 contentRegionMin = ImGui::GetWindowContentRegionMin();
+					ImVec2 contentRegionMax = ImGui::GetWindowContentRegionMax();
+
+					m_ViewportBounds[0] = { windowPos.x + contentRegionMin.x, windowPos.y + contentRegionMin.y };
+					m_ViewportBounds[1] = { windowPos.x + contentRegionMax.x, windowPos.y + contentRegionMax.y };
+
+					UpdateViewportBounds();
 				}
 			}
 
-			if (m_MeshRenderer && viewportSize.x > 0 && viewportSize.y > 0)
+			if (m_MeshRenderer && m_ViewportSize.x > 0 && m_ViewportSize.y > 0)
 			{
 				Ref<Image2D> renderedImage = m_MeshRenderer->GetImage(0);
 				if (renderedImage)
@@ -463,7 +511,17 @@ namespace Zenith {
 					ImTextureID textureID = m_MeshRenderer->GetTextureImGuiID(renderedImage);
 					if (textureID)
 					{
-						ImGui::Image(textureID, viewportSize);
+						ImGui::Image(textureID, m_ViewportSize);
+
+						if (ImGui::IsItemClicked())
+						{
+							m_ViewportFocused = true;
+						}
+
+						if (ImGui::IsItemHovered())
+						{
+							m_ViewportHovered = true;
+						}
 					}
 					else
 					{
@@ -550,9 +608,17 @@ namespace Zenith {
 		ImGui::End();
 
 		RenderMeshTestUI();
+		RenderCameraControlsUI();
 	}
 
 	bool EditorLayer::OnEvent(Event& e)
-	{ return false; }
+	{
+		if (m_EditorCamera && m_ViewportFocused)
+		{
+			m_EditorCamera->OnEvent(e);
+		}
+
+		return false;
+	}
 
 }

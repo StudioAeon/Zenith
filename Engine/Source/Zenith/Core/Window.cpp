@@ -82,6 +82,8 @@ namespace Zenith {
 			ZN_CORE_ASSERT(m_Window != nullptr, "Failed to create SDL Window: {}", SDL_GetError());
 		}
 
+		Input::SetApplicationWindow(m_Window);
+
 		// Set icon
 		{
 			int width, height, channels;
@@ -148,6 +150,7 @@ namespace Zenith {
 
 	void Window::Shutdown()
 	{
+		Input::SetApplicationWindow(nullptr);
 		Input::Shutdown();
 
 		m_SwapChain->Destroy();

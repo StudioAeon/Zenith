@@ -25,6 +25,7 @@ target_sources(Zenith PRIVATE ${ZENITH_ROOT_SOURCES} ${ZENITH_ROOT_HEADERS} ${ZE
 add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Asset)
 add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Core)
 add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Debug)
+add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Editor)
 add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Events)
 add_subdirectory(${ZENITH_SRC_DIR}/Zenith/ImGui)
 add_subdirectory(${ZENITH_SRC_DIR}/Zenith/Math)

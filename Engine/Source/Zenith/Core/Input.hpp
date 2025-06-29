@@ -62,6 +62,9 @@ namespace Zenith {
 		static float GetMouseY();
 		static std::pair<float, float> GetMousePosition();
 
+		static void SetApplicationWindow(SDL_Window* window);
+		static SDL_Window* GetApplicationWindow();
+
 		static void SetCursorMode(CursorMode mode);
 		static CursorMode GetCursorMode();
 
@@ -104,6 +107,7 @@ namespace Zenith {
 		inline static std::map<int, Controller> s_Controllers;
 		inline static const bool* s_KeyboardState = nullptr;
 		inline static Uint32 s_MouseState = 0;
+		static SDL_Window* s_ApplicationWindow;
 		inline static int s_MouseX = 0;
 		inline static int s_MouseY = 0;
 		inline static bool s_CursorHidden = false;
