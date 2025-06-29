@@ -16,9 +16,9 @@ namespace Zenith {
 
 		uint32_t gpuCount = 0;
 		// Get number of available physical devices
-		VK_CHECK_RESULT(vkEnumeratePhysicalDevices(vkInstance, &gpuCount, nullptr));
+		vkEnumeratePhysicalDevices(vkInstance, &gpuCount, nullptr);
 		ZN_CORE_ASSERT(gpuCount > 0, "");
-		// Enumerate physical devices
+		// Enumerate devices
 		std::vector<VkPhysicalDevice> physicalDevices(gpuCount);
 		VK_CHECK_RESULT(vkEnumeratePhysicalDevices(vkInstance, &gpuCount, physicalDevices.data()));
 
@@ -35,7 +35,7 @@ namespace Zenith {
 
 		if (!selectedPhysicalDevice)
 		{
-			std::cout << "[Renderer] Warning: Could not find discrete GPU, using first available device\n";
+			ZN_CORE_INFO_TAG("Renderer", "Could not find discrete GPU.");
 			selectedPhysicalDevice = physicalDevices.back();
 		}
 
@@ -234,31 +234,6 @@ namespace Zenith {
 		return UINT32_MAX;
 	}
 
-	bool VulkanPhysicalDevice::IsIntelGPU() const
-	{
-		return m_Properties.vendorID == 0x8086; // Intel vendor ID
-	}
-
-	void VulkanPhysicalDevice::LogDeviceInfo() const
-	{
-		ZN_CORE_INFO_TAG("Renderer", "=== Vulkan Device Info ===");
-		ZN_CORE_INFO_TAG("Renderer", "Device: {}", m_Properties.deviceName);
-		ZN_CORE_INFO_TAG("Renderer", "Vendor: 0x{:X}", m_Properties.vendorID);
-		ZN_CORE_INFO_TAG("Renderer", "Driver: {}", m_Properties.driverVersion);
-		ZN_CORE_INFO_TAG("Renderer", "API Version: {}.{}.{}",
-			VK_VERSION_MAJOR(m_Properties.apiVersion),
-			VK_VERSION_MINOR(m_Properties.apiVersion),
-			VK_VERSION_PATCH(m_Properties.apiVersion));
-
-		// Log critical features
-		ZN_CORE_INFO_TAG("Renderer", "Anisotropy: {}", m_Features.samplerAnisotropy ? "Yes" : "No");
-		ZN_CORE_INFO_TAG("Renderer", "Wide Lines: {}", m_Features.wideLines ? "Yes" : "No");
-		ZN_CORE_INFO_TAG("Renderer", "Fill Mode Non-Solid: {}", m_Features.fillModeNonSolid ? "Yes" : "No");
-		ZN_CORE_INFO_TAG("Renderer", "Independent Blend: {}", m_Features.independentBlend ? "Yes" : "No");
-		ZN_CORE_INFO_TAG("Renderer", "Pipeline Statistics: {}", m_Features.pipelineStatisticsQuery ? "Yes" : "No");
-		ZN_CORE_INFO_TAG("Renderer", "Shader Storage Image Read Without Format: {}", m_Features.shaderStorageImageReadWithoutFormat ? "Yes" : "No");
-	}
-
 	Ref<VulkanPhysicalDevice> VulkanPhysicalDevice::Select()
 	{
 		return Ref<VulkanPhysicalDevice>::Create();
@@ -271,21 +246,25 @@ namespace Zenith {
 	VulkanDevice::VulkanDevice(const Ref<VulkanPhysicalDevice>& physicalDevice, VkPhysicalDeviceFeatures enabledFeatures)
 		: m_PhysicalDevice(physicalDevice), m_EnabledFeatures(enabledFeatures)
 	{
-		// Log device information for debugging
-		m_PhysicalDevice->LogDeviceInfo();
-
 		// Do we need to enable any other extensions (eg. NV_RAYTRACING?)
 		std::vector<const char*> deviceExtensions;
-
 		// If the device will be used for presenting to a display via a swapchain we need to request the swapchain extension
 		ZN_CORE_ASSERT(m_PhysicalDevice->IsExtensionSupported(VK_KHR_SWAPCHAIN_EXTENSION_NAME));
 		deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
-		// Add optional extensions only if supported
 		if (m_PhysicalDevice->IsExtensionSupported(VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME))
 			deviceExtensions.push_back(VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME);
 		if (m_PhysicalDevice->IsExtensionSupported(VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME))
 			deviceExtensions.push_back(VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME);
+
+		VkDeviceCreateInfo deviceCreateInfo = {};
+		deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(physicalDevice->m_QueueCreateInfos.size());;
+		deviceCreateInfo.pQueueCreateInfos = physicalDevice->m_QueueCreateInfos.data();
+		deviceCreateInfo.pEnabledFeatures = &enabledFeatures;
+
+		// If a pNext(Chain) has been passed, we need to add it to the device creation info
+		VkPhysicalDeviceFeatures2 physicalDeviceFeatures2{};
 
 		// Enable the debug marker extension if it is present (likely meaning a debugging tool is present)
 		if (m_PhysicalDevice->IsExtensionSupported(VK_EXT_DEBUG_MARKER_EXTENSION_NAME))
@@ -294,43 +273,19 @@ namespace Zenith {
 			m_EnableDebugMarkers = true;
 		}
 
-		// Validate and adjust features for device compatibility
-		VkPhysicalDeviceFeatures safeFeatures = ValidateFeaturesForDevice(enabledFeatures);
-
-		VkDeviceCreateInfo deviceCreateInfo = {};
-		deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-		deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(physicalDevice->m_QueueCreateInfos.size());
-		deviceCreateInfo.pQueueCreateInfos = physicalDevice->m_QueueCreateInfos.data();
-		deviceCreateInfo.pEnabledFeatures = &safeFeatures;
-
 		if (deviceExtensions.size() > 0)
 		{
 			deviceCreateInfo.enabledExtensionCount = (uint32_t)deviceExtensions.size();
 			deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
 		}
 
-		// Attempt device creation with full feature set
 		VkResult result = vkCreateDevice(m_PhysicalDevice->GetVulkanPhysicalDevice(), &deviceCreateInfo, nullptr, &m_LogicalDevice);
-
 		if (result != VK_SUCCESS) {
-			ZN_CORE_ERROR_TAG("Renderer", "Failed to create Vulkan device: {}", Utils::VKResultToString(result));
-			ZN_CORE_ERROR_TAG("Renderer", "Device: {} (Driver: {})",
-				m_PhysicalDevice->GetProperties().deviceName,
-				m_PhysicalDevice->GetProperties().driverVersion);
-
-			// Fallback: try with minimal features
-			if (!TryCreateDeviceWithMinimalFeatures(deviceExtensions)) {
-				ZN_CORE_ERROR_TAG("Renderer", "Failed to create Vulkan device even with minimal features");
-				ZN_CORE_ASSERT(false, "Vulkan device creation failed completely");
-				return;
-			}
-		} else {
-			// Store the successfully enabled features
-			m_EnabledFeatures = safeFeatures;
-			ZN_CORE_INFO_TAG("Renderer", "Vulkan device created successfully with requested features");
+			ZN_CORE_ERROR_TAG("Renderer", "Device creation failed: {}", Utils::VKResultToString(result));
+			ZN_CORE_ASSERT(false, "Vulkan device creation failed");
 		}
 
-		// Get queues from the device
+		// Get a graphics queue from the device
 		vkGetDeviceQueue(m_LogicalDevice, m_PhysicalDevice->m_QueueFamilyIndices.Graphics, 0, &m_GraphicsQueue);
 		vkGetDeviceQueue(m_LogicalDevice, m_PhysicalDevice->m_QueueFamilyIndices.Compute, 0, &m_ComputeQueue);
 	}
@@ -390,87 +345,6 @@ namespace Zenith {
 		VK_CHECK_RESULT(vkAllocateCommandBuffers(m_LogicalDevice, &cmdBufAllocateInfo, &cmdBuffer));
 		VKUtils::SetDebugUtilsObjectName(m_LogicalDevice, VK_OBJECT_TYPE_COMMAND_BUFFER, debugName, cmdBuffer);
 		return cmdBuffer;
-	}
-
-	VkPhysicalDeviceFeatures VulkanDevice::ValidateFeaturesForDevice(const VkPhysicalDeviceFeatures& requestedFeatures)
-	{
-		const VkPhysicalDeviceFeatures& deviceFeatures = m_PhysicalDevice->GetFeatures();
-		VkPhysicalDeviceFeatures safeFeatures = {};
-
-		// Only enable features that are actually supported by the device
-		safeFeatures.samplerAnisotropy = deviceFeatures.samplerAnisotropy && requestedFeatures.samplerAnisotropy;
-		safeFeatures.wideLines = deviceFeatures.wideLines && requestedFeatures.wideLines;
-		safeFeatures.fillModeNonSolid = deviceFeatures.fillModeNonSolid && requestedFeatures.fillModeNonSolid;
-		safeFeatures.independentBlend = deviceFeatures.independentBlend && requestedFeatures.independentBlend;
-		safeFeatures.pipelineStatisticsQuery = deviceFeatures.pipelineStatisticsQuery && requestedFeatures.pipelineStatisticsQuery;
-		safeFeatures.shaderStorageImageReadWithoutFormat = deviceFeatures.shaderStorageImageReadWithoutFormat && requestedFeatures.shaderStorageImageReadWithoutFormat;
-
-		// Special handling for Intel integrated graphics
-		if (m_PhysicalDevice->IsIntelGPU()) {
-			ZN_CORE_WARN_TAG("Renderer", "Intel integrated graphics detected - applying conservative feature selection");
-
-			// Intel iGPUs often have issues with these features
-			if (!deviceFeatures.wideLines) {
-				safeFeatures.wideLines = false;
-				ZN_CORE_WARN_TAG("Renderer", "Disabled wide lines for Intel GPU");
-			}
-
-			if (!deviceFeatures.fillModeNonSolid) {
-				safeFeatures.fillModeNonSolid = false;
-				ZN_CORE_WARN_TAG("Renderer", "Disabled fill mode non-solid for Intel GPU");
-			}
-		}
-
-		// Log which features were disabled
-		if (requestedFeatures.samplerAnisotropy && !safeFeatures.samplerAnisotropy)
-			ZN_CORE_WARN_TAG("Renderer", "Sampler anisotropy not supported by device");
-		if (requestedFeatures.wideLines && !safeFeatures.wideLines)
-			ZN_CORE_WARN_TAG("Renderer", "Wide lines not supported by device");
-		if (requestedFeatures.fillModeNonSolid && !safeFeatures.fillModeNonSolid)
-			ZN_CORE_WARN_TAG("Renderer", "Fill mode non-solid not supported by device");
-		if (requestedFeatures.independentBlend && !safeFeatures.independentBlend)
-			ZN_CORE_WARN_TAG("Renderer", "Independent blend not supported by device");
-		if (requestedFeatures.pipelineStatisticsQuery && !safeFeatures.pipelineStatisticsQuery)
-			ZN_CORE_WARN_TAG("Renderer", "Pipeline statistics query not supported by device");
-		if (requestedFeatures.shaderStorageImageReadWithoutFormat && !safeFeatures.shaderStorageImageReadWithoutFormat)
-			ZN_CORE_WARN_TAG("Renderer", "Shader storage image read without format not supported by device");
-
-		return safeFeatures;
-	}
-
-	bool VulkanDevice::TryCreateDeviceWithMinimalFeatures(const std::vector<const char*>& deviceExtensions)
-	{
-		ZN_CORE_WARN_TAG("Renderer", "Attempting device creation with minimal features...");
-
-		// Minimal feature set that should work on most devices
-		VkPhysicalDeviceFeatures minimalFeatures = {};
-
-		// Only enable anisotropy if supported (most basic feature)
-		const VkPhysicalDeviceFeatures& deviceFeatures = m_PhysicalDevice->GetFeatures();
-		minimalFeatures.samplerAnisotropy = deviceFeatures.samplerAnisotropy;
-
-		// Recreate device info with minimal features
-		VkDeviceCreateInfo minimalCreateInfo = {};
-		minimalCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-		minimalCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(m_PhysicalDevice->m_QueueCreateInfos.size());
-		minimalCreateInfo.pQueueCreateInfos = m_PhysicalDevice->m_QueueCreateInfos.data();
-		minimalCreateInfo.pEnabledFeatures = &minimalFeatures;
-
-		// Only use essential extensions for fallback
-		std::vector<const char*> essentialExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-		minimalCreateInfo.enabledExtensionCount = static_cast<uint32_t>(essentialExtensions.size());
-		minimalCreateInfo.ppEnabledExtensionNames = essentialExtensions.data();
-
-		VkResult result = vkCreateDevice(m_PhysicalDevice->GetVulkanPhysicalDevice(), &minimalCreateInfo, nullptr, &m_LogicalDevice);
-		if (result == VK_SUCCESS) {
-			ZN_CORE_WARN_TAG("Renderer", "Device created with minimal features");
-			m_EnabledFeatures = minimalFeatures;
-			m_EnableDebugMarkers = false; // Disabled in minimal mode
-			return true;
-		}
-
-		ZN_CORE_ERROR_TAG("Renderer", "Minimal device creation also failed: {}", Utils::VKResultToString(result));
-		return false;
 	}
 
 	Ref<VulkanCommandPool> VulkanDevice::GetThreadLocalCommandPool()

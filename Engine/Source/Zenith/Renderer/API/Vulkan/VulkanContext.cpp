@@ -12,17 +12,12 @@
 
 #include <format>
 
-#include "Zenith/Debug/Profiler.hpp"
-
 #ifndef VK_API_VERSION_1_2
 #error Wrong Vulkan SDK! Please run scripts/Setup.bat
 #endif
 
 
 namespace Zenith {
-
-	// Static variables
-	//VkInstance VulkanContext::s_VulkanInstance = nullptr;
 
 #if defined(ZN_DEBUG) || defined(ZN_RELEASE)
 	static bool s_Validation = true;
@@ -70,11 +65,6 @@ namespace Zenith {
 	static VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsMessengerCallback(const VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, const VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 	{
 		(void)pUserData; //Unused argument
-
-		// Filter out non-critical messages for Intel GPUs to reduce noise
-		if (pCallbackData && pCallbackData->pMessage && strstr(pCallbackData->pMessage, "Intel") && messageSeverity < VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-			return VK_FALSE;
-		}
 
 		const bool performanceWarnings = false;
 		if (!performanceWarnings)
@@ -142,14 +132,6 @@ namespace Zenith {
 		// Its too late to destroy the device here, because Destroy() asks for the context (which we're in the middle of destructing)
 		// Device is destroyed in SDL_Window::Shutdown()
 		//m_Device->Destroy();
-
-		if (s_Validation && m_DebugUtilsMessenger)
-		{
-			auto vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(s_VulkanInstance, "vkDestroyDebugUtilsMessengerEXT");
-			if (vkDestroyDebugUtilsMessengerEXT) {
-				vkDestroyDebugUtilsMessengerEXT(s_VulkanInstance, m_DebugUtilsMessenger, nullptr);
-			}
-		}
 
 		vkDestroyInstance(s_VulkanInstance, nullptr);
 		s_VulkanInstance = nullptr;
@@ -262,13 +244,7 @@ namespace Zenith {
 		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		// Instance and Surface Creation
 		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		VkResult result = vkCreateInstance(&instanceCreateInfo, nullptr, &s_VulkanInstance);
-		if (result != VK_SUCCESS) {
-			ZN_CORE_ERROR_TAG("Renderer", "Failed to create Vulkan instance: {}", Utils::VKResultToString(result));
-			ZN_CORE_ASSERT(false, "Vulkan instance creation failed");
-			return;
-		}
-
+		VK_CHECK_RESULT(vkCreateInstance(&instanceCreateInfo, nullptr, &s_VulkanInstance));
 		Utils::VulkanLoadDebugUtilsExtensions(s_VulkanInstance);
 
 		if (s_Validation)
@@ -286,35 +262,17 @@ namespace Zenith {
 		}
 
 		m_PhysicalDevice = VulkanPhysicalDevice::Select();
-		if (!m_PhysicalDevice) {
-			ZN_CORE_ERROR_TAG("Renderer", "Failed to select Vulkan physical device");
-			ZN_CORE_ASSERT(false, "No suitable Vulkan physical device found");
-			return;
-		}
 
-		// Check if we're running on Intel integrated graphics for special handling
-		bool isIntelGPU = m_PhysicalDevice->IsIntelGPU();
-		if (isIntelGPU) {
-			ZN_CORE_WARN_TAG("Renderer", "Intel integrated graphics detected - using conservative feature settings");
-		}
-
+		const VkPhysicalDeviceFeatures& deviceFeatures = m_PhysicalDevice->GetFeatures();
 		VkPhysicalDeviceFeatures enabledFeatures;
 		memset(&enabledFeatures, 0, sizeof(VkPhysicalDeviceFeatures));
-
-		// Request features - these will be validated against device capabilities in VulkanDevice
-		enabledFeatures.samplerAnisotropy = true;
-		enabledFeatures.wideLines = true;
-		enabledFeatures.fillModeNonSolid = true;
-		enabledFeatures.independentBlend = true;
-		enabledFeatures.pipelineStatisticsQuery = true;
-		enabledFeatures.shaderStorageImageReadWithoutFormat = true;
-
+		enabledFeatures.samplerAnisotropy = deviceFeatures.samplerAnisotropy;
+		enabledFeatures.wideLines = deviceFeatures.wideLines;
+		enabledFeatures.fillModeNonSolid = deviceFeatures.fillModeNonSolid;
+		enabledFeatures.independentBlend = deviceFeatures.independentBlend;
+		enabledFeatures.pipelineStatisticsQuery = deviceFeatures.pipelineStatisticsQuery;
+		enabledFeatures.shaderStorageImageReadWithoutFormat = deviceFeatures.shaderStorageImageReadWithoutFormat;
 		m_Device = Ref<VulkanDevice>::Create(m_PhysicalDevice, enabledFeatures);
-		if (!m_Device || !m_Device->GetVulkanDevice()) {
-			ZN_CORE_ERROR_TAG("Renderer", "Failed to create Vulkan logical device");
-			ZN_CORE_ASSERT(false, "Vulkan logical device creation failed");
-			return;
-		}
 
 		VulkanAllocator::Init(m_Device);
 
@@ -322,8 +280,6 @@ namespace Zenith {
 		VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
 		pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 		VK_CHECK_RESULT(vkCreatePipelineCache(m_Device->GetVulkanDevice(), &pipelineCacheCreateInfo, nullptr, &m_PipelineCache));
-
-		ZN_CORE_INFO_TAG("Renderer", "Vulkan context successfully initialized");
 	}
 
 }
