@@ -1,26 +1,27 @@
-name: SonarCloud Analysis
+name: SonarCloud
 on:
   push:
-    branches: [ main ]
+    branches: [ automated-testing ]
   pull_request:
-    branches: [ main ]
+    branches: [ automated-testing ]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 jobs:
-  check-secret:
+  check-token:
     runs-on: ubuntu-latest
     outputs:
-      sonar-token: ${{ steps.sonar-token.outputs.defined }}
+      has-token: ${{ steps.check.outputs.defined }}
     steps:
-      - id: sonar-token
+      - id: check
         if: ${{ env.SONAR_TOKEN != '' }}
         run: echo "defined=true" >> $GITHUB_OUTPUT
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  build:
-    name: Build
-    needs: [check-secret]
-    if: needs.check-secret.outputs.sonar-token == 'true'
+  scan:
+    needs: [ check-token ]
+    if: needs.check-token.outputs.has-token == 'true'
     runs-on: ubuntu-latest
     env:
       BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory
@@ -28,10 +29,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+          fetch-depth: 0
           submodules: recursive
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -47,51 +48,54 @@ jobs:
             vulkan-utility-libraries-dev \
             spirv-tools
 
-      - name: Install sonar-scanner and build-wrapper
-        uses: SonarSource/sonarcloud-github-c-cpp@v3
+      - name: Install build wrapper
+        uses: SonarSource/sonarqube-scan-action/install-build-wrapper@v5.0.0
 
-      - name: Configure CMake
+      - name: Configure
         run: |
+          rm -rf build
           cmake -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_COMPILER=clang++-${{ env.CLANG_VERSION }} \
+            -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_C_COMPILER=clang-${{ env.CLANG_VERSION }} \
+            -DCMAKE_CXX_COMPILER=clang++-${{ env.CLANG_VERSION }} \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DZENITH_TESTS=ON \
             -DZENITH_TRACK_MEMORY=OFF \
             -DZENITH_ENABLE_COVERAGE=ON \
             -G Ninja
 
-      - name: Run build-wrapper (debugging)
+      - name: Build
         run: |
           build-wrapper-linux-x86-64 \
             --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} \
-            cmake --build build --target ZenithTests -j $(nproc)
+            cmake --build build --clean-first -j $(nproc)
 
-      - name: Run tests and generate coverage
-        working-directory: ${{ github.workspace }}/build
+      - name: Verify
+        run: |
+          FILE=build/Engine/libZenith.a
+          [ -f "$FILE" ] || { echo "libZenith.a not found!"; exit 1; }
+          file "$FILE"
+          ar t "$FILE" > /dev/null || { echo "libZenith.a corrupted"; exit 1; }
+
+      - name: Test & Coverage
+        working-directory: build
         run: |
           export LLVM_PROFILE_FILE="coverage-%p.profraw"
-
-          if cmake --build . --target test-xml -j $(nproc) 2>/dev/null; then
-            echo "XML test target ran successfully"
-          else
-            echo "test-xml target not found, running tests normally"
-            ctest --output-on-failure -j $(nproc) || true
-          fi
-
           ./Tests/ZenithTests || true
-
           llvm-profdata-${{ env.CLANG_VERSION }} merge -sparse coverage-*.profraw -o coverage.profdata
-          llvm-cov-${{ env.CLANG_VERSION }} show ./Tests/ZenithTests \
+          llvm-cov-${{ env.CLANG_VERSION }} export ./Tests/ZenithTests \
             -instr-profile=coverage.profdata \
-            -format=text \
+            -format=lcov \
             -ignore-filename-regex="ThirdParty/.*|Tests/.*" \
-            > coverage.txt
+            > coverage.info
 
-      - name: Run sonar-scanner
+      - name: Scan
+        uses: SonarSource/sonarqube-scan-action@v5.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          sonar-scanner
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          args: >
+            --define sonar.cfamily.compile-commands="${{ env.BUILD_WRAPPER_OUT_DIR }}/compile_commands.json"
+            --define sonar.cfamily.llvm-cov.reportPath=build/coverage.info
