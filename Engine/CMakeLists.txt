@@ -91,3 +91,4 @@ target_link_libraries(Zenith
 )
 
 zenith_enable_lto(Zenith)
+zenith_apply_coverage(Zenith)

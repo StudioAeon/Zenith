@@ -66,3 +66,5 @@ add_custom_target(test-xml
 		DEPENDS ZenithTests
 		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 )
+
+zenith_apply_coverage(ZenithTests)
