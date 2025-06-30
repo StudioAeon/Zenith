@@ -1,9 +1,9 @@
 name: SonarCloud
 on:
   push:
-    branches: [ automated-testing ]
+    branches: [ main ]
   pull_request:
-    branches: [ automated-testing ]
+    branches: [ main ]
     types: [opened, synchronize, reopened]
   workflow_dispatch:
 
