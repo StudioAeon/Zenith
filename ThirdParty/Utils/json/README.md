@@ -158,6 +158,19 @@ std::ifstream f("example.json");
 json data = json::parse(f);
 ```
 
+If using modules (enabled with `NLOHMANN_JSON_BUILD_MODULES`), this example becomes:
+```cpp
+import std;
+import nlohmann.json;
+
+using json = nlohmann::json;
+
+// ...
+
+std::ifstream f("example.json");
+json data = json::parse(f);
+```
+
 ### Creating `json` objects from JSON literals
 
 Assume you want to create hard-code this literal JSON value in a file, as a `json` object:
