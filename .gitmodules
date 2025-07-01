@@ -20,3 +20,6 @@
 	path = ThirdParty/UI/imgui
 	url = https://github.com/ocornut/imgui.git
 	branch = docking
+[submodule "ThirdParty/Core/EnTT"]
+	path = ThirdParty/Core/EnTT
+	url = https://github.com/skypjack/entt.git

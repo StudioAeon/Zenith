@@ -3,23 +3,21 @@
 !/BuildSystem/
 /bin*/
 /out/
+
+# Binaries
+obj/
+**/cache/**
+**/Cache/**
+!ThirdParty/
+!ThirdParty/**
+__pycache__
+
 # CMake files
 CMakeCache.txt
 cmake_install.cmake
 CMakeFiles/
 Makefile
 compile_commands.json
-
-# Compiled Objects & Libraries
-*.o
-*.obj
-*.lib
-*.a
-*.so
-*.dll
-*.dylib
-*.exp
-*.pdb
 
 # Executables
 *.exe
@@ -39,15 +37,12 @@ out/
 *.log
 logs/
 
-# Temporary Files
-*.tmp
-*.swp
-*~
-
-# OS Files
-.DS_Store
-Thumbs.db
+# Auto saves
+*.auto
 
 # LFS Folders
 lfs/
 hooks/
+
+# File Exceptions
+!AssetRegistryCache.znr

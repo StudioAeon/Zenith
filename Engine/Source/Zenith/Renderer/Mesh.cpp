@@ -22,8 +22,8 @@ namespace Zenith
 
 #define MESH_DEBUG_LOG 0
 #if MESH_DEBUG_LOG
-#define ZN_MESH_LOG(...) ZN_CORE_TRACE_TAG("Mesh", __VA_ARGS__)
-#define ZN_MESH_ERROR(...) ZN_CORE_ERROR_TAG("Mesh", __VA_ARGS__)
+#define ZN_MESH_LOG(...) ZN_CORE_TRACE(__VA_ARGS__)
+#define ZN_MESH_ERROR(...) ZN_CORE_ERROR(__VA_ARGS__)
 #else
 #define ZN_MESH_LOG(...)
 #define ZN_MESH_ERROR(...)
@@ -32,7 +32,7 @@ namespace Zenith
 	////////////////////////////////////////////////////////
 	// MeshSource //////////////////////////////////////////
 	////////////////////////////////////////////////////////
-	MeshSource::MeshSource(const std::vector<Vertex>& vertices, const std::vector<Index>& indices, const glm::mat4& transform)
+	MeshSource::MeshSource(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, const glm::mat4& transform)
 		: m_Vertices(vertices), m_Indices(indices)
 	{
 		// Generate a new asset handle
@@ -41,56 +41,50 @@ namespace Zenith
 		Submesh& submesh = m_Submeshes.emplace_back();
 		submesh.BaseVertex = 0;
 		submesh.BaseIndex = 0;
-		submesh.VertexCount = (uint32_t)m_Vertices.size();
-		submesh.IndexCount = (uint32_t)indices.size() * 3u;
+		submesh.VertexCount = static_cast<uint32_t>(m_Vertices.size());
+		submesh.IndexCount = static_cast<uint32_t>(m_Indices.size());
 		submesh.Transform = transform;
-	;
+		submesh.MeshName = "Default";
 
-		m_VertexBuffer = VertexBuffer::Create(m_Vertices.data(), (uint32_t)(m_Vertices.size() * sizeof(Vertex)));
-		m_IndexBuffer = IndexBuffer::Create(m_Indices.data(), (uint32_t)(m_Indices.size() * sizeof(Index)));
+		m_VertexBuffer = VertexBuffer::Create(m_Vertices.data(), static_cast<uint32_t>(m_Vertices.size() * sizeof(Vertex)));
+		m_IndexBuffer = IndexBuffer::Create(m_Indices.data(), static_cast<uint32_t>(m_Indices.size() * sizeof(uint32_t)));
 
-		m_TriangleCache[0].reserve(indices.size());
-		for (const Index& index : indices)
-			m_TriangleCache[0].emplace_back(vertices[index.V1], vertices[index.V2], vertices[index.V3]);
-
-		// Calculate bounding box
 		m_BoundingBox.Min = { FLT_MAX, FLT_MAX, FLT_MAX };
 		m_BoundingBox.Max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
-		for (size_t i = 0; i < m_Vertices.size(); i++)
+		for (const auto& vertex : m_Vertices)
 		{
-			const Vertex& vertex = m_Vertices[i];
-			m_BoundingBox.Min.x = glm::min(vertex.Position.x, m_BoundingBox.Min.x);
-			m_BoundingBox.Min.y = glm::min(vertex.Position.y, m_BoundingBox.Min.y);
-			m_BoundingBox.Min.z = glm::min(vertex.Position.z, m_BoundingBox.Min.z);
-			m_BoundingBox.Max.x = glm::max(vertex.Position.x, m_BoundingBox.Max.x);
-			m_BoundingBox.Max.y = glm::max(vertex.Position.y, m_BoundingBox.Max.y);
-			m_BoundingBox.Max.z = glm::max(vertex.Position.z, m_BoundingBox.Max.z);
+			m_BoundingBox.Min = glm::min(m_BoundingBox.Min, vertex.Position);
+			m_BoundingBox.Max = glm::max(m_BoundingBox.Max, vertex.Position);
 		}
 
 		submesh.BoundingBox = m_BoundingBox;
+
+		if (!ValidateIndices())
+		{
+			ZN_CORE_WARN_TAG("Mesh", "MeshSource created with invalid indices");
+		}
 	}
 
-	MeshSource::MeshSource(const std::vector<Vertex>& vertices, const std::vector<Index>& indices, const std::vector<Submesh>& submeshes)
+	MeshSource::MeshSource(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, const std::vector<Submesh>& submeshes)
 		: m_Vertices(vertices), m_Indices(indices), m_Submeshes(submeshes)
 	{
 		// Generate a new asset handle
 		Handle = {};
 
-		m_VertexBuffer = VertexBuffer::Create(m_Vertices.data(), (uint32_t)(m_Vertices.size() * sizeof(Vertex)));
-		m_IndexBuffer = IndexBuffer::Create(m_Indices.data(), (uint32_t)(m_Indices.size() * sizeof(Index)));
+		m_VertexBuffer = VertexBuffer::Create(m_Vertices.data(), static_cast<uint32_t>(m_Vertices.size() * sizeof(Vertex)));
+		m_IndexBuffer = IndexBuffer::Create(m_Indices.data(), static_cast<uint32_t>(m_Indices.size() * sizeof(uint32_t)));
 
-		// Calculate bounding box
 		m_BoundingBox.Min = { FLT_MAX, FLT_MAX, FLT_MAX };
 		m_BoundingBox.Max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
-		for (size_t i = 0; i < m_Vertices.size(); i++)
+		for (const auto& vertex : m_Vertices)
 		{
-			const Vertex& vertex = m_Vertices[i];
-			m_BoundingBox.Min.x = glm::min(vertex.Position.x, m_BoundingBox.Min.x);
-			m_BoundingBox.Min.y = glm::min(vertex.Position.y, m_BoundingBox.Min.y);
-			m_BoundingBox.Min.z = glm::min(vertex.Position.z, m_BoundingBox.Min.z);
-			m_BoundingBox.Max.x = glm::max(vertex.Position.x, m_BoundingBox.Max.x);
-			m_BoundingBox.Max.y = glm::max(vertex.Position.y, m_BoundingBox.Max.y);
-			m_BoundingBox.Max.z = glm::max(vertex.Position.z, m_BoundingBox.Max.z);
+			m_BoundingBox.Min = glm::min(m_BoundingBox.Min, vertex.Position);
+			m_BoundingBox.Max = glm::max(m_BoundingBox.Max, vertex.Position);
+		}
+
+		if (!ValidateIndices())
+		{
+			ZN_CORE_WARN_TAG("Mesh", "MeshSource created with invalid indices");
 		}
 	}
 

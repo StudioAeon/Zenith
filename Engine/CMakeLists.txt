@@ -58,6 +58,7 @@ target_link_libraries(Zenith
 		PUBLIC
 		# ==== Core Dependencies ====
 		SDL3::SDL3-static
+		entt
 		spdlog
 		glm
 		stb

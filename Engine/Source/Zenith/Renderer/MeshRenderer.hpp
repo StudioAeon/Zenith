@@ -53,6 +53,9 @@ namespace Zenith {
 		void CreateRenderPass();
 		Ref<StaticMesh> GetOrCreateStaticMesh(Ref<MeshSource> meshSource);
 
+		void TraverseNodeHierarchy(Ref<MeshSource> meshSource, Ref<StaticMesh> staticMesh,
+		const std::vector<MeshNode>& nodes, uint32_t nodeIndex, const glm::mat4& parentTransform);
+
 	private:
 		Ref<Shader> m_MeshShader;
 		Ref<Pipeline> m_Pipeline;
@@ -61,6 +64,7 @@ namespace Zenith {
 		Ref<Material> m_Material;
 		Ref<RenderCommandBuffer> m_CommandBuffer;
 		Ref<VertexBuffer> m_TransformBuffer;
+		Ref<VertexBuffer> m_ColorBuffer;
 
 		glm::mat4 m_ViewProjectionMatrix;
 		bool m_SceneActive = false;

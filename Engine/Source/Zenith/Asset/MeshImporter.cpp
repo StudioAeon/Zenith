@@ -13,13 +13,15 @@
 
 #include <glm/detail/type_quat.hpp>
 
+#include "glm/gtc/quaternion.hpp"
+
 namespace Zenith {
 
 #define MESH_DEBUG_LOG 0
 
 #if MESH_DEBUG_LOG
-#define ZN_MESH_LOG(...) ZN_CORE_TRACE_TAG("Mesh", __VA_ARGS__)
-#define ZN_MESH_ERROR(...) ZN_CORE_ERROR_TAG("Mesh", __VA_ARGS__)
+#define ZN_MESH_LOG(...) ZN_CORE_TRACE(__VA_ARGS__)
+#define ZN_MESH_ERROR(...) ZN_CORE_ERROR(__VA_ARGS__)
 #else
 #define ZN_MESH_LOG(...)
 #define ZN_MESH_ERROR(...)
@@ -35,31 +37,53 @@ namespace Zenith {
 		std::string extension = m_Path.extension().string();
 		std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
 
-		if (extension == ".fbx") return MeshFormat::FBX;
-		if (extension == ".gltf") return MeshFormat::GLTF;
-		if (extension == ".glb") return MeshFormat::GLB;
-		if (extension == ".obj") return MeshFormat::OBJ;
+		MeshFormat format = MeshFormat::Unknown;
+		if (extension == ".fbx") format = MeshFormat::FBX;
+		else if (extension == ".gltf") format = MeshFormat::GLTF;
+		else if (extension == ".glb") format = MeshFormat::GLB;
+		else if (extension == ".obj") format = MeshFormat::OBJ;
 
-		return MeshFormat::Unknown;
+		return format;
+	}
+
+	static bool ValidateIndices(const std::vector<uint32_t>& indices, uint32_t vertexCount, const std::string& meshName)
+	{
+		for (size_t i = 0; i < indices.size(); ++i)
+		{
+			if (indices[i] >= vertexCount)
+			{
+				ZN_MESH_ERROR("Invalid index {} at position {} in mesh '{}' (vertex count: {})",
+					indices[i], i, meshName, vertexCount);
+				return false;
+			}
+		}
+		return true;
 	}
 
 	Ref<MeshSource> MeshImporter::ImportToMeshSource()
 	{
-		ZN_CORE_INFO_TAG("Mesh", "Loading mesh: {0}", m_Path.string());
+		Ref<MeshSource> result = nullptr;
 
 		switch (m_Format)
 		{
 			case MeshFormat::FBX:
-				return ImportFBX();
+				result = ImportFBX();
+				break;
 			case MeshFormat::GLTF:
+				result = ImportGLTF();
+				break;
 			case MeshFormat::GLB:
-				return ImportGLTF();
+				result = ImportGLTF();
+				break;
 			case MeshFormat::OBJ:
-				return ImportOBJ();
+				result = ImportOBJ();
+				break;
 			default:
 				ZN_CORE_ERROR_TAG("Mesh", "Unsupported mesh format: {0}", m_Path.string());
 				return nullptr;
 		}
+
+		return result;
 	}
 
 	Ref<MeshSource> MeshImporter::ImportFBX()
@@ -144,26 +168,33 @@ namespace Zenith {
 				meshSource->m_BoundingBox.Max = glm::max(meshSource->m_BoundingBox.Max, vertex.Position);
 			}
 
+			std::vector<uint32_t> submeshIndices;
+			submeshIndices.reserve(submesh.IndexCount);
+
 			for (size_t fi = 0; fi < mesh->faces.count; fi++)
 			{
 				ufbx_face face = mesh->faces.data[fi];
 
 				for (uint32_t tri = 0; tri < face.num_indices - 2; tri++)
 				{
-					Index index;
-					index.V1 = static_cast<uint32_t>(mesh->vertex_indices.data[face.index_begin + 0]) + submesh.BaseVertex;
-					index.V2 = static_cast<uint32_t>(mesh->vertex_indices.data[face.index_begin + tri + 1]) + submesh.BaseVertex;
-					index.V3 = static_cast<uint32_t>(mesh->vertex_indices.data[face.index_begin + tri + 2]) + submesh.BaseVertex;
+					uint32_t i0 = static_cast<uint32_t>(mesh->vertex_indices.data[face.index_begin + 0]);
+					uint32_t i1 = static_cast<uint32_t>(mesh->vertex_indices.data[face.index_begin + tri + 1]);
+					uint32_t i2 = static_cast<uint32_t>(mesh->vertex_indices.data[face.index_begin + tri + 2]);
 
-					meshSource->m_Indices.push_back(index);
-
-					meshSource->m_TriangleCache[i].emplace_back(
-						meshSource->m_Vertices[index.V1],
-						meshSource->m_Vertices[index.V2],
-						meshSource->m_Vertices[index.V3]
-					);
+					submeshIndices.push_back(i0);
+					submeshIndices.push_back(i1);
+					submeshIndices.push_back(i2);
 				}
 			}
+
+			if (!ValidateIndices(submeshIndices, static_cast<uint32_t>(meshSource->m_Vertices.size()), submesh.MeshName))
+			{
+				ZN_MESH_ERROR("Skipping submesh '{}' due to invalid indices", submesh.MeshName);
+				meshSource->m_Submeshes.pop_back();
+				continue;
+			}
+
+			meshSource->m_Indices.insert(meshSource->m_Indices.end(), submeshIndices.begin(), submeshIndices.end());
 
 			vertexCount += submesh.VertexCount;
 			indexCount += submesh.IndexCount;
@@ -177,6 +208,8 @@ namespace Zenith {
 				submesh.BoundingBox.Min = glm::min(submesh.BoundingBox.Min, pos);
 				submesh.BoundingBox.Max = glm::max(submesh.BoundingBox.Max, pos);
 			}
+
+			ZN_MESH_LOG("FBX Submesh '{}': {} vertices, {} indices", submesh.MeshName, submesh.VertexCount, submesh.IndexCount);
 		}
 
 		ProcessMaterials(meshSource, scene, MeshFormat::FBX);
@@ -187,7 +220,18 @@ namespace Zenith {
 
 		if (!meshSource->m_Indices.empty())
 			meshSource->m_IndexBuffer = IndexBuffer::Create(meshSource->m_Indices.data(),
-				static_cast<uint32_t>(meshSource->m_Indices.size() * sizeof(Index)));
+				static_cast<uint32_t>(meshSource->m_Indices.size() * sizeof(uint32_t)));
+
+		ZN_MESH_LOG("FBX Import complete: {} vertices, {} indices, {} submeshes",
+			meshSource->m_Vertices.size(), meshSource->m_Indices.size(), meshSource->m_Submeshes.size());
+
+		const auto& bb = meshSource->m_BoundingBox;
+		ZN_MESH_LOG("Mesh '{}' Bounds:\n  Min: ({}, {}, {})\n  Max: ({}, {}, {})\n  Size: ({}, {}, {})",
+			meshSource->m_FilePath,
+			bb.Min.x, bb.Min.y, bb.Min.z,
+			bb.Max.x, bb.Max.y, bb.Max.z,
+			bb.Max.x - bb.Min.x, bb.Max.y - bb.Min.y, bb.Max.z - bb.Min.z
+		);
 
 		ufbx_free_scene(scene);
 		return meshSource;
@@ -204,10 +248,15 @@ namespace Zenith {
 			return nullptr;
 		}
 
-		auto assetResult = parser.loadGltf(data.get(), m_Path.parent_path());
+		fastgltf::Options options =
+			fastgltf::Options::LoadExternalBuffers |
+			fastgltf::Options::LoadExternalImages;
+
+		auto assetResult = parser.loadGltf(data.get(), m_Path.parent_path(), options);
 		if (assetResult.error() != fastgltf::Error::None)
 		{
-			ZN_CORE_ERROR_TAG("Mesh", "Failed to parse glTF file: {0}", m_Path.string());
+			ZN_CORE_ERROR_TAG("Mesh", "Failed to parse glTF file: {0} - Error: {1}",
+				m_Path.string(), static_cast<int>(assetResult.error()));
 			return nullptr;
 		}
 
@@ -222,6 +271,9 @@ namespace Zenith {
 		uint32_t vertexCount = 0;
 		uint32_t indexCount = 0;
 
+		std::vector<std::vector<uint32_t>> meshToSubmeshes(asset.meshes.size());
+		uint32_t currentSubmeshIndex = 0;
+
 		for (size_t meshIndex = 0; meshIndex < asset.meshes.size(); meshIndex++)
 		{
 			const auto& mesh = asset.meshes[meshIndex];
@@ -232,6 +284,8 @@ namespace Zenith {
 
 				if (primitive.type != fastgltf::PrimitiveType::Triangles)
 					continue;
+
+				meshToSubmeshes[meshIndex].push_back(currentSubmeshIndex);
 
 				Submesh& submesh = meshSource->m_Submeshes.emplace_back();
 				submesh.BaseVertex = vertexCount;
@@ -280,6 +334,9 @@ namespace Zenith {
 				size_t numVertices = positions.size();
 				submesh.VertexCount = static_cast<uint32_t>(numVertices);
 
+				std::vector<Vertex> localVertices;
+				localVertices.reserve(numVertices);
+
 				for (size_t i = 0; i < numVertices; i++)
 				{
 					Vertex vertex;
@@ -300,39 +357,52 @@ namespace Zenith {
 						}
 					}
 
-					meshSource->m_Vertices.push_back(vertex);
-
-					meshSource->m_BoundingBox.Min = glm::min(meshSource->m_BoundingBox.Min, vertex.Position);
-					meshSource->m_BoundingBox.Max = glm::max(meshSource->m_BoundingBox.Max, vertex.Position);
+					localVertices.push_back(vertex);
 				}
+
+				submesh.IndexCount = 0;
+				std::vector<uint32_t> submeshIndices;
 
 				if (primitive.indicesAccessor)
 				{
 					const auto& indexAccessor = asset.accessors[*primitive.indicesAccessor];
 					submesh.IndexCount = static_cast<uint32_t>(indexAccessor.count);
 
-					std::vector<uint32_t> indices;
-					fastgltf::iterateAccessor<std::uint32_t>(asset, indexAccessor, [&](std::uint32_t index) {
-						indices.push_back(index + submesh.BaseVertex);
-					});
+					submeshIndices.reserve(submesh.IndexCount);
 
-					for (size_t i = 0; i < indices.size(); i += 3)
+					switch (indexAccessor.componentType)
 					{
-						Index index;
-						index.V1 = indices[i];
-						index.V2 = indices[i + 1];
-						index.V3 = indices[i + 2];
-						meshSource->m_Indices.push_back(index);
-
-						meshSource->m_TriangleCache[meshIndex].emplace_back(
-							meshSource->m_Vertices[index.V1],
-							meshSource->m_Vertices[index.V2],
-							meshSource->m_Vertices[index.V3]
-						);
+						case fastgltf::ComponentType::UnsignedShort:
+						{
+							fastgltf::iterateAccessor<std::uint16_t>(asset, indexAccessor, [&](std::uint16_t index) {
+								submeshIndices.push_back(static_cast<uint32_t>(index));
+								});
+							break;
+						}
+						case fastgltf::ComponentType::UnsignedInt:
+						{
+							fastgltf::iterateAccessor<std::uint32_t>(asset, indexAccessor, [&](std::uint32_t index) {
+								submeshIndices.push_back(index);
+								});
+							break;
+						}
+						default:
+							ZN_MESH_ERROR("Unsupported index component type: {}", static_cast<int>(indexAccessor.componentType));
+							break;
 					}
 				}
 
-				vertexCount += submesh.VertexCount;
+				if (!ValidateIndices(submeshIndices, vertexCount + static_cast<uint32_t>(localVertices.size()), submesh.MeshName))
+				{
+					ZN_MESH_ERROR("Skipping submesh '{}' due to invalid indices", submesh.MeshName);
+					meshSource->m_Submeshes.pop_back();
+					continue;
+				}
+
+				meshSource->m_Vertices.insert(meshSource->m_Vertices.end(), localVertices.begin(), localVertices.end());
+				meshSource->m_Indices.insert(meshSource->m_Indices.end(), submeshIndices.begin(), submeshIndices.end());
+
+				vertexCount += static_cast<uint32_t>(localVertices.size());
 				indexCount += submesh.IndexCount;
 
 				submesh.BoundingBox.Min = { FLT_MAX, FLT_MAX, FLT_MAX };
@@ -344,7 +414,83 @@ namespace Zenith {
 					submesh.BoundingBox.Min = glm::min(submesh.BoundingBox.Min, pos);
 					submesh.BoundingBox.Max = glm::max(submesh.BoundingBox.Max, pos);
 				}
+
+				meshSource->m_BoundingBox.Min = glm::min(meshSource->m_BoundingBox.Min, submesh.BoundingBox.Min);
+				meshSource->m_BoundingBox.Max = glm::max(meshSource->m_BoundingBox.Max, submesh.BoundingBox.Max);
+
+				currentSubmeshIndex++;
 			}
+		}
+
+		ZN_MESH_LOG("Processing {} GLTF nodes", asset.nodes.size());
+
+		if (!asset.nodes.empty())
+		{
+			meshSource->m_Nodes.resize(asset.nodes.size());
+
+			for (size_t nodeIndex = 0; nodeIndex < asset.nodes.size(); nodeIndex++)
+			{
+				const auto& gltfNode = asset.nodes[nodeIndex];
+				MeshNode& node = meshSource->m_Nodes[nodeIndex];
+
+				node.Name = gltfNode.name;
+
+				std::visit(fastgltf::visitor {
+					[&](const fastgltf::TRS& trs) {
+						glm::vec3 translation(trs.translation[0], trs.translation[1], trs.translation[2]);
+						glm::quat rotation(trs.rotation[3], trs.rotation[0], trs.rotation[1], trs.rotation[2]); // w, x, y, z
+						glm::vec3 scale(trs.scale[0], trs.scale[1], trs.scale[2]);
+
+						glm::mat4 T = glm::translate(glm::mat4(1.0f), translation);
+						glm::mat4 R = glm::mat4_cast(rotation);
+						glm::mat4 S = glm::scale(glm::mat4(1.0f), scale);
+
+						node.LocalTransform = T * R * S;
+					},
+					[&](const fastgltf::math::fmat4x4& matrix) {
+						node.LocalTransform = glm::mat4(
+							matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3],
+							matrix[1][0], matrix[1][1], matrix[1][2], matrix[1][3],
+							matrix[2][0], matrix[2][1], matrix[2][2], matrix[2][3],
+							matrix[3][0], matrix[3][1], matrix[3][2], matrix[3][3]
+						);
+					}
+				}, gltfNode.transform);
+
+				node.Children.clear();
+				for (size_t childIdx : gltfNode.children) {
+					node.Children.push_back(static_cast<uint32_t>(childIdx));
+				}
+
+				if (gltfNode.meshIndex.has_value()) {
+					size_t meshIdx = gltfNode.meshIndex.value();
+					if (meshIdx < meshToSubmeshes.size()) {
+						node.Submeshes = meshToSubmeshes[meshIdx];
+						ZN_MESH_LOG("Node '{}' has {} submeshes from mesh {}",
+							node.Name, node.Submeshes.size(), meshIdx);
+					}
+				}
+
+				ZN_MESH_LOG("Node {}: '{}', Children: {}, Submeshes: {}",
+					nodeIndex, node.Name, node.Children.size(), node.Submeshes.size());
+			}
+
+			for (size_t nodeIndex = 0; nodeIndex < meshSource->m_Nodes.size(); nodeIndex++) {
+				for (uint32_t childIndex : meshSource->m_Nodes[nodeIndex].Children) {
+					if (childIndex < meshSource->m_Nodes.size()) {
+						meshSource->m_Nodes[childIndex].Parent = static_cast<uint32_t>(nodeIndex);
+					}
+				}
+			}
+
+			uint32_t rootCount = 0;
+			for (const auto& node : meshSource->m_Nodes) {
+				if (node.Parent == UINT32_MAX) {
+					rootCount++;
+				}
+			}
+
+			ZN_MESH_LOG("Found {} root nodes", rootCount);
 		}
 
 		ProcessMaterials(meshSource, &asset, MeshFormat::GLTF);
@@ -355,7 +501,18 @@ namespace Zenith {
 
 		if (!meshSource->m_Indices.empty())
 			meshSource->m_IndexBuffer = IndexBuffer::Create(meshSource->m_Indices.data(),
-				static_cast<uint32_t>(meshSource->m_Indices.size() * sizeof(Index)));
+				static_cast<uint32_t>(meshSource->m_Indices.size() * sizeof(uint32_t)));
+
+		ZN_MESH_LOG("glTF Import complete: {} vertices, {} indices, {} submeshes, {} nodes",
+			meshSource->m_Vertices.size(), meshSource->m_Indices.size(), meshSource->m_Submeshes.size(), meshSource->m_Nodes.size());
+
+		const auto& bb = meshSource->m_BoundingBox;
+		ZN_MESH_LOG("Mesh '{}' Bounds:\n  Min: ({}, {}, {})\n  Max: ({}, {}, {})\n  Size: ({}, {}, {})",
+			meshSource->m_FilePath,
+			bb.Min.x, bb.Min.y, bb.Min.z,
+			bb.Max.x, bb.Max.y, bb.Max.z,
+			bb.Max.x - bb.Min.x, bb.Max.y - bb.Min.y, bb.Max.z - bb.Min.z
+		);
 
 		return meshSource;
 	}
@@ -375,9 +532,11 @@ namespace Zenith {
 		meshSource->m_BoundingBox.Min = { FLT_MAX, FLT_MAX, FLT_MAX };
 		meshSource->m_BoundingBox.Max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 
-		// Each group becomes a submesh
 		uint32_t vertexCount = 0;
 		uint32_t indexCount = 0;
+
+		// Map to store unique vertices and their final index
+		std::unordered_map<VertexKey, uint32_t, VertexKeyHash> uniqueVertices;
 
 		for (uint32_t groupIndex = 0; groupIndex < mesh->group_count; groupIndex++)
 		{
@@ -390,81 +549,99 @@ namespace Zenith {
 			submesh.MeshName = group.name ? group.name : "Group_" + std::to_string(groupIndex);
 
 			uint32_t groupVertexCount = 0;
-			uint32_t groupIndexCount = 0;
 
-			for (uint32_t faceIndex = group.face_offset; faceIndex < group.face_offset + group.face_count; faceIndex++)
+			ZN_MESH_LOG("Group {} '{}' has {} faces", groupIndex, submesh.MeshName, group.face_count);
+
+			std::vector<uint32_t> submeshIndices;
+
+			uint32_t groupStartTriangle = group.face_offset;
+			uint32_t groupTriangleCount = group.face_count;
+
+			ZN_MESH_LOG("Group {} triangle range: start={}, count={}", groupIndex, groupStartTriangle, groupTriangleCount);
+
+			for (uint32_t localTriangleIndex = 0; localTriangleIndex < groupTriangleCount; localTriangleIndex++)
 			{
-				groupIndexCount += 3;
-			}
+				uint32_t globalTriangleIndex = groupStartTriangle + localTriangleIndex;
 
-			std::unordered_map<uint64_t, uint32_t> vertexMap;
-			std::vector<uint32_t> faceIndices;
+				std::array<uint32_t, 3> triangleIndices;
 
-			for (uint32_t faceIndex = group.face_offset; faceIndex < group.face_offset + group.face_count; faceIndex++)
-			{
 				for (int i = 0; i < 3; i++)
 				{
-					fastObjIndex objIndex = mesh->indices[faceIndex * 3 + i];
-					uint64_t vertexHash = ((uint64_t)objIndex.p << 32) | ((uint64_t)objIndex.t << 16) | (uint64_t)objIndex.n;
+					uint32_t indexPos = globalTriangleIndex * 3 + i;
+					if (indexPos >= mesh->index_count) break;
 
-					if (vertexMap.find(vertexHash) == vertexMap.end())
+					fastObjIndex objIndex = mesh->indices[indexPos];
+
+					ZN_MESH_LOG("VertexKey: p={}, n={}, t={}", objIndex.p, objIndex.n, objIndex.t);
+
+					Vertex vertex;
+
+					if (objIndex.p > 0 && objIndex.p <= mesh->position_count)
 					{
-						Vertex vertex;
-
-						if (objIndex.p > 0 && objIndex.p <= mesh->position_count)
-						{
-							vertex.Position = {
-								mesh->positions[(objIndex.p - 1) * 3 + 0],
-								mesh->positions[(objIndex.p - 1) * 3 + 1],
-								mesh->positions[(objIndex.p - 1) * 3 + 2]
-							};
-						}
-
-						if (objIndex.n > 0 && objIndex.n <= mesh->normal_count)
-						{
-							vertex.Normal = {
-								mesh->normals[(objIndex.n - 1) * 3 + 0],
-								mesh->normals[(objIndex.n - 1) * 3 + 1],
-								mesh->normals[(objIndex.n - 1) * 3 + 2]
-							};
-						}
-
-						if (objIndex.t > 0 && objIndex.t <= mesh->texcoord_count)
-						{
-							vertex.Texcoord = {
-								mesh->texcoords[(objIndex.t - 1) * 2 + 0],
-								1.0f - mesh->texcoords[(objIndex.t - 1) * 2 + 1]
-							};
-						}
-
-						meshSource->m_Vertices.push_back(vertex);
-						vertexMap[vertexHash] = groupVertexCount++;
-
-						meshSource->m_BoundingBox.Min = glm::min(meshSource->m_BoundingBox.Min, vertex.Position);
-						meshSource->m_BoundingBox.Max = glm::max(meshSource->m_BoundingBox.Max, vertex.Position);
+						vertex.Position = {
+							mesh->positions[(objIndex.p - 1) * 3 + 0],
+							mesh->positions[(objIndex.p - 1) * 3 + 1],
+							mesh->positions[(objIndex.p - 1) * 3 + 2]
+						};
 					}
 
-					faceIndices.push_back(vertexMap[vertexHash] + submesh.BaseVertex);
+					if (objIndex.n > 0 && objIndex.n <= mesh->normal_count)
+					{
+						vertex.Normal = {
+							mesh->normals[(objIndex.n - 1) * 3 + 0],
+							mesh->normals[(objIndex.n - 1) * 3 + 1],
+							mesh->normals[(objIndex.n - 1) * 3 + 2]
+						};
+					}
+
+					if (objIndex.t > 0 && objIndex.t <= mesh->texcoord_count)
+					{
+						vertex.Texcoord = {
+							mesh->texcoords[(objIndex.t - 1) * 2 + 0],
+							1.0f - mesh->texcoords[(objIndex.t - 1) * 2 + 1]
+						};
+					}
+
+					ZN_MESH_LOG("New Vertex: Pos=({}, {}, {}), Normal=({}, {}, {}), Tex=({}, {})",
+						vertex.Position.x, vertex.Position.y, vertex.Position.z,
+						vertex.Normal.x, vertex.Normal.y, vertex.Normal.z,
+						vertex.Texcoord.x, vertex.Texcoord.y);
+
+					meshSource->m_Vertices.push_back(vertex);
+					triangleIndices[i] = static_cast<uint32_t>(meshSource->m_Vertices.size()) - 1;
+					groupVertexCount++;
+
+					meshSource->m_BoundingBox.Min = glm::min(meshSource->m_BoundingBox.Min, vertex.Position);
+					meshSource->m_BoundingBox.Max = glm::max(meshSource->m_BoundingBox.Max, vertex.Position);
+				}
+
+				uint32_t i0 = triangleIndices[0];
+				uint32_t i1 = triangleIndices[1];
+				uint32_t i2 = triangleIndices[2];
+
+				if (i0 != i1 && i1 != i2 && i0 != i2)
+				{
+					submeshIndices.push_back(i0);
+					submeshIndices.push_back(i1);
+					submeshIndices.push_back(i2);
+				}
+				else
+				{
+					ZN_MESH_LOG("Skipping degenerate triangle: {}, {}, {}", i0, i1, i2);
 				}
 			}
 
-			for (size_t i = 0; i < faceIndices.size(); i += 3)
+			if (!ValidateIndices(submeshIndices, static_cast<uint32_t>(meshSource->m_Vertices.size()), submesh.MeshName))
 			{
-				Index index;
-				index.V1 = faceIndices[i];
-				index.V2 = faceIndices[i + 1];
-				index.V3 = faceIndices[i + 2];
-				meshSource->m_Indices.push_back(index);
-
-				meshSource->m_TriangleCache[groupIndex].emplace_back(
-					meshSource->m_Vertices[index.V1],
-					meshSource->m_Vertices[index.V2],
-					meshSource->m_Vertices[index.V3]
-				);
+				ZN_MESH_ERROR("Skipping submesh '{}' due to invalid indices", submesh.MeshName);
+				meshSource->m_Submeshes.pop_back();
+				continue;
 			}
 
-			submesh.VertexCount = groupVertexCount;
-			submesh.IndexCount = groupIndexCount;
+			meshSource->m_Indices.insert(meshSource->m_Indices.end(), submeshIndices.begin(), submeshIndices.end());
+
+			submesh.VertexCount = static_cast<uint32_t>(meshSource->m_Vertices.size()) - submesh.BaseVertex;
+			submesh.IndexCount = static_cast<uint32_t>(submeshIndices.size());
 
 			vertexCount += submesh.VertexCount;
 			indexCount += submesh.IndexCount;
@@ -478,6 +655,8 @@ namespace Zenith {
 				submesh.BoundingBox.Min = glm::min(submesh.BoundingBox.Min, pos);
 				submesh.BoundingBox.Max = glm::max(submesh.BoundingBox.Max, pos);
 			}
+
+			ZN_MESH_LOG("OBJ Submesh '{}': {} vertices, {} indices", submesh.MeshName, submesh.VertexCount, submesh.IndexCount);
 		}
 
 		ProcessMaterials(meshSource, mesh, MeshFormat::OBJ);
@@ -488,15 +667,26 @@ namespace Zenith {
 
 		if (!meshSource->m_Indices.empty())
 			meshSource->m_IndexBuffer = IndexBuffer::Create(meshSource->m_Indices.data(),
-				static_cast<uint32_t>(meshSource->m_Indices.size() * sizeof(Index)));
+				static_cast<uint32_t>(meshSource->m_Indices.size() * sizeof(uint32_t)));
+
+		ZN_MESH_LOG("OBJ Import complete: {} vertices, {} indices, {} submeshes",
+			meshSource->m_Vertices.size(), meshSource->m_Indices.size(), meshSource->m_Submeshes.size());
+
+		const auto& bb = meshSource->m_BoundingBox;
+		ZN_MESH_LOG("Mesh '{}' Bounds:\n  Min: ({}, {}, {})\n  Max: ({}, {}, {})\n  Size: ({}, {}, {})",
+			meshSource->m_FilePath,
+			bb.Min.x, bb.Min.y, bb.Min.z,
+			bb.Max.x, bb.Max.y, bb.Max.z,
+			bb.Max.x - bb.Min.x, bb.Max.y - bb.Min.y, bb.Max.z - bb.Min.z
+		);
 
 		fast_obj_destroy(mesh);
 		return meshSource;
 	}
 
+
 	void MeshImporter::ProcessMaterials(Ref<MeshSource> meshSource, void* scene, MeshFormat format)
 	{
-		// just count materials without creating complex material assets
 		switch (format)
 		{
 			case MeshFormat::FBX:

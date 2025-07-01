@@ -56,7 +56,7 @@ namespace Zenith {
 		m_EditorCamera = Ref<EditorCamera>::Create(45.0f, 1920.0f, 1080.0f, 0.1f, 1000.0f);
 		m_EditorCamera->SetActive(false);
 
-		m_EditorCamera->Focus(glm::vec3(0.0f, 0.0f, 0.0f));
+		m_EditorCamera->Focus(glm::vec3(0.0f, 8.0f, 0.0f));
 		m_EditorCamera->SetDistance(5.0f);
 
 		TestLoadMesh();
@@ -247,11 +247,11 @@ namespace Zenith {
 		m_LoadedSubmeshCount = 0;
 		m_MeshTestLog.clear();
 
-		std::filesystem::path meshPath = "Resources/Meshes/Default/Cube.glb";
+		std::filesystem::path meshPath = "ProjectApex/Assets/Meshes/Gltf/Sponza/Sponza.glb";
 
 		if (!std::filesystem::exists(meshPath))
 		{
-			m_MeshTestLog = "ERROR: Cube.glb not found at " + meshPath.string();
+			m_MeshTestLog = "ERROR: " + meshPath.filename().string() + " not found at " + meshPath.string();
 			ZN_ERROR("{}", m_MeshTestLog);
 			return;
 		}
@@ -370,15 +370,14 @@ namespace Zenith {
 			}
 
 			ImGui::SameLine();
-			if (ImGui::Button("View Cube"))
+			if (ImGui::Button("View Mesh"))
 			{
-				m_EditorCamera->Focus(glm::vec3(0.0f, 0.0f, 0.0f));
-				m_EditorCamera->SetDistance(8.0f);
+				m_EditorCamera->Focus(glm::vec3(0.0f, 2.0f, 0.0f));
+				m_EditorCamera->SetDistance(25.0f);
 			}
 
 			float distance = m_EditorCamera->GetDistance();
-			ImGui::Text("Current Distance: %.3f", distance);
-			if (ImGui::SliderFloat("Distance", &distance, 0.1f, 100.0f))
+			if (ImGui::SliderFloat("Distance", &distance, 1.0f, 100.0f))
 			{
 				ZN_CORE_INFO("UI Setting distance to: {}", distance);
 				m_EditorCamera->SetDistance(distance);
@@ -386,6 +385,16 @@ namespace Zenith {
 
 			ImGui::Separator();
 			ImGui::Text("Viewport Size: %.0fx%.0f", m_ViewportSize.x, m_ViewportSize.y);
+
+			if (m_TestMeshSource)
+			{
+				const auto& bounds = m_TestMeshSource->GetBoundingBox();
+				ImGui::Separator();
+				ImGui::Text("Mesh Info:");
+				ImGui::Text("Width: %.1f units", bounds.Max.x - bounds.Min.x);
+				ImGui::Text("Height: %.1f units", bounds.Max.y - bounds.Min.y);
+				ImGui::Text("Depth: %.1f units", bounds.Max.z - bounds.Min.z);
+			}
 		}
 		ImGui::End();
 	}
@@ -395,7 +404,7 @@ namespace Zenith {
 		if (ImGui::Begin("Mesh Renderer Test"))
 		{
 			ImGui::SeparatorText("Mesh Loading");
-			if (ImGui::Button("Load Cube.glb", ImVec2(-1, 30)))
+			if (ImGui::Button("Load Mesh", ImVec2(-1, 30)))
 			{
 				TestLoadMesh();
 			}
@@ -413,12 +422,6 @@ namespace Zenith {
 				ImGui::SeparatorText("Rendering");
 
 				ImGui::Checkbox("Enable Mesh Rendering", &m_EnableMeshRendering);
-
-				if (m_EnableMeshRendering)
-				{
-					ImGui::Text("Mesh is rendered with 2x scale at origin");
-					ImGui::Text("Use camera controls to move around and view it");
-				}
 			}
 			else if (!m_MeshTestLog.empty())
 			{

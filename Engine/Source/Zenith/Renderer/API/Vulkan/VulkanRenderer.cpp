@@ -310,7 +310,7 @@ namespace Zenith {
 			Buffer uniformStorageBuffer = vulkanMaterial->GetUniformStorageBuffer();
 			vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)uniformStorageBuffer.Size, uniformStorageBuffer.Data);
 
-			vkCmdDrawIndexed(commandBuffer, submesh.IndexCount, instanceCount, submesh.BaseIndex, submesh.BaseVertex, 0);
+			vkCmdDrawIndexed(commandBuffer, submesh.IndexCount, instanceCount, submesh.BaseIndex, 0, 0);
 			s_Data->DrawCallCount++;
 		});
 	}

@@ -16,6 +16,11 @@ set(SDL_TESTS OFF)
 set(SDL_INSTALL OFF)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/Core/SDL SYSTEM)
 
+# ==== EnTT (Header-only ECS library) ====
+add_library(entt INTERFACE)
+target_include_directories(entt INTERFACE ${CMAKE_CURRENT_LIST_DIR}/Core/EnTT/src)
+target_compile_features(entt INTERFACE cxx_std_20)
+
 # ==== spdlog ====
 set(SPDLOG_USE_STD_FORMAT ON)
 set(SPDLOG_ENABLE_PCH ON)

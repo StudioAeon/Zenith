@@ -30,6 +30,9 @@ namespace Zenith {
 			fbSpec.Width = 1920;
 			fbSpec.Height = 1080;
 			fbSpec.ClearColor = { 0.1f, 0.1f, 0.1f, 1.0f };
+			fbSpec.DepthClearValue = 0.0f;
+			fbSpec.ClearColorOnLoad = true;
+			fbSpec.ClearDepthOnLoad = true;
 			fbSpec.DebugName = "MeshRenderer-SwapChain";
 
 			fbSpec.Attachments = FramebufferAttachmentSpecification{
@@ -55,6 +58,7 @@ namespace Zenith {
 		m_Pipeline = nullptr;
 		m_RenderPass = nullptr;
 		m_MeshShader = nullptr;
+		m_Material = nullptr;
 		m_CommandBuffer = nullptr;
 		m_TransformBuffer = nullptr;
 		m_CachedStaticMeshes.clear();
@@ -79,7 +83,7 @@ namespace Zenith {
 		pipelineSpec.DepthTest = true;
 		pipelineSpec.DepthWrite = true;
 		pipelineSpec.Wireframe = true;
-		//pipelineSpec.DepthOperator = DepthCompareOperator::Never;
+		pipelineSpec.DepthOperator = DepthCompareOperator::GreaterOrEqual;
 		pipelineSpec.Topology = PrimitiveTopology::Triangles;
 
 		m_Pipeline = Pipeline::Create(pipelineSpec);
@@ -128,30 +132,67 @@ namespace Zenith {
 
 		Ref<StaticMesh> staticMesh = GetOrCreateStaticMesh(meshSource);
 
-		glm::mat4 mvpMatrix = m_ViewProjectionMatrix * transform;
+		const auto& nodes = meshSource->GetNodes();
+		if (!nodes.empty()) {
+			bool foundRoot = false;
+			for (uint32_t i = 0; i < nodes.size(); i++) {
+				if (nodes[i].IsRoot()) {
+					TraverseNodeHierarchy(meshSource, staticMesh, nodes, i, transform);
+					foundRoot = true;
+				}
+			}
+			if (!foundRoot) {
+				TraverseNodeHierarchy(meshSource, staticMesh, nodes, 0, transform);
+			}
+		} else {
+			const auto& submeshes = meshSource->GetSubmeshes();
+			for (uint32_t i = 0; i < submeshes.size(); i++) {
+				const auto& submesh = submeshes[i];
 
-		glm::mat4 transposedMVP = glm::transpose(mvpMatrix);
+				glm::mat4 mvpMatrix = m_ViewProjectionMatrix * transform * submesh.Transform;
+				Buffer ConstantBuffer = Buffer::Copy(&mvpMatrix, sizeof(glm::mat4));
 
-		Buffer ConstantBuffer = Buffer::Copy(&transposedMVP, sizeof(glm::mat4));
+				Renderer::RenderStaticMeshWithMaterial(
+					m_CommandBuffer, m_Pipeline, staticMesh, meshSource, i,
+					m_TransformBuffer, 0, 1, m_Material, ConstantBuffer
+				);
 
-		const auto& submeshes = meshSource->GetSubmeshes();
-		for (uint32_t i = 0; i < submeshes.size(); i++)
-		{
-			Renderer::RenderStaticMeshWithMaterial(
-				m_CommandBuffer,
-				m_Pipeline,
-				staticMesh,
-				meshSource,
-				i,
-				m_TransformBuffer,
-				0,
-				1,
-				m_MeshShader,
-				ConstantBuffer
-			);
+				ConstantBuffer.Release();
+			}
+		}
+	}
+
+	void MeshRenderer::TraverseNodeHierarchy(Ref<MeshSource> meshSource, Ref<StaticMesh> staticMesh,
+		const std::vector<MeshNode>& nodes, uint32_t nodeIndex, const glm::mat4& parentTransform)
+	{
+		if (nodeIndex >= nodes.size())
+			return;
+
+		const auto& node = nodes[nodeIndex];
+		glm::mat4 nodeTransform = parentTransform * node.LocalTransform;
+
+		for (uint32_t submeshIndex : node.Submeshes) {
+			const auto& submeshes = meshSource->GetSubmeshes();
+			if (submeshIndex < submeshes.size()) {
+				const auto& submesh = submeshes[submeshIndex];
+
+				glm::mat4 finalTransform = nodeTransform * submesh.Transform;
+				glm::mat4 mvpMatrix = m_ViewProjectionMatrix * finalTransform;
+				Buffer ConstantBuffer = Buffer::Copy(&mvpMatrix, sizeof(glm::mat4));
+
+				Renderer::RenderStaticMeshWithMaterial(
+					m_CommandBuffer, m_Pipeline, staticMesh, meshSource, submeshIndex,
+					m_TransformBuffer, 0, 1, m_Material, ConstantBuffer
+				);
+
+				ConstantBuffer.Release();
+			}
 		}
 
-		ConstantBuffer.Release();
+		// Recursively traverse children
+		for (uint32_t childIndex : node.Children) {
+			TraverseNodeHierarchy(meshSource, staticMesh, nodes, childIndex, nodeTransform);
+		}
 	}
 
 	void MeshRenderer::EndScene()
@@ -159,7 +200,7 @@ namespace Zenith {
 		if (!m_SceneActive)
 			return;
 
-			Renderer::EndRenderPass(m_CommandBuffer);
+		Renderer::EndRenderPass(m_CommandBuffer);
 
 		m_CommandBuffer->End();
 		m_CommandBuffer->Submit();

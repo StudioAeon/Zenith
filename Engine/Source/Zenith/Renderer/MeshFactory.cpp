@@ -30,20 +30,20 @@ namespace Zenith {
 		vertices[6].Normal = {  1.0f,  1.0f, -1.0f };
 		vertices[7].Normal = { -1.0f,  1.0f, -1.0f };
 
-		std::vector<Index> indices;
-		indices.resize(12);
-		indices[0] =  { 0, 1, 2 };
-		indices[1] =  { 2, 3, 0 };
-		indices[2] =  { 1, 5, 6 };
-		indices[3] =  { 6, 2, 1 };
-		indices[4] =  { 7, 6, 5 };
-		indices[5] =  { 5, 4, 7 };
-		indices[6] =  { 4, 0, 3 };
-		indices[7] =  { 3, 7, 4 };
-		indices[8] =  { 4, 5, 1 };
-		indices[9] =  { 1, 0, 4 };
-		indices[10] = { 3, 2, 6 };
-		indices[11] = { 6, 7, 3 };
+		std::vector<uint32_t> indices;
+		indices.reserve(12 * 3);
+		indices.insert(indices.end(), {0, 1, 2});
+		indices.insert(indices.end(), {2, 3, 0});
+		indices.insert(indices.end(), {1, 5, 6});
+		indices.insert(indices.end(), {6, 2, 1});
+		indices.insert(indices.end(), {7, 6, 5});
+		indices.insert(indices.end(), {5, 4, 7});
+		indices.insert(indices.end(), {4, 0, 3});
+		indices.insert(indices.end(), {3, 7, 4});
+		indices.insert(indices.end(), {4, 5, 1});
+		indices.insert(indices.end(), {1, 0, 4});
+		indices.insert(indices.end(), {3, 2, 6});
+		indices.insert(indices.end(), {6, 7, 3});
 
 		AssetHandle meshSource = AssetManager::AddMemoryOnlyAsset(Ref<MeshSource>::Create(vertices, indices, glm::mat4(1.0f)));
 		return AssetManager::AddMemoryOnlyAsset(Ref<StaticMesh>::Create(meshSource));
@@ -52,7 +52,7 @@ namespace Zenith {
 	AssetHandle MeshFactory::CreateSphere(float radius)
 	{
 		std::vector<Vertex> vertices;
-		std::vector<Index> indices;
+		std::vector<uint32_t> indices;
 
 		constexpr float latitudeBands = 30;
 		constexpr float longitudeBands = 30;
@@ -83,8 +83,8 @@ namespace Zenith {
 				const uint32_t first = (latitude * ((uint32_t)longitudeBands + 1)) + longitude;
 				const uint32_t second = first + (uint32_t)longitudeBands + 1;
 
-				indices.push_back({ first, second, first + 1 });
-				indices.push_back({ second, second + 1, first + 1 });
+				indices.insert(indices.end(), {first, second, first + 1});
+				indices.insert(indices.end(), {second, second + 1, first + 1});
 			}
 		}
 
@@ -114,10 +114,10 @@ namespace Zenith {
 		constexpr float radiusModifier = 0.021f; // Needed to ensure that the wireframe is always visible
 
 		std::vector<Vertex> vertices;
-		std::vector<Index> indices;
-		
+		std::vector<uint32_t> indices;
+
 		vertices.reserve(numSegments * ringsTotal);
-		indices.reserve((numSegments - 1) * (ringsTotal - 1) * 2);
+		indices.reserve((numSegments - 1) * (ringsTotal - 1) * 2 * 3);
 
 		float bodyIncr = 1.0f / (float)(ringsBody - 1);
 		float ringIncr = 1.0f / (float)(subdivisionsHeight - 1);
@@ -135,15 +135,15 @@ namespace Zenith {
 		{
 			for (int s = 0; s < numSegments - 1; s++)
 			{
-				Index& index1 = indices.emplace_back();
-				index1.V1 = (uint32_t)(r * numSegments + s + 1);
-				index1.V2 = (uint32_t)(r * numSegments + s + 0);
-				index1.V3 = (uint32_t)((r + 1) * numSegments + s + 1);
+				uint32_t v1 = (uint32_t)(r * numSegments + s + 1);
+				uint32_t v2 = (uint32_t)(r * numSegments + s + 0);
+				uint32_t v3 = (uint32_t)((r + 1) * numSegments + s + 1);
+				indices.insert(indices.end(), {v1, v2, v3});
 
-				Index& index2 = indices.emplace_back();
-				index2.V1 = (uint32_t)((r + 1) * numSegments + s + 0);
-				index2.V2 = (uint32_t)((r + 1) * numSegments + s + 1);
-				index2.V3 = (uint32_t)(r * numSegments + s);
+				uint32_t v4 = (uint32_t)((r + 1) * numSegments + s + 0);
+				uint32_t v5 = (uint32_t)((r + 1) * numSegments + s + 1);
+				uint32_t v6 = (uint32_t)(r * numSegments + s);
+				indices.insert(indices.end(), {v4, v5, v6});
 			}
 		}
 
@@ -151,11 +151,11 @@ namespace Zenith {
 		return AssetManager::AddMemoryOnlyAsset(Ref<StaticMesh>::Create(meshSource));
 	}
 
-
 	AssetHandle MeshFactory::CreateOctahedron()
 	{
 		std::vector<Vertex> vertices;
-		std::vector<Index> indices;
+		std::vector<uint32_t> indices;
+
 		vertices.resize(24);
 		vertices[0].Position  = { 0.125, 0.250, -0.125 };
 		vertices[1].Position  = { 0.125, 0.250, -0.125 };
@@ -232,15 +232,15 @@ namespace Zenith {
 		vertices[22].Texcoord = { 0.375000, 0.750000 };
 		vertices[23].Texcoord = { 0.625000, 0.750000 };
 
-		indices.resize(24);
-		indices[0] = { 0, 12, 21 };
-		indices[1] = { 4, 9, 17 };
-		indices[2] = { 7, 18, 14 };
-		indices[3] = { 6, 2, 10 };
-		indices[4] = { 5, 13, 1 };
-		indices[5] = { 11, 3, 22 };
-		indices[6] = { 15, 19, 23 };
-		indices[7] = { 16, 8, 20 };
+		indices.reserve(8 * 3);
+		indices.insert(indices.end(), {0, 12, 21});
+		indices.insert(indices.end(), {4, 9, 17});
+		indices.insert(indices.end(), {7, 18, 14});
+		indices.insert(indices.end(), {6, 2, 10});
+		indices.insert(indices.end(), {5, 13, 1});
+		indices.insert(indices.end(), {11, 3, 22});
+		indices.insert(indices.end(), {15, 19, 23});
+		indices.insert(indices.end(), {16, 8, 20});
 
 		AssetHandle meshSource = AssetManager::AddMemoryOnlyAsset(Ref<MeshSource>::Create(vertices, indices, glm::mat4(1.0f)));
 		return AssetManager::AddMemoryOnlyAsset(Ref<StaticMesh>::Create(meshSource));

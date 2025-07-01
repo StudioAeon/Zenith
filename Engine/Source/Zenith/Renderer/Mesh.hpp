@@ -25,13 +25,6 @@ namespace Zenith {
 
 	static const int NumAttributes = 5;
 
-	struct Index
-	{
-		uint32_t V1, V2, V3;
-	};
-
-	static_assert(sizeof(Index) == 3 * sizeof(uint32_t));
-
 	struct Triangle
 	{
 		Vertex V0, V1, V2;
@@ -122,8 +115,8 @@ namespace Zenith {
 	{
 	public:
 		MeshSource() = default;
-		MeshSource(const std::vector<Vertex>& vertices, const std::vector<Index>& indices, const glm::mat4& transform);
-		MeshSource(const std::vector<Vertex>& vertices, const std::vector<Index>& indices, const std::vector<Submesh>& submeshes);
+		MeshSource(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, const glm::mat4& transform);
+		MeshSource(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, const std::vector<Submesh>& submeshes);
 		virtual ~MeshSource();
 
 		void DumpVertexBuffer();
@@ -132,13 +125,11 @@ namespace Zenith {
 		const std::vector<Submesh>& GetSubmeshes() const { return m_Submeshes; }
 
 		const std::vector<Vertex>& GetVertices() const { return m_Vertices; }
-		const std::vector<Index>& GetIndices() const { return m_Indices; }
+		const std::vector<uint32_t>& GetIndices() const { return m_Indices; }
 
 		std::vector<AssetHandle>& GetMaterials() { return m_Materials; }
 		const std::vector<AssetHandle>& GetMaterials() const { return m_Materials; }
 		const std::string& GetFilePath() const { return m_FilePath; }
-
-		const std::vector<Triangle> GetTriangleCache(uint32_t index) const { return m_TriangleCache.at(index); }
 
 		Ref<VertexBuffer> GetVertexBuffer() { return m_VertexBuffer; }
 		Ref<IndexBuffer> GetIndexBuffer() { return m_IndexBuffer; }
@@ -151,6 +142,22 @@ namespace Zenith {
 		const MeshNode& GetRootNode() const { return m_Nodes[0]; }
 		const std::vector<MeshNode>& GetNodes() const { return m_Nodes; }
 
+		bool ValidateIndices() const
+		{
+			for (size_t i = 0; i < m_Indices.size(); ++i)
+			{
+				if (m_Indices[i] >= m_Vertices.size())
+				{
+					ZN_CORE_ERROR_TAG("Mesh", "Invalid index {} at position {} (vertex count: {})",
+						m_Indices[i], i, m_Vertices.size());
+					return false;
+				}
+			}
+			return true;
+		}
+
+		uint32_t GetTriangleCount() const { return static_cast<uint32_t>(m_Indices.size() / 3); }
+
 	private:
 		std::vector<Submesh> m_Submeshes;
 
@@ -158,11 +165,9 @@ namespace Zenith {
 		Ref<IndexBuffer> m_IndexBuffer;
 
 		std::vector<Vertex> m_Vertices;
-		std::vector<Index> m_Indices;
+		std::vector<uint32_t> m_Indices;
 
 		std::vector<AssetHandle> m_Materials;
-
-		std::unordered_map<uint32_t, std::vector<Triangle>> m_TriangleCache;
 
 		AABB m_BoundingBox;
 
@@ -173,7 +178,6 @@ namespace Zenith {
 		friend class Renderer;
 		friend class VulkanRenderer;
 
-		friend class Mesh;
 		friend class MeshImporter;
 	};
 
@@ -189,7 +193,6 @@ namespace Zenith {
 
 		const std::vector<uint32_t>& GetSubmeshes() const { return m_Submeshes; }
 
-		// Pass in an empty vector to set ALL submeshes for MeshSource
 		void SetSubmeshes(const std::vector<uint32_t>& submeshes, Ref<MeshSource> meshSourceAsset);
 
 		AssetHandle GetMeshSource() const { return m_MeshSource; }
@@ -203,7 +206,6 @@ namespace Zenith {
 		AssetHandle m_MeshSource;
 		std::vector<uint32_t> m_Submeshes; // TODO: physics/render masks
 
-		// Materials
 		Ref<MaterialTable> m_Materials;
 
 		friend class Renderer;

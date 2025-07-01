@@ -3,8 +3,25 @@
 #include "Zenith/Renderer/Mesh.hpp"
 
 #include <filesystem>
+#include <functional>
 
 namespace Zenith {
+
+	// Utility structs for vertex deduplication in OBJ import
+	struct VertexKey {
+		uint32_t p, n, t;
+		bool operator==(const VertexKey& other) const {
+			return p == other.p && n == other.n && t == other.t;
+		}
+	};
+
+	struct VertexKeyHash {
+		size_t operator()(const VertexKey& key) const {
+			return ((std::hash<uint32_t>()(key.p) ^
+				(std::hash<uint32_t>()(key.n) << 1)) >> 1) ^
+				(std::hash<uint32_t>()(key.t) << 1);
+		}
+	};
 
 	enum class MeshFormat
 	{
