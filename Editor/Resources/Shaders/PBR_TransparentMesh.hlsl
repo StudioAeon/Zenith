@@ -49,7 +49,11 @@ struct CameraUniforms
 
 [[vk::binding(0, 0)]] cbuffer MaterialUniformBuffer : register(b0)
 {
-	MaterialUniforms u_MaterialUniforms;
+	float3 u_AlbedoColor;
+    float u_Transparency;
+    float u_Emission;
+    bool u_UseNormalMap;
+    float2 _Padding;
 }
 
 [[vk::binding(1, 0)]] cbuffer CameraUniformBuffer : register(b1)
@@ -102,14 +106,14 @@ FragmentOutput main(VertexOutput input, bool isFrontFace : SV_IsFrontFace)
 	FragmentOutput output;
 
 	float4 albedoSample = u_AlbedoTexture.Sample(u_Sampler, input.TexCoord);
-	float3 albedo = albedoSample.rgb * u_MaterialUniforms.AlbedoColor;
-	float alpha = albedoSample.a * u_MaterialUniforms.Transparency;
+	float3 albedo = albedoSample.rgb * u_AlbedoColor;
+	float alpha = albedoSample.a * u_Transparency;
 
 	if (alpha < 0.005)
 		discard;
 
 	float3 normal = normalize(input.Normal);
-	if (u_MaterialUniforms.UseNormalMap)
+	if (u_UseNormalMap)
 	{
 		float3x3 TBN = CreateTBN(input.Normal, input.Tangent, input.Binormal);
 		normal = SampleNormalMap(u_NormalTexture, u_Sampler, input.TexCoord, TBN);
@@ -130,7 +134,7 @@ FragmentOutput main(VertexOutput input, bool isFrontFace : SV_IsFrontFace)
 	float3 ambient = albedo * 0.08;
 	color += ambient;
 
-	color += albedo * u_MaterialUniforms.Emission;
+	color += albedo * u_Emission;
 
 	color = color / (color + 0.8);
 

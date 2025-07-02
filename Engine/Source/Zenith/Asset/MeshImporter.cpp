@@ -719,7 +719,7 @@ namespace Zenith {
 
 				ZN_CORE_INFO("Processing {} GLTF materials", gltfAsset->materials.size());
 
-				/*for (size_t i = 0; i < gltfAsset->materials.size(); i++)
+				for (size_t i = 0; i < gltfAsset->materials.size(); i++)
 				{
 					Ref<MaterialAsset> materialAsset = CreateMaterialFromGLTF(*gltfAsset, i);
 					if (materialAsset)
@@ -736,14 +736,14 @@ namespace Zenith {
 						ZN_MESH_LOG("Failed to create material[{}], using default", i);
 					}
 				}
-				break;*/
+				break;
 
 
-				for (size_t i = 0; i < gltfAsset->materials.size(); i++)
+				/*for (size_t i = 0; i < gltfAsset->materials.size(); i++)
 				{
 					meshSource->m_Materials[i] = AssetHandle{ 0 };
 				}
-				break;
+				break;*/
 			}
 
 			case MeshFormat::OBJ:
@@ -818,7 +818,7 @@ namespace Zenith {
 
 		ZN_MESH_LOG("Internal Material is valid");
 
-		try
+		/*try
 		{
 			glm::vec3 testColor(1.0f, 0.0f, 1.0f);
 			materialAsset->SetAlbedoColor(testColor);
@@ -853,7 +853,7 @@ namespace Zenith {
 			{
 				ZN_CORE_ERROR_TAG("Mesh", "Failed to set PBR properties");
 			}
-		}
+		}*/
 
 		ZN_MESH_LOG("Material[{}] created successfully", materialIndex);
 		return materialAsset;

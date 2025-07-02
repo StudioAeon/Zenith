@@ -30,6 +30,8 @@ namespace Zenith {
 					return RenderPassResourceType::UniformBuffer;
 				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
 					return RenderPassResourceType::StorageBuffer;
+				case VK_DESCRIPTOR_TYPE_SAMPLER:
+					return RenderPassResourceType::Texture2D;
 			}
 
 			ZN_CORE_ASSERT(false);

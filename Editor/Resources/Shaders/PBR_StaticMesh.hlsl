@@ -24,46 +24,34 @@ struct FragmentOutput
 	float4 Color : SV_Target0;
 };
 
-struct PushConstants
+cbuffer PushConstants : register(b0, space0)
 {
-	float4x4 u_Transform;
+    float4x4 u_Transform;
 };
 
-struct MaterialUniforms
+cbuffer CameraUniformBuffer : register(b1, space0)
 {
-	float3 AlbedoColor;
-	float Metalness;
-	float Roughness;
-	float Emission;
-	bool UseNormalMap;
-	float _Padding;
+    float4x4 u_ViewProjection;
+    float3 CameraPosition;
+    float _Padding;
 };
 
-struct CameraUniforms
+cbuffer MaterialUniformBuffer : register(b2, space0)
 {
-	float4x4 ViewProjection;
-	float3 CameraPosition;
-	float _Padding;
+    float3 u_AlbedoColor;
+    float u_Metalness;
+    float u_Roughness;
+    float u_Emission;
+    bool u_UseNormalMap;
+    float _Padding2;
 };
 
-[[vk::push_constant]] PushConstants pc;
+Texture2D u_AlbedoTexture       : register(t0, space0);
+Texture2D u_NormalTexture       : register(t1, space0);
+Texture2D u_MetalnessTexture    : register(t2, space0);
+Texture2D u_RoughnessTexture    : register(t3, space0);
 
-[[vk::binding(0, 0)]] cbuffer MaterialUniformBuffer : register(b0)
-{
-	MaterialUniforms u_MaterialUniforms;
-}
-
-[[vk::binding(1, 0)]] cbuffer CameraUniformBuffer : register(b1)
-{
-	CameraUniforms u_Camera;
-}
-
-[[vk::binding(2, 0)]] Texture2D u_AlbedoTexture : register(t0);
-[[vk::binding(3, 0)]] Texture2D u_NormalTexture : register(t1);
-[[vk::binding(4, 0)]] Texture2D u_MetalnessTexture : register(t2);
-[[vk::binding(5, 0)]] Texture2D u_RoughnessTexture : register(t3);
-
-[[vk::binding(6, 0)]] SamplerState u_Sampler : register(s0);
+SamplerState u_Sampler          : register(s0, space0);
 
 #pragma stage : vert
 VertexOutput main(VertexInput input)
@@ -71,11 +59,11 @@ VertexOutput main(VertexInput input)
 	VertexOutput output;
 
 	float4 worldPos = float4(input.Position, 1.0);
-	output.Position = mul(pc.u_Transform, worldPos);
+	output.Position = mul(u_ViewProjection, mul(u_Transform, worldPos));
 
-	output.WorldPos = worldPos.xyz;
-	output.Normal = normalize(input.Normal);
-	output.Tangent = normalize(input.Tangent);
+	output.WorldPos = mul(u_Transform, worldPos).xyz;
+	output.Normal   = normalize(input.Normal);
+	output.Tangent  = normalize(input.Tangent);
 	output.Binormal = normalize(input.Binormal);
 	output.TexCoord = input.TexCoord;
 
@@ -87,14 +75,14 @@ FragmentOutput main(VertexOutput input, bool isFrontFace : SV_IsFrontFace)
 {
 	FragmentOutput output;
 
-	float3 albedo = u_AlbedoTexture.Sample(u_Sampler, input.TexCoord).rgb * u_MaterialUniforms.AlbedoColor;
-	float metalness = u_MetalnessTexture.Sample(u_Sampler, input.TexCoord).b * u_MaterialUniforms.Metalness;
-	float roughness = u_RoughnessTexture.Sample(u_Sampler, input.TexCoord).g * u_MaterialUniforms.Roughness;
+	float3 albedo    = u_AlbedoTexture.Sample(u_Sampler, input.TexCoord).rgb * u_AlbedoColor;
+	float  metalness = u_MetalnessTexture.Sample(u_Sampler, input.TexCoord).b * u_Metalness;
+	float  roughness = u_RoughnessTexture.Sample(u_Sampler, input.TexCoord).g * u_Roughness;
 
 	roughness = max(roughness, MIN_ROUGHNESS);
 
 	float3 normal = normalize(input.Normal);
-	if (u_MaterialUniforms.UseNormalMap)
+	if (u_UseNormalMap != 0)
 	{
 		float3x3 TBN = CreateTBN(input.Normal, input.Tangent, input.Binormal);
 		normal = SampleNormalMap(u_NormalTexture, u_Sampler, input.TexCoord, TBN);
@@ -105,22 +93,18 @@ FragmentOutput main(VertexOutput input, bool isFrontFace : SV_IsFrontFace)
 
 	DirectionalLight mainLight;
 	mainLight.Direction = float3(0.5, -1.0, 0.3);
-	mainLight.Color = float3(1.0, 1.0, 1.0);
+	mainLight.Color     = float3(1.0, 1.0, 1.0);
 	mainLight.Intensity = 3.0;
-	
-	float3 viewDir = normalize(u_Camera.CameraPosition - input.WorldPos);
 
+	float3 viewDir  = normalize(CameraPosition - input.WorldPos);
 	float3 lightDir = normalize(-mainLight.Direction);
+
 	float3 color = CalculateSimplifiedPBR(albedo, metalness, roughness, normal, viewDir, lightDir, mainLight.Color * mainLight.Intensity);
 
-	float3 ambient = albedo * 0.03;
-	color += ambient;
-
-	color += albedo * u_MaterialUniforms.Emission;
-
-	color = color / (color + 1.0);
-
-	color = pow(color, 1.0 / 2.2);
+	color += albedo * 0.03;                // Ambient
+	color += albedo * u_Emission;          // Emissive
+	color  = color / (color + 1.0);        // HDR tonemap
+	color  = pow(color, 1.0 / 2.2);        // Gamma correct
 
 	output.Color = float4(color, 1.0);
 	return output;

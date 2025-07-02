@@ -74,6 +74,7 @@ namespace Zenith {
 		void SerializeReflectionData(StreamWriter* serializer);
 
 		void ReflectAllShaderStages(const std::map<VkShaderStageFlagBits, std::vector<uint32_t>>& shaderData);
+		void LogReflectionUniforms();
 		void Reflect(VkShaderStageFlagBits shaderStage, const std::vector<uint32_t>& shaderData);
 
 		void ProcessDescriptorBinding(const SpvReflectDescriptorBinding* binding, VkShaderStageFlagBits shaderStage);

@@ -156,6 +156,10 @@ namespace Zenith {
 			{
 				return input == RenderPassResourceType::StorageBuffer || input == RenderPassResourceType::StorageBufferSet;
 			}
+			case VK_DESCRIPTOR_TYPE_SAMPLER:
+			{
+				return input == RenderPassResourceType::Texture2D || input == RenderPassResourceType::TextureCube || input == RenderPassResourceType::Image2D;
+			}
 		}
 		return false;
 	}
@@ -173,6 +177,9 @@ namespace Zenith {
 				return RenderPassInputType::UniformBuffer;
 			case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
 				return RenderPassInputType::StorageBuffer;
+			case VK_DESCRIPTOR_TYPE_SAMPLER:
+				// Standalone sampler - treat as ImageSampler2D for now
+				return RenderPassInputType::ImageSampler2D;
 		}
 
 		ZN_CORE_ASSERT(false);

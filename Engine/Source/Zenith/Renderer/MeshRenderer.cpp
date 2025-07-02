@@ -1,21 +1,44 @@
+//
+// Updated MeshRenderer.cpp for PBR Shaders
+//
+
 #include "znpch.hpp"
 #include "MeshRenderer.hpp"
 
+#include "Zenith/Core/Base.hpp"
 #include "Zenith/Renderer/Renderer.hpp"
-
-#include "Zenith/Core/Application.hpp"
 #include "Zenith/Asset/AssetManager.hpp"
+#include "Zenith/Renderer/MaterialAsset.hpp"
+#include "Zenith/Renderer/UniformBuffer.hpp"
 
 namespace Zenith {
 
-	struct PushConstantsData
+	// PBR Shader Uniform Structures
+	struct MaterialUniforms
+	{
+		glm::vec3 u_AlbedoColor;
+		float u_Metalness;
+		float u_Roughness;
+		float u_Emission;
+		bool u_UseNormalMap;
+		float _Padding;
+	};
+
+	struct CameraUniforms
+	{
+		glm::mat4 ViewProjection;
+		glm::vec3 CameraPosition;
+		float _Padding;
+	};
+
+	// Push constants for PBR shaders
+	struct PBRPushConstants
 	{
 		glm::mat4 u_Transform;
-		glm::mat4 u_ViewProjection;
-		glm::mat4 u_NormalMatrix;
 	};
 
 	MeshRenderer::MeshRenderer()
+		: m_SceneActive(false)
 	{
 	}
 
@@ -26,53 +49,55 @@ namespace Zenith {
 
 	void MeshRenderer::Initialize()
 	{
-		m_MeshShader = Shader::Create("Resources/Shaders/BasicMesh.hlsl");
-
+		// Create command buffer
 		m_CommandBuffer = RenderCommandBuffer::Create();
 
-		if (!m_Framebuffer)
-		{
-			FramebufferSpecification fbSpec;
-			fbSpec.SwapChainTarget = false;
-			fbSpec.Width = 1920;
-			fbSpec.Height = 1080;
-			fbSpec.ClearColor = { 0.1f, 0.1f, 0.1f, 1.0f };
-			fbSpec.DepthClearValue = 1.0f;
-			fbSpec.ClearColorOnLoad = true;
-			fbSpec.ClearDepthOnLoad = true;
-			fbSpec.DebugName = "MeshRenderer-SwapChain";
+		// Create framebuffer for offscreen rendering
+		FramebufferSpecification framebufferSpec;
+		framebufferSpec.DebugName = "MeshRenderer-Framebuffer";
+		framebufferSpec.Width = 1280;
+		framebufferSpec.Height = 720;
+		framebufferSpec.ClearColor = { 0.1f, 0.1f, 0.1f, 1.0f };
+		framebufferSpec.DepthClearValue = 1.0f;
+		framebufferSpec.Attachments = {
+			ImageFormat::RGBA32F,  // Color attachment
+			ImageFormat::DEPTH32F  // Depth attachment
+		};
+		framebufferSpec.SwapChainTarget = false;
+		framebufferSpec.ClearColorOnLoad = true;
+		framebufferSpec.ClearDepthOnLoad = true;
 
-			fbSpec.Attachments = FramebufferAttachmentSpecification{
-				{ ImageFormat::RGBA },
-				{ ImageFormat::DEPTH24STENCIL8 }
-			};
+		m_Framebuffer = Framebuffer::Create(framebufferSpec);
 
-			m_Framebuffer = Framebuffer::Create(fbSpec);
-		}
+		// Load PBR shader
+		m_MeshShader = Renderer::GetShaderLibrary()->Get("PBR_StaticMesh");
+		ZN_CORE_ASSERT(m_MeshShader, "Failed to load PBR_StaticMesh shader");
 
-		m_TransformBuffer = VertexBuffer::Create(sizeof(glm::mat4));
-		glm::mat4 identity(1.0f);
-		m_TransformBuffer->SetData(&identity, sizeof(glm::mat4));
+		// Create uniform buffers
+		m_MaterialUniformBuffer = UniformBuffer::Create(sizeof(MaterialUniforms));
+		m_CameraUniformBuffer = UniformBuffer::Create(sizeof(CameraUniforms));
 
 		CreatePipeline();
 		CreateRenderPass();
-
-		m_Material = Material::Create(m_MeshShader);
 	}
 
 	void MeshRenderer::Shutdown()
 	{
-		m_Pipeline = nullptr;
-		m_RenderPass = nullptr;
-		m_MeshShader = nullptr;
-		m_Material = nullptr;
-		m_CommandBuffer = nullptr;
-		m_TransformBuffer = nullptr;
+		ClearTextureCache();
 		m_CachedStaticMeshes.clear();
+
+		m_MaterialUniformBuffer = nullptr;
+		m_CameraUniformBuffer = nullptr;
+		m_CommandBuffer = nullptr;
+		m_RenderPass = nullptr;
+		m_Pipeline = nullptr;
+		m_Framebuffer = nullptr;
+		m_MeshShader = nullptr;
 	}
 
 	void MeshRenderer::CreatePipeline()
 	{
+		// Vertex layout for PBR meshes
 		VertexBufferLayout vertexLayout = {
 			{ ShaderDataType::Float3, "Position" },
 			{ ShaderDataType::Float3, "Normal" },
@@ -82,11 +107,11 @@ namespace Zenith {
 		};
 
 		PipelineSpecification pipelineSpec;
-		pipelineSpec.DebugName = "MeshRenderer-Pipeline";
+		pipelineSpec.DebugName = "MeshRenderer-PBR-Pipeline";
 		pipelineSpec.Shader = m_MeshShader;
 		pipelineSpec.TargetFramebuffer = m_Framebuffer;
 		pipelineSpec.Layout = vertexLayout;
-		pipelineSpec.BackfaceCulling = false;
+		pipelineSpec.BackfaceCulling = true;
 		pipelineSpec.DepthTest = true;
 		pipelineSpec.DepthWrite = true;
 		pipelineSpec.Wireframe = false;
@@ -99,37 +124,31 @@ namespace Zenith {
 	void MeshRenderer::CreateRenderPass()
 	{
 		RenderPassSpecification renderPassSpec;
-		renderPassSpec.DebugName = "MeshRenderer-RenderPass";
+		renderPassSpec.DebugName = "MeshRenderer-PBR-RenderPass";
 		renderPassSpec.Pipeline = m_Pipeline;
 		renderPassSpec.MarkerColor = { 0.2f, 0.8f, 0.2f, 1.0f };
 
 		m_RenderPass = RenderPass::Create(renderPassSpec);
 	}
 
-	void MeshRenderer::BeginScene(const glm::mat4& viewProjection)
+	void MeshRenderer::BeginScene(const glm::mat4& viewProjection, const glm::vec3& cameraPosition)
 	{
 		m_ViewProjectionMatrix = viewProjection;
+		m_CameraPosition = cameraPosition;
 		m_SceneActive = true;
+
+		// Update camera uniform buffer
+		CameraUniforms cameraData;
+		cameraData.ViewProjection = viewProjection;
+		cameraData.CameraPosition = cameraPosition;
+		cameraData._Padding = 0.0f;
+
+		m_CameraUniformBuffer->SetData(&cameraData, sizeof(CameraUniforms));
 
 		m_CommandBuffer->Begin();
 
-		// Since we're using an offscreen framebuffer (SwapChainTarget = false),
-		// we need to begin our own render pass
+		// Begin our offscreen render pass
 		Renderer::BeginRenderPass(m_CommandBuffer, m_RenderPass, true);
-	}
-
-	Ref<StaticMesh> MeshRenderer::GetOrCreateStaticMesh(Ref<MeshSource> meshSource)
-	{
-		MeshSource* key = meshSource.Raw();
-		auto it = m_CachedStaticMeshes.find(key);
-		if (it != m_CachedStaticMeshes.end())
-			return it->second;
-
-		AssetHandle handle = meshSource->Handle;
-		Ref<StaticMesh> staticMesh = Ref<StaticMesh>::Create(handle);
-		m_CachedStaticMeshes[key] = staticMesh;
-
-		return staticMesh;
 	}
 
 	void MeshRenderer::DrawMesh(Ref<MeshSource> meshSource, const glm::mat4& transform)
@@ -138,46 +157,19 @@ namespace Zenith {
 			return;
 
 		Ref<StaticMesh> staticMesh = GetOrCreateStaticMesh(meshSource);
+		if (!staticMesh)
+			return;
 
 		const auto& nodes = meshSource->GetNodes();
-		if (!nodes.empty()) {
-			bool foundRoot = false;
-			for (uint32_t i = 0; i < nodes.size(); i++) {
-				if (nodes[i].IsRoot()) {
-					TraverseNodeHierarchy(meshSource, staticMesh, nodes, i, transform);
-					foundRoot = true;
-				}
-			}
-			if (!foundRoot) {
-				TraverseNodeHierarchy(meshSource, staticMesh, nodes, 0, transform);
-			}
-		} else {
-			const auto& submeshes = meshSource->GetSubmeshes();
-			for (uint32_t i = 0; i < submeshes.size(); i++) {
-				const auto& submesh = submeshes[i];
+		if (nodes.empty())
+			return;
 
-				glm::mat4 modelMatrix = transform * submesh.Transform;
-				glm::mat3 normal3 = glm::transpose(glm::inverse(glm::mat3(modelMatrix)));
-				glm::mat4 normalMatrix = glm::mat4(normal3);
-
-				PushConstantsData pcData = {
-					modelMatrix,
-					m_ViewProjectionMatrix,
-					normalMatrix
-				};
-
-				Buffer constantBuffer = Buffer::Copy(&pcData, sizeof(pcData));
-
-				if (glm::any(glm::isnan(normalMatrix[0]))) {
-					ZN_CORE_ERROR("Normal matrix contains NaN values");
-				}
-
-				Renderer::RenderStaticMeshWithMaterial(
-					m_CommandBuffer, m_Pipeline, staticMesh, meshSource, i,
-					m_TransformBuffer, 0, 1, m_Material, constantBuffer
-				);
-
-				constantBuffer.Release();
+		// Find root nodes and traverse the hierarchy
+		for (uint32_t i = 0; i < nodes.size(); i++)
+		{
+			if (nodes[i].IsRoot())
+			{
+				TraverseNodeHierarchy(meshSource, staticMesh, nodes, i, transform);
 			}
 		}
 	}
@@ -185,42 +177,168 @@ namespace Zenith {
 	void MeshRenderer::TraverseNodeHierarchy(Ref<MeshSource> meshSource, Ref<StaticMesh> staticMesh,
 		const std::vector<MeshNode>& nodes, uint32_t nodeIndex, const glm::mat4& parentTransform)
 	{
-		if (nodeIndex >= nodes.size())
-			return;
-
-		const auto& node = nodes[nodeIndex];
+		const MeshNode& node = nodes[nodeIndex];
 		glm::mat4 nodeTransform = parentTransform * node.LocalTransform;
 
-		for (uint32_t submeshIndex : node.Submeshes) {
-			const auto& submeshes = meshSource->GetSubmeshes();
-			if (submeshIndex < submeshes.size()) {
-				const auto& submesh = submeshes[submeshIndex];
-
-				glm::mat4 finalTransform = nodeTransform * submesh.Transform;
-				glm::mat4 modelMatrix = finalTransform;
-				glm::mat3 normalMatrix3 = glm::transpose(glm::inverse(glm::mat3(modelMatrix)));
-				glm::mat4 normalMatrix = glm::mat4(normalMatrix3);
-
-				PushConstantsData pcData = {
-					modelMatrix,
-					m_ViewProjectionMatrix,
-					normalMatrix
-				};
-
-				Buffer constantBuffer = Buffer::Copy(&pcData, sizeof(pcData));
-
-				Renderer::RenderStaticMeshWithMaterial(
-					m_CommandBuffer, m_Pipeline, staticMesh, meshSource, submeshIndex,
-					m_TransformBuffer, 0, 1, m_Material, constantBuffer
-				);
-
-				constantBuffer.Release();
+		// Render submeshes for this node
+		const auto& submeshes = meshSource->GetSubmeshes();
+		for (uint32_t submeshIndex : node.Submeshes)
+		{
+			if (submeshIndex < submeshes.size())
+			{
+				RenderSubmesh(meshSource, staticMesh, submeshIndex, nodeTransform);
 			}
 		}
 
-		// Recurse children
-		for (uint32_t childIndex : node.Children) {
+		// Traverse children
+		for (uint32_t childIndex : node.Children)
+		{
 			TraverseNodeHierarchy(meshSource, staticMesh, nodes, childIndex, nodeTransform);
+		}
+	}
+
+	void MeshRenderer::RenderSubmesh(Ref<MeshSource> meshSource, Ref<StaticMesh> staticMesh,
+		uint32_t submeshIndex, const glm::mat4& transform)
+	{
+		const auto& submeshes = meshSource->GetSubmeshes();
+		if (submeshIndex >= submeshes.size())
+			return;
+
+		const auto& submesh = submeshes[submeshIndex];
+
+		// Get material for this submesh
+		Ref<MaterialAsset> materialAsset = GetMaterialForSubmesh(meshSource, submesh.MaterialIndex);
+		if (!materialAsset)
+		{
+			ZN_CORE_WARN("No material found for submesh {}, using default", submeshIndex);
+			return;
+		}
+
+		// Create PBR material from MaterialAsset
+		Ref<Material> pbrMaterial = CreatePBRMaterial(materialAsset);
+		if (!pbrMaterial)
+		{
+			ZN_CORE_ERROR("Failed to create PBR material for submesh {}", submeshIndex);
+			return;
+		}
+
+		// Calculate final transform
+		glm::mat4 finalTransform = transform * submesh.Transform;
+
+		// Set push constants
+		PBRPushConstants pushConstants;
+		pushConstants.u_Transform = finalTransform;
+
+		Buffer constantBuffer = Buffer::Copy(&pushConstants, sizeof(pushConstants));
+
+		// Render with PBR material
+		Renderer::RenderStaticMeshWithMaterial(
+			m_CommandBuffer, m_Pipeline, staticMesh, meshSource, submeshIndex,
+			nullptr, 0, 1, pbrMaterial, constantBuffer
+		);
+
+		constantBuffer.Release();
+	}
+
+	Ref<MaterialAsset> MeshRenderer::GetMaterialForSubmesh(Ref<MeshSource> meshSource, uint32_t materialIndex)
+	{
+		const auto& materials = meshSource->GetMaterials();
+		if (materialIndex >= materials.size())
+			return nullptr;
+
+		AssetHandle materialHandle = materials[materialIndex];
+		if (!materialHandle)
+			return nullptr;
+
+		return AssetManager::GetAsset<MaterialAsset>(materialHandle);
+	}
+
+	Ref<Material> MeshRenderer::CreatePBRMaterial(Ref<MaterialAsset> materialAsset)
+	{
+		// Determine which shader to use based on transparency
+		const std::string shaderName = materialAsset->IsTransparent() ? "PBR_TransparentMesh" : "PBR_StaticMesh";
+		Ref<Shader> shader = Renderer::GetShaderLibrary()->Get(shaderName);
+		if (!shader)
+		{
+			ZN_CORE_ERROR("PBR shader '{}' not found", shaderName);
+			return nullptr;
+		}
+
+		// Create material with PBR shader
+		Ref<Material> material = Material::Create(shader, materialAsset->GetMaterial()->GetName());
+
+		// Update material uniform buffer with MaterialAsset properties
+		MaterialUniforms materialData;
+		materialData.u_AlbedoColor = materialAsset->GetAlbedoColor();
+		materialData.u_Metalness = materialAsset->IsTransparent() ? 0.0f : materialAsset->GetMetalness();
+		materialData.u_Roughness = materialAsset->IsTransparent() ? 1.0f : materialAsset->GetRoughness();
+		materialData.u_Emission = materialAsset->GetEmission();
+		materialData.u_UseNormalMap = materialAsset->IsUsingNormalMap();
+		materialData._Padding = 0.0f;
+
+		m_MaterialUniformBuffer->SetData(&materialData, sizeof(MaterialUniforms));
+
+		// Update uniform buffers through material's descriptor set manager
+		auto vulkanMaterial = material.As<VulkanMaterial>();
+		if (vulkanMaterial)
+		{
+			Ref<UniformBuffer> materialUBO = UniformBuffer::Create(sizeof(MaterialUniforms));
+			materialUBO->SetData(&materialData, sizeof(MaterialUniforms));
+
+			vulkanMaterial->m_DescriptorSetManager.SetInput("MaterialUniformBuffer", materialUBO);
+			vulkanMaterial->m_DescriptorSetManager.SetInput("CameraUniformBuffer", m_CameraUniformBuffer);
+		}
+
+		// Set textures with fallbacks
+		SetMaterialTextures(material, materialAsset);
+
+		return material;
+	}
+
+	void MeshRenderer::SetMaterialTextures(Ref<Material> material, Ref<MaterialAsset> materialAsset)
+	{
+		// Set albedo texture or fallback to white
+		if (Ref<Texture2D> albedoTexture = materialAsset->GetAlbedoMap())
+		{
+			material->Set("u_AlbedoTexture", albedoTexture);
+		}
+		else
+		{
+			material->Set("u_AlbedoTexture", Renderer::GetWhiteTexture());
+		}
+
+		// Set normal texture or fallback to flat normal
+		if (materialAsset->IsUsingNormalMap() && materialAsset->GetNormalMap())
+		{
+			material->Set("u_NormalTexture", materialAsset->GetNormalMap());
+		}
+		else
+		{
+			material->Set("u_NormalTexture", Renderer::GetBlackTexture()); // Flat normal map
+		}
+
+		// For non-transparent materials, set metalness and roughness textures
+		if (!materialAsset->IsTransparent())
+		{
+			// Set metalness texture or fallback to white (full metalness controlled by uniform)
+			if (Ref<Texture2D> metalnessTexture = materialAsset->GetMetalnessMap())
+			{
+				material->Set("u_MetalnessTexture", metalnessTexture);
+			}
+			else
+			{
+				material->Set("u_MetalnessTexture", Renderer::GetWhiteTexture());
+			}
+
+			// Set roughness texture or fallback to white (full roughness controlled by uniform)
+			if (Ref<Texture2D> roughnessTexture = materialAsset->GetRoughnessMap())
+			{
+				material->Set("u_RoughnessTexture", roughnessTexture);
+			}
+			else
+			{
+				material->Set("u_RoughnessTexture", Renderer::GetWhiteTexture());
+			}
 		}
 	}
 
@@ -235,6 +353,20 @@ namespace Zenith {
 		m_CommandBuffer->Submit();
 
 		m_SceneActive = false;
+	}
+
+	Ref<StaticMesh> MeshRenderer::GetOrCreateStaticMesh(Ref<MeshSource> meshSource)
+	{
+		MeshSource* key = meshSource.Raw();
+		auto it = m_CachedStaticMeshes.find(key);
+		if (it != m_CachedStaticMeshes.end())
+			return it->second;
+
+		AssetHandle handle = meshSource->Handle;
+		Ref<StaticMesh> staticMesh = Ref<StaticMesh>::Create(handle);
+		m_CachedStaticMeshes[key] = staticMesh;
+
+		return staticMesh;
 	}
 
 	ImTextureID MeshRenderer::GetTextureImGuiID(Ref<Image2D> image)

@@ -7,12 +7,12 @@
 
 namespace Zenith {
 
-	static const std::string s_AlbedoColorUniform = "u_MaterialUniforms.AlbedoColor";
-	static const std::string s_UseNormalMapUniform = "u_MaterialUniforms.UseNormalMap";
-	static const std::string s_MetalnessUniform = "u_MaterialUniforms.Metalness";
-	static const std::string s_RoughnessUniform = "u_MaterialUniforms.Roughness";
-	static const std::string s_EmissionUniform = "u_MaterialUniforms.Emission";
-	static const std::string s_TransparencyUniform = "u_MaterialUniforms.Transparency";
+	static const std::string s_AlbedoColorUniform = "u_AlbedoColor";
+	static const std::string s_UseNormalMapUniform = "u_UseNormalMap";
+	static const std::string s_MetalnessUniform = "u_Metalness";
+	static const std::string s_RoughnessUniform = "u_Roughness";
+	static const std::string s_EmissionUniform = "u_Emission";
+	static const std::string s_TransparencyUniform = "u_Transparency";
 	
 	static const std::string s_AlbedoMapUniform = "u_AlbedoTexture";
 	static const std::string s_NormalMapUniform = "u_NormalTexture";
@@ -29,7 +29,7 @@ namespace Zenith {
 		else
 			m_Material = Material::Create(Renderer::GetShaderLibrary()->Get("PBR_StaticMesh"));
 
-		SetDefaults();
+		//SetDefaults();
 	}
 
 	MaterialAsset::MaterialAsset(Ref<Material> material)

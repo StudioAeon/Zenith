@@ -44,40 +44,94 @@ namespace Zenith {
 
 	void VulkanMaterial::Init()
 	{
-		AllocateStorage();
+	    AllocateStorage();
 
-		m_MaterialFlags |= (uint32_t)MaterialFlag::DepthTest;
-		m_MaterialFlags |= (uint32_t)MaterialFlag::Blend;
+	    m_MaterialFlags |= (uint32_t)MaterialFlag::DepthTest;
+	    m_MaterialFlags |= (uint32_t)MaterialFlag::Blend;
 
-		DescriptorSetManagerSpecification dmSpec;
-		dmSpec.DebugName = m_Name.empty() ? std::format("{} (Material)", m_Shader->GetName()) : m_Name;
-		dmSpec.Shader = m_Shader.As<VulkanShader>();
-		dmSpec.StartSet = 0;
-		dmSpec.EndSet = 0;
-		dmSpec.DefaultResources = true;
-		m_DescriptorSetManager = DescriptorSetManager(dmSpec);
-		
-		for (const auto& [name, decl] : m_DescriptorSetManager.InputDeclarations)
-		{
-			switch (decl.Type)
-			{
-				case RenderPassInputType::ImageSampler1D:
-				case RenderPassInputType::ImageSampler2D:
-				{
-					for (uint32_t i = 0; i < decl.Count; i++)
-						m_DescriptorSetManager.SetInput(name, Renderer::GetWhiteTexture(), i);
-					break;
-				}
-				case RenderPassInputType::ImageSampler3D:
-				{
-					m_DescriptorSetManager.SetInput(name, Renderer::GetBlackCubeTexture());
-					break;
-				}
-			}
-		}
+	    DescriptorSetManagerSpecification dmSpec;
+	    dmSpec.DebugName = m_Name.empty() ? std::format("{} (Material)", m_Shader->GetName()) : m_Name;
+	    dmSpec.Shader = m_Shader.As<VulkanShader>();
+	    dmSpec.StartSet = 0;
+	    dmSpec.EndSet = 0;
+	    dmSpec.DefaultResources = true;
+	    m_DescriptorSetManager = DescriptorSetManager(dmSpec);
 
-		ZN_CORE_VERIFY(m_DescriptorSetManager.Validate());
-		m_DescriptorSetManager.Bake();
+	    for (const auto& [name, decl] : m_DescriptorSetManager.InputDeclarations)
+	    {
+	       switch (decl.Type)
+	       {
+	          case RenderPassInputType::UniformBuffer:
+	          {
+	             // Create appropriate uniform buffer based on the name
+	             if (name == "MaterialUniformBuffer")
+	             {
+	                // MaterialUniforms struct size
+	                struct MaterialUniforms {
+	                   glm::vec3 AlbedoColor;
+	                   float Metalness;
+	                   float Roughness;
+	                   float Emission;
+	                   bool UseNormalMap;
+	                   float _Padding;
+	                };
+	                auto uniformBuffer = UniformBuffer::Create(sizeof(MaterialUniforms));
+	                m_DescriptorSetManager.SetInput(name, uniformBuffer);
+	             }
+	             else if (name == "CameraUniformBuffer")
+	             {
+	                // CameraUniforms struct size
+	                struct CameraUniforms {
+	                   glm::mat4 ViewProjection;
+	                   glm::vec3 CameraPosition;
+	                   float _Padding;
+	                };
+	                auto uniformBuffer = UniformBuffer::Create(sizeof(CameraUniforms));
+	                m_DescriptorSetManager.SetInput(name, uniformBuffer);
+	             }
+	             else
+	             {
+	                // Generic uniform buffer
+	                auto uniformBuffer = UniformBuffer::Create(256);
+	                m_DescriptorSetManager.SetInput(name, uniformBuffer);
+	             }
+	             break;
+	          }
+	          case RenderPassInputType::ImageSampler1D:
+	          case RenderPassInputType::ImageSampler2D:
+	          {
+	             for (uint32_t i = 0; i < decl.Count; i++)
+	             {
+	                // Use appropriate fallback textures for PBR
+	                if (name == "u_AlbedoTexture")
+	                {
+	                   m_DescriptorSetManager.SetInput(name, Renderer::GetWhiteTexture(), i);
+	                }
+	                else if (name == "u_NormalTexture")
+	                {
+	                   m_DescriptorSetManager.SetInput(name, Renderer::GetBlackTexture(), i); // Flat normal
+	                }
+	                else if (name == "u_MetalnessTexture" || name == "u_RoughnessTexture")
+	                {
+	                   m_DescriptorSetManager.SetInput(name, Renderer::GetWhiteTexture(), i);
+	                }
+	                else
+	                {
+	                   m_DescriptorSetManager.SetInput(name, Renderer::GetWhiteTexture(), i);
+	                }
+	             }
+	             break;
+	          }
+	          case RenderPassInputType::ImageSampler3D:
+	          {
+	             m_DescriptorSetManager.SetInput(name, Renderer::GetBlackCubeTexture());
+	             break;
+	          }
+	       }
+	    }
+
+	    ZN_CORE_VERIFY(m_DescriptorSetManager.Validate());
+	    m_DescriptorSetManager.Bake();
 	}
 
 	void VulkanMaterial::Invalidate()
@@ -155,7 +209,7 @@ namespace Zenith {
 	{
 		const auto& shaderBuffers = m_Shader->GetShaderBuffers();
 
-		ZN_CORE_ASSERT(shaderBuffers.size() <= 1, "We currently only support ONE material buffer!");
+		ZN_CORE_ASSERT(shaderBuffers.contains("MaterialUniformBuffer"), "MaterialUniformBuffer not found in constant buffers!");
 
 		if (shaderBuffers.size() > 0)
 		{

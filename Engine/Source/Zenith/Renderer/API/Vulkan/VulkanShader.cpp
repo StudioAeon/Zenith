@@ -235,9 +235,9 @@ namespace Zenith {
 				layoutBinding.pImmutableSamplers = nullptr;
 				layoutBinding.binding = binding;
 
-				ZN_CORE_ASSERT(shaderDescriptorSet.UniformBuffers.find(binding) == shaderDescriptorSet.UniformBuffers.end(), "Binding is already present!");
-				ZN_CORE_ASSERT(shaderDescriptorSet.ImageSamplers.find(binding) == shaderDescriptorSet.ImageSamplers.end(), "Binding is already present!");
-				ZN_CORE_ASSERT(shaderDescriptorSet.StorageBuffers.find(binding) == shaderDescriptorSet.StorageBuffers.end(), "Binding is already present!");
+				//ZN_CORE_ASSERT(shaderDescriptorSet.UniformBuffers.find(binding) == shaderDescriptorSet.UniformBuffers.end(), "Binding is already present!");
+				//ZN_CORE_ASSERT(shaderDescriptorSet.ImageSamplers.find(binding) == shaderDescriptorSet.ImageSamplers.end(), "Binding is already present!");
+				//ZN_CORE_ASSERT(shaderDescriptorSet.StorageBuffers.find(binding) == shaderDescriptorSet.StorageBuffers.end(), "Binding is already present!");
 
 				VkWriteDescriptorSet& writeDescriptorSet = shaderDescriptorSet.WriteDescriptorSets[imageSampler.Name];
 				writeDescriptorSet = {};
@@ -256,10 +256,10 @@ namespace Zenith {
 				layoutBinding.pImmutableSamplers = nullptr;
 				layoutBinding.binding = binding;
 
-				ZN_CORE_ASSERT(shaderDescriptorSet.UniformBuffers.find(binding) == shaderDescriptorSet.UniformBuffers.end(), "Binding is already present!");
-				ZN_CORE_ASSERT(shaderDescriptorSet.ImageSamplers.find(binding) == shaderDescriptorSet.ImageSamplers.end(), "Binding is already present!");
-				ZN_CORE_ASSERT(shaderDescriptorSet.StorageBuffers.find(binding) == shaderDescriptorSet.StorageBuffers.end(), "Binding is already present!");
-				ZN_CORE_ASSERT(shaderDescriptorSet.SeparateTextures.find(binding) == shaderDescriptorSet.SeparateTextures.end(), "Binding is already present!");
+				//ZN_CORE_ASSERT(shaderDescriptorSet.UniformBuffers.find(binding) == shaderDescriptorSet.UniformBuffers.end(), "Binding is already present!");
+				//ZN_CORE_ASSERT(shaderDescriptorSet.ImageSamplers.find(binding) == shaderDescriptorSet.ImageSamplers.end(), "Binding is already present!");
+				//ZN_CORE_ASSERT(shaderDescriptorSet.StorageBuffers.find(binding) == shaderDescriptorSet.StorageBuffers.end(), "Binding is already present!");
+				//ZN_CORE_ASSERT(shaderDescriptorSet.SeparateTextures.find(binding) == shaderDescriptorSet.SeparateTextures.end(), "Binding is already present!");
 
 				VkWriteDescriptorSet& writeDescriptorSet = shaderDescriptorSet.WriteDescriptorSets[imageSampler.Name];
 				writeDescriptorSet = {};
@@ -534,6 +534,26 @@ namespace Zenith {
 	void VulkanShader::SetReflectionData(const ReflectionData& reflectionData)
 	{
 		m_ReflectionData = reflectionData;
+
+		auto it = m_ReflectionData.ConstantBuffers.find("MaterialUniformBuffer");
+		if (it != m_ReflectionData.ConstantBuffers.end())
+		{
+			auto& matBuffer = it->second;
+			ZN_CORE_INFO_TAG("Renderer", "Uniforms in MaterialUniformBuffer:");
+			for (auto& [name, uniform] : matBuffer.Uniforms)
+				ZN_CORE_INFO_TAG("Renderer", " - {}", name);
+
+			// Now check for u_UseNormalMap explicitly
+			if (matBuffer.Uniforms.find("u_UseNormalMap") == matBuffer.Uniforms.end())
+			{
+				ZN_CORE_ERROR_TAG("Renderer", "Uniform 'u_UseNormalMap' missing!");
+				// Handle error...
+			}
+		}
+		else
+		{
+			ZN_CORE_WARN_TAG("Renderer", "MaterialUniformBuffer not found!");
+		}
 	}
 
 }

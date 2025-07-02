@@ -192,12 +192,18 @@ namespace Zenith {
 
 #ifdef ZN_PLATFORM_WINDOWS
 		std::wstring buffer = m_ShaderSourcePath.wstring();
-		std::vector<const wchar_t*> arguments{ buffer.c_str(), L"-E", L"main", L"-T",ShaderUtils::HLSLShaderProfile(stage), L"-spirv", L"-fspv-target-env=vulkan1.2",
-			DXC_ARG_PACK_MATRIX_COLUMN_MAJOR, DXC_ARG_WARNINGS_ARE_ERRORS
+		std::vector<const wchar_t*> arguments{
+		buffer.c_str(),
+		L"-E", L"main",
+		L"-T", ShaderUtils::HLSLShaderProfile(stage),
+		L"-spirv",
+		L"-fspv-target-env=vulkan1.2",
+		DXC_ARG_PACK_MATRIX_COLUMN_MAJOR,
+		DXC_ARG_WARNINGS_ARE_ERRORS,
 
-			// TODO: L"-fspv-reflect" causes a validation error about SPV_GOOGLE_hlsl_functionality1
-			// Without this argument, not much info will be in Nsight.
-			//L"-fspv-reflect",
+		L"-fvk-use-dx-layout",     // Ensures correct memory layout matching HLSL
+		//L"-fvk-bind-register",
+		//L"-fspv-reflect",
 		};
 
 		if (options.GenerateDebugInfo)
@@ -578,13 +584,37 @@ namespace Zenith {
 		}
 	}
 
+	void VulkanShaderCompiler::LogReflectionUniforms()
+	{
+		ZN_CORE_INFO("===== Reflection Uniforms Dump =====");
+
+		for (const auto& [name, buffer] : m_ReflectionData.ConstantBuffers)
+		{
+			ZN_CORE_INFO("Constant Buffer: Name: {}, Size: {}", name, buffer.Size);
+
+			if (buffer.Uniforms.empty())
+				ZN_CORE_INFO("  (No uniforms found)");
+
+			for (const auto& [uniformName, uniform] : buffer.Uniforms)
+			{
+				ZN_CORE_INFO("  Uniform: Name: {}, Size: {}, Offset: {}",
+					uniformName,
+					uniform.GetSize(),
+					uniform.GetOffset()
+				);
+			}
+		}
+
+		ZN_CORE_INFO("====================================");
+	}
+
 	void VulkanShaderCompiler::Reflect(VkShaderStageFlagBits shaderStage, const std::vector<uint32_t>& shaderData)
 	{
 		VkDevice device = VulkanContext::GetCurrentDevice()->GetVulkanDevice();
 
-		ZN_CORE_TRACE_TAG("Renderer", "===========================");
-		ZN_CORE_TRACE_TAG("Renderer", " SPIRV-Reflect Shader Reflection");
-		ZN_CORE_TRACE_TAG("Renderer", "===========================");
+		ZN_CORE_INFO("===========================");
+		ZN_CORE_INFO(" SPIRV-Reflect Shader Reflection");
+		ZN_CORE_INFO("===========================");
 
 		// Create reflection module
 		SpvReflectShaderModule module;
@@ -596,7 +626,7 @@ namespace Zenith {
 
 		if (result != SPV_REFLECT_RESULT_SUCCESS)
 		{
-			ZN_CORE_ERROR_TAG("Renderer", "Failed to create reflection module for stage: {}",
+			ZN_CORE_ERROR("Failed to create reflection module for stage: {}",
 							   ShaderUtils::ShaderStageToString(shaderStage));
 			return;
 		}
@@ -635,16 +665,30 @@ namespace Zenith {
 			}
 		}
 
+		LogReflectionUniforms();
+
+		ZN_CORE_TRACE("Found {} descriptor sets", m_ReflectionData.ShaderDescriptorSets.size());
+
+		ZN_CORE_INFO(">>> Final Reflected Uniforms:");
+		for (const auto& [bufferName, buffer] : m_ReflectionData.ConstantBuffers)
+		{
+			for (const auto& [uniformName, uniform] : buffer.Uniforms)
+			{
+				ZN_CORE_INFO("  [{}] -> {} (Size: {}, Offset: {})",
+					bufferName, uniformName, uniform.GetSize(), uniform.GetOffset());
+			}
+		}
+
 		// Clean up
 		spvReflectDestroyShaderModule(&module);
 
-		ZN_CORE_TRACE_TAG("Renderer", "Special macros:");
+		ZN_CORE_INFO("Special macros:");
 		for (const auto& macro : m_AcknowledgedMacros)
 		{
-			ZN_CORE_TRACE_TAG("Renderer", "  {0}", macro);
+			ZN_CORE_INFO("  {0}", macro);
 		}
 
-		ZN_CORE_TRACE_TAG("Renderer", "===========================");
+		ZN_CORE_INFO("===========================");
 	}
 
 	void VulkanShaderCompiler::ProcessDescriptorBinding(const SpvReflectDescriptorBinding* binding, VkShaderStageFlagBits shaderStage)
@@ -657,7 +701,7 @@ namespace Zenith {
 		{
 			case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
 			{
-				ZN_CORE_TRACE_TAG("Renderer", "Uniform Buffer: {} (set={}, binding={})", name, set, bindingPoint);
+				ZN_CORE_INFO("Uniform Buffer: {} (set={}, binding={})", name, set, bindingPoint);
 
 				uint32_t size = binding->block.size;
 
@@ -681,16 +725,38 @@ namespace Zenith {
 					if (size > uniformBuffer.Size)
 						uniformBuffer.Size = size;
 				}
+
 				shaderDescriptorSet.UniformBuffers[bindingPoint] = s_UniformBuffers[set][bindingPoint];
 
-				ZN_CORE_TRACE_TAG("Renderer", "  Size: {0}", size);
-				ZN_CORE_TRACE_TAG("Renderer", "-------------------");
+				ShaderBuffer& buffer = m_ReflectionData.ConstantBuffers[name];
+				buffer.Name = name;
+				buffer.Size = size;
+
+				buffer.Uniforms.clear();
+
+				for (uint32_t i = 0; i < binding->block.member_count; i++)
+				{
+					const SpvReflectBlockVariable& member = binding->block.members[i];
+					const char* memberName = member.name ? member.name : "unnamed";
+					uint32_t offset = member.offset;
+					uint32_t memberSize = member.size;
+					ShaderUniformType uniformType = SPIRVTypeToShaderUniformType(member.type_description);
+
+					std::string uniformName = memberName;
+					buffer.Uniforms[uniformName] = ShaderUniform(uniformName, uniformType, memberSize, offset);
+
+					ZN_CORE_INFO("  Member: {} Type: {} Size: {} Offset: {}",
+						uniformName, static_cast<int>(uniformType), memberSize, offset);
+				}
+
+				ZN_CORE_INFO("  Size: {0}", size);
+				ZN_CORE_INFO("-------------------");
 				break;
 			}
 
 			case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
 			{
-				ZN_CORE_TRACE_TAG("Renderer", "Storage Buffer: {} (set={}, binding={})", name, set, bindingPoint);
+				ZN_CORE_INFO("Storage Buffer: {} (set={}, binding={})", name, set, bindingPoint);
 
 				uint32_t size = binding->block.size;
 
@@ -716,14 +782,14 @@ namespace Zenith {
 				}
 				shaderDescriptorSet.StorageBuffers[bindingPoint] = s_StorageBuffers[set][bindingPoint];
 
-				ZN_CORE_TRACE_TAG("Renderer", "  Size: {0}", size);
-				ZN_CORE_TRACE_TAG("Renderer", "-------------------");
+				ZN_CORE_INFO("  Size: {0}", size);
+				ZN_CORE_INFO("-------------------");
 				break;
 			}
 
 			case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
 			{
-				ZN_CORE_TRACE_TAG("Renderer", "Sampled Image: {} (set={}, binding={})", name, set, bindingPoint);
+				ZN_CORE_INFO("Sampled Image: {} (set={}, binding={})", name, set, bindingPoint);
 
 				uint32_t arraySize = binding->count > 0 ? binding->count : 1;
 
@@ -745,7 +811,7 @@ namespace Zenith {
 
 			case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
 			{
-				ZN_CORE_TRACE_TAG("Renderer", "Separate Image: {} (set={}, binding={})", name, set, bindingPoint);
+				ZN_CORE_INFO("Separate Image: {} (set={}, binding={})", name, set, bindingPoint);
 
 				uint32_t arraySize = binding->count > 0 ? binding->count : 1;
 
@@ -767,7 +833,7 @@ namespace Zenith {
 
 			case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
 			{
-				ZN_CORE_TRACE_TAG("Renderer", "Separate Sampler: {} (set={}, binding={})", name, set, bindingPoint);
+				ZN_CORE_INFO("Separate Sampler: {} (set={}, binding={})", name, set, bindingPoint);
 
 				uint32_t arraySize = binding->count > 0 ? binding->count : 1;
 
@@ -789,7 +855,7 @@ namespace Zenith {
 
 			case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
 			{
-				ZN_CORE_TRACE_TAG("Renderer", "Storage Image: {} (set={}, binding={})", name, set, bindingPoint);
+				ZN_CORE_INFO("Storage Image: {} (set={}, binding={})", name, set, bindingPoint);
 
 				uint32_t arraySize = binding->count > 0 ? binding->count : 1;
 
@@ -810,9 +876,17 @@ namespace Zenith {
 			}
 
 			default:
-				ZN_CORE_TRACE_TAG("Renderer", "Other Descriptor: {} (type={}, set={}, binding={})",
+				ZN_CORE_INFO("Other Descriptor: {} (type={}, set={}, binding={})",
 								   name, static_cast<int>(binding->descriptor_type), set, bindingPoint);
 				break;
+		}
+
+		for (const auto& [bufferName, buffer] : m_ReflectionData.ConstantBuffers)
+		{
+			for (const auto& [uniformName, uniform] : buffer.Uniforms)
+			{
+				ZN_CORE_INFO("Reflected uniform: {}", uniformName);
+			}
 		}
 	}
 
@@ -831,10 +905,10 @@ namespace Zenith {
 		pushConstantRange.Size = bufferSize - bufferOffset;
 		pushConstantRange.Offset = bufferOffset;
 
-		ZN_CORE_TRACE_TAG("Renderer", "Push Constant Buffer:");
-		ZN_CORE_TRACE_TAG("Renderer", "  Name: {0}", bufferName);
-		ZN_CORE_TRACE_TAG("Renderer", "  Member Count: {0}", memberCount);
-		ZN_CORE_TRACE_TAG("Renderer", "  Size: {0}", bufferSize);
+		ZN_CORE_INFO("Push Constant Buffer:");
+		ZN_CORE_INFO("  Name: {0}", bufferName);
+		ZN_CORE_INFO("  Member Count: {0}", memberCount);
+		ZN_CORE_INFO("  Size: {0}", bufferSize);
 
 		// If bufferName can be std::string_view or const char*
 		std::string_view name{bufferName ? bufferName : ""};
@@ -855,7 +929,7 @@ namespace Zenith {
 
 			ShaderUniformType uniformType = SPIRVTypeToShaderUniformType(member.type_description);
 
-			std::string uniformName = std::format("{}.{}", bufferName, memberName);
+			std::string uniformName = memberName;
 			buffer.Uniforms[uniformName] = ShaderUniform(uniformName, uniformType, size, offset);
 		}
 	}

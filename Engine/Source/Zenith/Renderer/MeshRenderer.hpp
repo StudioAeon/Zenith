@@ -1,9 +1,15 @@
+//
+// Updated MeshRenderer.hpp for PBR Shaders
+//
+
 #pragma once
 
 #include "Zenith/Core/Base.hpp"
 #include "Zenith/Core/Ref.hpp"
 
 #include "Zenith/Renderer/Mesh.hpp"
+#include "Zenith/Renderer/MaterialAsset.hpp"
+#include "Zenith/Renderer/UniformBuffer.hpp"
 
 #include "Zenith/Renderer/Pipeline.hpp"
 #include "Zenith/Renderer/Shader.hpp"
@@ -34,7 +40,8 @@ namespace Zenith {
 		void Initialize();
 		void Shutdown();
 
-		void BeginScene(const glm::mat4& viewProjection);
+		// Updated BeginScene to include camera position for PBR lighting
+		void BeginScene(const glm::mat4& viewProjection, const glm::vec3& cameraPosition = glm::vec3(0.0f));
 		void DrawMesh(Ref<MeshSource> meshSource, const glm::mat4& transform = glm::mat4(1.0f));
 		void EndScene();
 
@@ -48,25 +55,36 @@ namespace Zenith {
 
 		ImTextureID GetTextureImGuiID(Ref<Image2D> image);
 		void ClearTextureCache();
+
 	private:
 		void CreatePipeline();
 		void CreateRenderPass();
 		Ref<StaticMesh> GetOrCreateStaticMesh(Ref<MeshSource> meshSource);
 
 		void TraverseNodeHierarchy(Ref<MeshSource> meshSource, Ref<StaticMesh> staticMesh,
-		const std::vector<MeshNode>& nodes, uint32_t nodeIndex, const glm::mat4& parentTransform);
+			const std::vector<MeshNode>& nodes, uint32_t nodeIndex, const glm::mat4& parentTransform);
+
+		// PBR-specific methods
+		void RenderSubmesh(Ref<MeshSource> meshSource, Ref<StaticMesh> staticMesh, 
+			uint32_t submeshIndex, const glm::mat4& transform);
+
+		Ref<MaterialAsset> GetMaterialForSubmesh(Ref<MeshSource> meshSource, uint32_t materialIndex);
+		Ref<Material> CreatePBRMaterial(Ref<MaterialAsset> materialAsset);
+		void SetMaterialTextures(Ref<Material> material, Ref<MaterialAsset> materialAsset);
 
 	private:
 		Ref<Shader> m_MeshShader;
 		Ref<Pipeline> m_Pipeline;
 		Ref<RenderPass> m_RenderPass;
 		Ref<Framebuffer> m_Framebuffer;
-		Ref<Material> m_Material;
 		Ref<RenderCommandBuffer> m_CommandBuffer;
-		Ref<VertexBuffer> m_TransformBuffer;
-		Ref<VertexBuffer> m_ColorBuffer;
+
+		// PBR uniform buffers
+		Ref<UniformBuffer> m_MaterialUniformBuffer;
+		Ref<UniformBuffer> m_CameraUniformBuffer;
 
 		glm::mat4 m_ViewProjectionMatrix;
+		glm::vec3 m_CameraPosition;
 		bool m_SceneActive = false;
 
 		std::unordered_map<MeshSource*, Ref<StaticMesh>> m_CachedStaticMeshes;

@@ -57,9 +57,12 @@ namespace Zenith {
 		void Set(const std::string& name, const T& value)
 		{
 			auto decl = FindUniformDeclaration(name);
-			ZN_CORE_ASSERT(decl, "Could not find uniform!");
 			if (!decl)
+			{
+				ZN_CORE_ERROR_TAG("Renderer", "Could not find uniform declaration for '{}'", name);
+				ZN_CORE_ASSERT(decl, "Could not find uniform declaration!");
 				return;
+			}
 
 			auto& buffer = m_UniformStorageBuffer;
 			buffer.Write((byte*)&value, decl->GetSize(), decl->GetOffset());
@@ -69,7 +72,7 @@ namespace Zenith {
 		T& Get(const std::string& name)
 		{
 			auto decl = FindUniformDeclaration(name);
-			ZN_CORE_ASSERT(decl, "Could not find uniform with name 'x'");
+			ZN_CORE_ASSERT(decl, "Could not find uniform with name '{}'", name);
 			auto& buffer = m_UniformStorageBuffer;
 			return buffer.Read<T>(decl->GetOffset());
 		}
@@ -139,8 +142,10 @@ namespace Zenith {
 
 		// -- NEW v --
 		// Per frame in flight
+	public:
 		DescriptorSetManager m_DescriptorSetManager;
 		std::vector<VkDescriptorSet> m_MaterialDescriptorSets;
+	private:
 
 		// Map key is binding, vector index is array index (size 1 for non-array)
 		std::map<uint32_t, std::vector<Ref<RendererResource>>> m_MaterialDescriptorImages;
