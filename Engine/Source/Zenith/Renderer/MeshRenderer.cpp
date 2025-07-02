@@ -8,6 +8,13 @@
 
 namespace Zenith {
 
+	struct PushConstantsData
+	{
+		glm::mat4 u_Transform;
+		glm::mat4 u_ViewProjection;
+		glm::mat4 u_NormalMatrix;
+	};
+
 	MeshRenderer::MeshRenderer()
 	{
 	}
@@ -30,7 +37,7 @@ namespace Zenith {
 			fbSpec.Width = 1920;
 			fbSpec.Height = 1080;
 			fbSpec.ClearColor = { 0.1f, 0.1f, 0.1f, 1.0f };
-			fbSpec.DepthClearValue = 0.0f;
+			fbSpec.DepthClearValue = 1.0f;
 			fbSpec.ClearColorOnLoad = true;
 			fbSpec.ClearDepthOnLoad = true;
 			fbSpec.DebugName = "MeshRenderer-SwapChain";
@@ -82,8 +89,8 @@ namespace Zenith {
 		pipelineSpec.BackfaceCulling = false;
 		pipelineSpec.DepthTest = true;
 		pipelineSpec.DepthWrite = true;
-		pipelineSpec.Wireframe = true;
-		pipelineSpec.DepthOperator = DepthCompareOperator::GreaterOrEqual;
+		pipelineSpec.Wireframe = false;
+		pipelineSpec.DepthOperator = DepthCompareOperator::Less;
 		pipelineSpec.Topology = PrimitiveTopology::Triangles;
 
 		m_Pipeline = Pipeline::Create(pipelineSpec);
@@ -149,15 +156,28 @@ namespace Zenith {
 			for (uint32_t i = 0; i < submeshes.size(); i++) {
 				const auto& submesh = submeshes[i];
 
-				glm::mat4 mvpMatrix = m_ViewProjectionMatrix * transform * submesh.Transform;
-				Buffer ConstantBuffer = Buffer::Copy(&mvpMatrix, sizeof(glm::mat4));
+				glm::mat4 modelMatrix = transform * submesh.Transform;
+				glm::mat3 normal3 = glm::transpose(glm::inverse(glm::mat3(modelMatrix)));
+				glm::mat4 normalMatrix = glm::mat4(normal3);
+
+				PushConstantsData pcData = {
+					modelMatrix,
+					m_ViewProjectionMatrix,
+					normalMatrix
+				};
+
+				Buffer constantBuffer = Buffer::Copy(&pcData, sizeof(pcData));
+
+				if (glm::any(glm::isnan(normalMatrix[0]))) {
+					ZN_CORE_ERROR("Normal matrix contains NaN values");
+				}
 
 				Renderer::RenderStaticMeshWithMaterial(
 					m_CommandBuffer, m_Pipeline, staticMesh, meshSource, i,
-					m_TransformBuffer, 0, 1, m_Material, ConstantBuffer
+					m_TransformBuffer, 0, 1, m_Material, constantBuffer
 				);
 
-				ConstantBuffer.Release();
+				constantBuffer.Release();
 			}
 		}
 	}
@@ -177,19 +197,28 @@ namespace Zenith {
 				const auto& submesh = submeshes[submeshIndex];
 
 				glm::mat4 finalTransform = nodeTransform * submesh.Transform;
-				glm::mat4 mvpMatrix = m_ViewProjectionMatrix * finalTransform;
-				Buffer ConstantBuffer = Buffer::Copy(&mvpMatrix, sizeof(glm::mat4));
+				glm::mat4 modelMatrix = finalTransform;
+				glm::mat3 normalMatrix3 = glm::transpose(glm::inverse(glm::mat3(modelMatrix)));
+				glm::mat4 normalMatrix = glm::mat4(normalMatrix3);
+
+				PushConstantsData pcData = {
+					modelMatrix,
+					m_ViewProjectionMatrix,
+					normalMatrix
+				};
+
+				Buffer constantBuffer = Buffer::Copy(&pcData, sizeof(pcData));
 
 				Renderer::RenderStaticMeshWithMaterial(
 					m_CommandBuffer, m_Pipeline, staticMesh, meshSource, submeshIndex,
-					m_TransformBuffer, 0, 1, m_Material, ConstantBuffer
+					m_TransformBuffer, 0, 1, m_Material, constantBuffer
 				);
 
-				ConstantBuffer.Release();
+				constantBuffer.Release();
 			}
 		}
 
-		// Recursively traverse children
+		// Recurse children
 		for (uint32_t childIndex : node.Children) {
 			TraverseNodeHierarchy(meshSource, staticMesh, nodes, childIndex, nodeTransform);
 		}

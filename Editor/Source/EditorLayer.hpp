@@ -49,6 +49,9 @@ namespace Zenith {
 		void RenderMeshTestUI();
 		void RenderCameraControlsUI();
 		void UpdateViewportBounds();
+
+		void RenderMeshInspector();
+		void RenderMaterialInspector();
 	private:
 		std::string m_ProjectNameBuffer;
 		std::string m_OpenProjectFilePathBuffer;

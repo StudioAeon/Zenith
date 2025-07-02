@@ -343,10 +343,13 @@ namespace Zenith {
 			VkDeviceSize vertexOffsets[1] = { 0 };
 			vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vbMeshBuffer, vertexOffsets);
 
-			Ref<VulkanVertexBuffer> vulkanTransformBuffer = transformBuffer.As<VulkanVertexBuffer>();
-			VkBuffer vbTransformBuffer = vulkanTransformBuffer->GetVulkanBuffer();
-			VkDeviceSize instanceOffsets[1] = { transformOffset };
-			vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbTransformBuffer, instanceOffsets);
+			if (transformBuffer)
+			{
+				Ref<VulkanVertexBuffer> vulkanTransformBuffer = transformBuffer.As<VulkanVertexBuffer>();
+				VkBuffer vbTransformBuffer = vulkanTransformBuffer->GetVulkanBuffer();
+				VkDeviceSize instanceOffsets[1] = { transformOffset };
+				vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbTransformBuffer, instanceOffsets);
+			}
 
 			auto vulkanMeshIB = Ref<VulkanIndexBuffer>(meshSource->GetIndexBuffer());
 			VkBuffer ibBuffer = vulkanMeshIB->GetVulkanBuffer();
@@ -369,11 +372,11 @@ namespace Zenith {
 				pushConstantOffset += 16; // TODO: it's 16 because that happens to be the offset that is declared for the material push constants in the shaders.  Need a better way of doing this.  Cannot just use the size of the pushConstantBuffer, because you dont know what alignment the next push constant range might have
 			}
 
-			/*if (uniformStorageBuffer)
+			if (uniformStorageBuffer)
 			{
 				vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_FRAGMENT_BIT, pushConstantOffset, uniformStorageBuffer.Size, uniformStorageBuffer.Data);
 				pushConstantOffset += uniformStorageBuffer.Size;
-			}*/
+			}
 
 			const auto& submeshes = meshSource->GetSubmeshes();
 			const auto& submesh = submeshes[submeshIndex];

@@ -3,6 +3,7 @@
 
 #include "Zenith/Asset/AssetManager.hpp"
 #include "Zenith/Renderer/Renderer.hpp"
+#include "Zenith/Renderer/Texture.hpp"
 #include "Zenith/Math/Math.hpp"
 
 #include <ufbx.h>
@@ -17,7 +18,7 @@
 
 namespace Zenith {
 
-#define MESH_DEBUG_LOG 0
+#define MESH_DEBUG_LOG 1
 
 #if MESH_DEBUG_LOG
 #define ZN_MESH_LOG(...) ZN_CORE_TRACE(__VA_ARGS__)
@@ -81,6 +82,11 @@ namespace Zenith {
 			default:
 				ZN_CORE_ERROR_TAG("Mesh", "Unsupported mesh format: {0}", m_Path.string());
 				return nullptr;
+		}
+
+		if (result)
+		{
+			DebugMaterialLoading(result);
 		}
 
 		return result;
@@ -390,6 +396,11 @@ namespace Zenith {
 							ZN_MESH_ERROR("Unsupported index component type: {}", static_cast<int>(indexAccessor.componentType));
 							break;
 					}
+					bool flipWinding = true;
+					if (flipWinding) {
+						for (size_t i = 0; i + 2 < submeshIndices.size(); i += 3)
+							std::swap(submeshIndices[i + 1], submeshIndices[i + 2]);
+					}
 				}
 
 				if (!ValidateIndices(submeshIndices, vertexCount + static_cast<uint32_t>(localVertices.size()), submesh.MeshName))
@@ -684,7 +695,6 @@ namespace Zenith {
 		return meshSource;
 	}
 
-
 	void MeshImporter::ProcessMaterials(Ref<MeshSource> meshSource, void* scene, MeshFormat format)
 	{
 		switch (format)
@@ -707,9 +717,31 @@ namespace Zenith {
 				fastgltf::Asset* gltfAsset = static_cast<fastgltf::Asset*>(scene);
 				meshSource->m_Materials.resize(gltfAsset->materials.size());
 
+				ZN_CORE_INFO("Processing {} GLTF materials", gltfAsset->materials.size());
+
+				/*for (size_t i = 0; i < gltfAsset->materials.size(); i++)
+				{
+					Ref<MaterialAsset> materialAsset = CreateMaterialFromGLTF(*gltfAsset, i);
+					if (materialAsset)
+					{
+						AssetHandle handle = AssetManager::AddMemoryOnlyAsset(materialAsset);
+						materialAsset->Handle = handle;
+						meshSource->m_Materials[i] = handle;
+
+						ZN_MESH_LOG("Created material[{}] with handle {}", i, static_cast<uint64_t>(handle));
+					}
+					else
+					{
+						meshSource->m_Materials[i] = AssetHandle{0};
+						ZN_MESH_LOG("Failed to create material[{}], using default", i);
+					}
+				}
+				break;*/
+
+
 				for (size_t i = 0; i < gltfAsset->materials.size(); i++)
 				{
-					meshSource->m_Materials[i] = AssetHandle{0};
+					meshSource->m_Materials[i] = AssetHandle{ 0 };
 				}
 				break;
 			}
@@ -738,6 +770,326 @@ namespace Zenith {
 		}
 	}
 
+	Ref<MaterialAsset> MeshImporter::CreateMaterialFromGLTF(const fastgltf::Asset& asset, size_t materialIndex)
+	{
+		if (materialIndex >= asset.materials.size())
+		{
+			ZN_CORE_ERROR_TAG("Mesh", "Invalid material index: {}", materialIndex);
+			return nullptr;
+		}
+
+		const auto& gltfMaterial = asset.materials[materialIndex];
+		bool isTransparent = gltfMaterial.alphaMode != fastgltf::AlphaMode::Opaque;
+
+		ZN_MESH_LOG("Creating material[{}]: '{}' (transparent: {})", materialIndex, gltfMaterial.name, isTransparent);
+
+		auto shaderLibrary = Renderer::GetShaderLibrary();
+		if (!shaderLibrary)
+		{
+			ZN_CORE_ERROR_TAG("Mesh", "Shader library is null");
+			return nullptr;
+		}
+
+		const std::string shaderName = isTransparent ? "PBR_TransparentMesh" : "PBR_StaticMesh";
+		auto shader = shaderLibrary->Get(shaderName);
+		if (!shader)
+		{
+			ZN_CORE_ERROR_TAG("Mesh", "Required shader '{}' not found in shader library", shaderName);
+			return nullptr;
+		}
+
+		ZN_MESH_LOG("Found required shader: {}", shaderName);
+
+		Ref<MaterialAsset> materialAsset = Ref<MaterialAsset>::Create(isTransparent);
+		if (!materialAsset)
+		{
+			ZN_CORE_ERROR_TAG("Mesh", "Failed to create MaterialAsset");
+			return nullptr;
+		}
+
+		ZN_MESH_LOG("MaterialAsset created successfully");
+
+		auto internalMaterial = materialAsset->GetMaterial();
+		if (!internalMaterial)
+		{
+			ZN_CORE_ERROR_TAG("Mesh", "MaterialAsset has null internal Material");
+			return nullptr;
+		}
+
+		ZN_MESH_LOG("Internal Material is valid");
+
+		try
+		{
+			glm::vec3 testColor(1.0f, 0.0f, 1.0f);
+			materialAsset->SetAlbedoColor(testColor);
+			ZN_MESH_LOG("Successfully set test albedo color");
+
+			const auto& pbr = gltfMaterial.pbrData;
+			glm::vec3 baseColor(pbr.baseColorFactor[0], pbr.baseColorFactor[1], pbr.baseColorFactor[2]);
+			materialAsset->SetAlbedoColor(baseColor);
+			ZN_MESH_LOG(" - Base Color: ({:.2f}, {:.2f}, {:.2f})", baseColor.x, baseColor.y, baseColor.z);
+		}
+		catch (const std::exception& e)
+		{
+			ZN_CORE_ERROR_TAG("Mesh", "Exception setting albedo color: {}", e.what());
+			return nullptr;
+		}
+		catch (...)
+		{
+			ZN_CORE_ERROR_TAG("Mesh", "Unknown exception setting albedo color");
+			return nullptr;
+		}
+
+		if (!isTransparent)
+		{
+			try
+			{
+				const auto& pbr = gltfMaterial.pbrData;
+				materialAsset->SetMetalness(pbr.metallicFactor);
+				materialAsset->SetRoughness(pbr.roughnessFactor);
+				ZN_MESH_LOG(" - Metallic: {:.2f}, Roughness: {:.2f}", pbr.metallicFactor, pbr.roughnessFactor);
+			}
+			catch (...)
+			{
+				ZN_CORE_ERROR_TAG("Mesh", "Failed to set PBR properties");
+			}
+		}
+
+		ZN_MESH_LOG("Material[{}] created successfully", materialIndex);
+		return materialAsset;
+	}
+
+
+	AssetHandle MeshImporter::ProcessGLTFTexture(const fastgltf::Asset& asset, size_t textureIndex, const std::string& semanticName)
+	{
+		if (textureIndex >= asset.textures.size())
+		{
+			ZN_CORE_ERROR_TAG("Mesh", "Invalid texture index: {}", textureIndex);
+			return AssetHandle{0};
+		}
+
+		const auto& gltfTexture = asset.textures[textureIndex];
+
+		if (!gltfTexture.imageIndex.has_value())
+		{
+			ZN_CORE_ERROR_TAG("Mesh", "Texture has no image reference");
+			return AssetHandle{0};
+		}
+
+		return LoadImageFromGLTF(asset, gltfTexture.imageIndex.value(), semanticName);
+	}
+
+	AssetHandle MeshImporter::LoadImageFromGLTF(const fastgltf::Asset& asset, size_t imageIndex, const std::string& debugName)
+	{
+		if (imageIndex >= asset.images.size())
+		{
+			ZN_CORE_ERROR_TAG("Mesh", "Invalid image index: {}", imageIndex);
+			return AssetHandle{0};
+		}
+
+		const auto& gltfImage = asset.images[imageIndex];
+		AssetHandle resultHandle{0};
+
+		if (auto uri = std::get_if<fastgltf::sources::URI>(&gltfImage.data))
+		{
+			std::filesystem::path imagePath = m_Path.parent_path() / uri->uri.path();
+
+			ZN_MESH_LOG("Loading {} texture from: {}", debugName, imagePath.string());
+
+			if (!std::filesystem::exists(imagePath))
+			{
+				ZN_CORE_ERROR_TAG("Mesh", "Image file not found: {}", imagePath.string());
+				return AssetHandle{0};
+			}
+
+			TextureSpecification spec;
+			spec.Width = 0;
+			spec.Height = 0;
+			spec.Format = ImageFormat::RGBA;
+			spec.GenerateMips = true;
+
+			Ref<Texture2D> texture = Texture2D::Create(spec, imagePath);
+			if (!texture)
+			{
+				ZN_CORE_ERROR_TAG("Mesh", "Failed to load texture: {}", imagePath.string());
+				return AssetHandle{0};
+			}
+
+			AssetHandle handle = AssetManager::AddMemoryOnlyAsset(texture);
+			resultHandle = handle;
+
+			ZN_MESH_LOG("Loaded {} texture: {} ({}x{})", debugName, imagePath.filename().string(),
+					   texture->GetWidth(), texture->GetHeight());
+		}
+		else if (auto vector = std::get_if<fastgltf::sources::Vector>(&gltfImage.data))
+		{
+			ZN_MESH_LOG("Loading {} texture from embedded data ({} bytes)", debugName, vector->bytes.size());
+			Buffer imageBuffer = Buffer::Copy(vector->bytes.data(), vector->bytes.size());
+
+			TextureSpecification spec;
+			spec.Format = ImageFormat::RGBA;
+			spec.GenerateMips = true;
+
+			Ref<Texture2D> texture = Texture2D::Create(spec, imageBuffer);
+			if (!texture)
+			{
+				ZN_CORE_ERROR_TAG("Mesh", "Failed to create texture from embedded data");
+				return AssetHandle{0};
+			}
+
+			AssetHandle handle = AssetManager::AddMemoryOnlyAsset(texture);
+			resultHandle = handle;
+
+			ZN_MESH_LOG("Created {} texture from embedded data ({}x{})", debugName,
+					   texture->GetWidth(), texture->GetHeight());
+		}
+		else if (auto bufferView = std::get_if<fastgltf::sources::BufferView>(&gltfImage.data))
+		{
+			ZN_MESH_LOG("Loading {} texture from buffer view", debugName);
+
+			if (bufferView->bufferViewIndex >= asset.bufferViews.size())
+			{
+				ZN_CORE_ERROR_TAG("Mesh", "Invalid buffer view index: {}", bufferView->bufferViewIndex);
+				return AssetHandle{0};
+			}
+
+			const auto& view = asset.bufferViews[bufferView->bufferViewIndex];
+			const auto& buffer = asset.buffers[view.bufferIndex];
+
+			if (auto array = std::get_if<fastgltf::sources::Array>(&buffer.data))
+			{
+				const uint8_t* data = reinterpret_cast<const uint8_t*>(array->bytes.data()) + view.byteOffset;
+				size_t size = view.byteLength;
+
+				Buffer imageBuffer = Buffer::Copy(data, static_cast<uint32_t>(size));
+
+				TextureSpecification spec;
+				spec.Format = ImageFormat::RGBA;
+				spec.GenerateMips = true;
+
+				Ref<Texture2D> texture = Texture2D::Create(spec, imageBuffer);
+				if (!texture)
+				{
+					ZN_CORE_ERROR_TAG("Mesh", "Failed to create texture from buffer view");
+					return AssetHandle{0};
+				}
+
+				AssetHandle handle = AssetManager::AddMemoryOnlyAsset(texture);
+				resultHandle = handle;
+
+				ZN_MESH_LOG("Created {} texture from buffer view ({}x{})", debugName,
+						   texture->GetWidth(), texture->GetHeight());
+			}
+			else
+			{
+				ZN_CORE_ERROR_TAG("Mesh", "Unsupported buffer data source for texture");
+				return AssetHandle{0};
+			}
+		}
+		else
+		{
+			ZN_CORE_ERROR_TAG("Mesh", "Unsupported image data source");
+			return AssetHandle{0};
+		}
+
+		return resultHandle;
+	}
+
+	void MeshImporter::DebugMaterialLoading(const Ref<MeshSource>& meshSource)
+	{
+		ZN_CORE_INFO("Mesh has {} materials", meshSource->m_Materials.size());
+
+		for (size_t i = 0; i < meshSource->m_Materials.size(); i++)
+		{
+			AssetHandle materialHandle = meshSource->m_Materials[i];
+			ZN_MESH_LOG("Material[{}] Handle: {}", i, static_cast<uint64_t>(materialHandle));
+
+			if (materialHandle)
+			{
+				Ref<MaterialAsset> mat = AssetManager::GetAsset<MaterialAsset>(materialHandle);
+				if (mat)
+				{
+					ZN_MESH_LOG("Material[{}] loaded successfully:", i);
+
+					if (Ref<Texture2D> albedoTex = mat->GetAlbedoMap())
+					{
+						ZN_MESH_LOG(" - Albedo texture loaded: {}x{}",
+								   albedoTex->GetWidth(), albedoTex->GetHeight());
+					}
+					else
+					{
+						ZN_MESH_LOG(" - No albedo texture");
+					}
+
+					if (mat->IsUsingNormalMap())
+					{
+						if (Ref<Texture2D> normalTex = mat->GetNormalMap())
+						{
+							ZN_MESH_LOG(" - Normal map loaded: {}x{}",
+									   normalTex->GetWidth(), normalTex->GetHeight());
+						}
+					}
+					else
+					{
+						ZN_MESH_LOG(" - No normal map");
+					}
+
+					if (Ref<Texture2D> metallicTex = mat->GetMetalnessMap())
+					{
+						ZN_MESH_LOG(" - Metallic map loaded: {}x{}",
+								   metallicTex->GetWidth(), metallicTex->GetHeight());
+					}
+					else
+					{
+						ZN_MESH_LOG(" - No metallic map");
+					}
+
+					if (Ref<Texture2D> roughnessTex = mat->GetRoughnessMap())
+					{
+						ZN_MESH_LOG(" - Roughness map loaded: {}x{}",
+								   roughnessTex->GetWidth(), roughnessTex->GetHeight());
+					}
+					else
+					{
+						ZN_MESH_LOG(" - No roughness map");
+					}
+
+					ZN_MESH_LOG(" - Albedo Color: ({:.2f}, {:.2f}, {:.2f})",
+							   mat->GetAlbedoColor().x, mat->GetAlbedoColor().y, mat->GetAlbedoColor().z);
+					ZN_MESH_LOG(" - Metalness: {:.2f}", mat->GetMetalness());
+					ZN_MESH_LOG(" - Roughness: {:.2f}", mat->GetRoughness());
+					ZN_MESH_LOG(" - Emission: {:.2f}", mat->GetEmission());
+				}
+				else
+				{
+					ZN_MESH_LOG("Material[{}] failed to load from asset manager", i);
+				}
+			}
+			else
+			{
+				ZN_MESH_LOG("Material[{}] has null handle", i);
+			}
+		}
+
+		for (size_t submeshIndex = 0; submeshIndex < meshSource->m_Submeshes.size(); submeshIndex++)
+		{
+			const Submesh& submesh = meshSource->m_Submeshes[submeshIndex];
+			uint32_t materialIndex = submesh.MaterialIndex;
+
+			if (materialIndex < meshSource->m_Materials.size())
+			{
+				AssetHandle materialHandle = meshSource->m_Materials[materialIndex];
+				ZN_CORE_INFO("Submesh[{}] '{}' uses Material[{}] (Handle: {})",
+						   submeshIndex, submesh.MeshName, materialIndex,
+						   static_cast<uint64_t>(materialHandle));
+			}
+			else
+			{
+				ZN_CORE_INFO("Submesh[{}] has invalid material index: {}", submeshIndex, materialIndex);
+			}
+		}
+	}
+
 	AssetHandle MeshImporter::CreateMaterialFromTexture(const std::string& texturePath, const std::string& name)
 	{
 		ZN_MESH_LOG("Texture reference found but PBR materials disabled: {0}", texturePath);
@@ -761,7 +1113,7 @@ namespace Zenith {
 
 	glm::quat MeshImporter::ToGLMQuat(const float* quat)
 	{
-		return glm::quat(quat[3], quat[0], quat[1], quat[2]); // w, x, y, z
+		return glm::quat(quat[3], quat[0], quat[1], quat[2]);
 	}
 
 }

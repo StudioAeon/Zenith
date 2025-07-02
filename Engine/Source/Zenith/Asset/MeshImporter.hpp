@@ -1,9 +1,12 @@
 #pragma once
 
 #include "Zenith/Renderer/Mesh.hpp"
+#include "Zenith/Renderer/MaterialAsset.hpp"
 
 #include <filesystem>
 #include <functional>
+
+namespace fastgltf { struct Asset; }
 
 namespace Zenith {
 
@@ -52,6 +55,12 @@ namespace Zenith {
 
 		void ProcessMaterials(Ref<MeshSource> meshSource, void* scene, MeshFormat format);
 		AssetHandle CreateMaterialFromTexture(const std::string& texturePath, const std::string& name = "");
+
+		Ref<MaterialAsset> CreateMaterialFromGLTF(const fastgltf::Asset& asset, size_t materialIndex);
+		AssetHandle ProcessGLTFTexture(const fastgltf::Asset& asset, size_t textureIndex, const std::string& semanticName);
+		AssetHandle LoadImageFromGLTF(const fastgltf::Asset& asset, size_t imageIndex, const std::string& debugName);
+
+		void DebugMaterialLoading(const Ref<MeshSource>& meshSource);
 
 		static glm::mat4 ToGLMMat4(const float* matrix);
 		static glm::vec3 ToGLMVec3(const float* vec);

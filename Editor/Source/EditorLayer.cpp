@@ -11,12 +11,13 @@
 #include <imgui/imgui_internal.h>
 
 #include <filesystem>
-#include <format>
 #include <fstream>
 #include <future>
+#include <sstream>
 
 #include "Zenith/Renderer/MeshRenderer.hpp"
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "Zenith/Asset/MeshImporter.hpp"
 
@@ -247,7 +248,8 @@ namespace Zenith {
 		m_LoadedSubmeshCount = 0;
 		m_MeshTestLog.clear();
 
-		std::filesystem::path meshPath = "ProjectApex/Assets/Meshes/Gltf/Sponza/Sponza.glb";
+		std::filesystem::path meshPath = "ProjectApex/Assets/Meshes/Gltf/FlightHelmet/FlightHelmet.gltf";
+		//std::filesystem::path meshPath = "ProjectApex/Assets/Meshes/Gltf/Sponza.glb";
 
 		if (!std::filesystem::exists(meshPath))
 		{
@@ -269,21 +271,46 @@ namespace Zenith {
 				m_LoadedSubmeshCount = static_cast<uint32_t>(m_TestMeshSource->GetSubmeshes().size());
 
 				const auto& boundingBox = m_TestMeshSource->GetBoundingBox();
-				m_MeshTestLog = std::format(
-					"SUCCESS: Loaded {} successfully!\n"
-					"- Vertices: {}\n"
-					"- Indices: {}\n"
-					"- Submeshes: {}\n"
-					"- Materials: {}\n"
-					"- Bounding Box: Min({:.2f}, {:.2f}, {:.2f}) Max({:.2f}, {:.2f}, {:.2f})",
-					meshPath.filename().string(),
-					m_LoadedVertexCount,
-					m_LoadedIndexCount,
-					m_LoadedSubmeshCount,
-					m_TestMeshSource->GetMaterials().size(),
-					boundingBox.Min.x, boundingBox.Min.y, boundingBox.Min.z,
-					boundingBox.Max.x, boundingBox.Max.y, boundingBox.Max.z
-				);
+
+				std::stringstream ss;
+				ss << "SUCCESS: Loaded " << meshPath.filename().string() << " successfully!\n";
+				ss << "- Vertices: " << m_LoadedVertexCount << "\n";
+				ss << "- Indices: " << m_LoadedIndexCount << "\n";
+				ss << "- Submeshes: " << m_LoadedSubmeshCount << "\n";
+				ss << "- Materials: " << m_TestMeshSource->GetMaterials().size() << "\n";
+				ss << "- Bounding Box: Min(" << boundingBox.Min.x << ", " << boundingBox.Min.y << ", " << boundingBox.Min.z << ") ";
+				ss << "Max(" << boundingBox.Max.x << ", " << boundingBox.Max.y << ", " << boundingBox.Max.z << ")";
+				m_MeshTestLog = ss.str();
+
+				ZN_INFO("Material loading verification:");
+				const auto& materials = m_TestMeshSource->GetMaterials();
+				for (size_t i = 0; i < materials.size(); i++)
+				{
+					AssetHandle handle = materials[i];
+					if (handle)
+					{
+						if (Ref<MaterialAsset> mat = AssetManager::GetAsset<MaterialAsset>(handle))
+						{
+							ZN_INFO("Material[{}]: Loaded successfully", i);
+							if (mat->GetAlbedoMap())
+								ZN_INFO("  - Has albedo texture");
+							if (mat->GetNormalMap())
+								ZN_INFO("  - Has normal map");
+							if (mat->GetMetalnessMap())
+								ZN_INFO("  - Has metallic map");
+							if (mat->GetRoughnessMap())
+								ZN_INFO("  - Has roughness map");
+						}
+						else
+						{
+							ZN_WARN("Material[{}]: Handle valid but asset not found", i);
+						}
+					}
+					else
+					{
+						ZN_WARN("Material[{}]: Null handle", i);
+					}
+				}
 			}
 			else
 			{
@@ -293,7 +320,7 @@ namespace Zenith {
 		}
 		catch (const std::exception& e)
 		{
-			m_MeshTestLog = std::format("EXCEPTION: {}", e.what());
+			m_MeshTestLog = "EXCEPTION: " + std::string(e.what());
 			ZN_ERROR("Exception during mesh loading: {}", e.what());
 		}
 	}
@@ -394,6 +421,539 @@ namespace Zenith {
 				ImGui::Text("Width: %.1f units", bounds.Max.x - bounds.Min.x);
 				ImGui::Text("Height: %.1f units", bounds.Max.y - bounds.Min.y);
 				ImGui::Text("Depth: %.1f units", bounds.Max.z - bounds.Min.z);
+			}
+		}
+		ImGui::End();
+	}
+
+	void EditorLayer::RenderMeshInspector()
+	{
+		if (!m_TestMeshSource)
+		{
+			if (ImGui::Begin("Mesh Inspector"))
+			{
+				ImGui::Text("No mesh source selected");
+			}
+			ImGui::End();
+			return;
+		}
+
+		if (ImGui::Begin("Mesh Inspector"))
+		{
+			ImGui::Text("Mesh Inspector");
+			ImGui::Separator();
+
+			if (ImGui::CollapsingHeader("Mesh Statistics", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				ImGui::Text("File Path: %s", m_TestMeshSource->GetFilePath().c_str());
+				ImGui::Text("Vertices: %zu", m_TestMeshSource->GetVertices().size());
+				ImGui::Text("Indices: %zu", m_TestMeshSource->GetIndices().size());
+				ImGui::Text("Submeshes: %zu", m_TestMeshSource->GetSubmeshes().size());
+				ImGui::Text("Materials: %zu", m_TestMeshSource->GetMaterials().size());
+				ImGui::Text("Nodes: %zu", m_TestMeshSource->GetNodes().size());
+
+				const auto& bb = m_TestMeshSource->GetBoundingBox();
+				ImGui::Text("Bounding Box:");
+				ImGui::Text("  Min: (%.2f, %.2f, %.2f)", bb.Min.x, bb.Min.y, bb.Min.z);
+				ImGui::Text("  Max: (%.2f, %.2f, %.2f)", bb.Max.x, bb.Max.y, bb.Max.z);
+				ImGui::Text("  Size: (%.2f, %.2f, %.2f)",
+					bb.Max.x - bb.Min.x, bb.Max.y - bb.Min.y, bb.Max.z - bb.Min.z);
+			}
+
+			if (ImGui::CollapsingHeader("Submeshes"))
+			{
+				const auto& submeshes = m_TestMeshSource->GetSubmeshes();
+				for (size_t i = 0; i < submeshes.size(); i++)
+				{
+					const auto& submesh = submeshes[i];
+
+					ImGui::PushID(static_cast<int>(i));
+
+					std::string submeshName = "Submesh[" + std::to_string(i) + "]: " + submesh.MeshName;
+					if (ImGui::TreeNode(submeshName.c_str()))
+					{
+						ImGui::Text("Vertex Count: %u", submesh.VertexCount);
+						ImGui::Text("Index Count: %u", submesh.IndexCount);
+						ImGui::Text("Base Vertex: %u", submesh.BaseVertex);
+						ImGui::Text("Base Index: %u", submesh.BaseIndex);
+						ImGui::Text("Material Index: %u", submesh.MaterialIndex);
+
+						const auto& submeshBB = submesh.BoundingBox;
+						ImGui::Text("Bounding Box:");
+						ImGui::Text("  Min: (%.2f, %.2f, %.2f)", submeshBB.Min.x, submeshBB.Min.y, submeshBB.Min.z);
+						ImGui::Text("  Max: (%.2f, %.2f, %.2f)", submeshBB.Max.x, submeshBB.Max.y, submeshBB.Max.z);
+
+						const auto& materials = m_TestMeshSource->GetMaterials();
+						if (submesh.MaterialIndex < materials.size())
+						{
+							AssetHandle materialHandle = materials[submesh.MaterialIndex];
+							if (materialHandle)
+							{
+								if (Ref<MaterialAsset> material = AssetManager::GetAsset<MaterialAsset>(materialHandle))
+								{
+									ImGui::Separator();
+									ImGui::Text("Material Preview:");
+
+									if (Ref<Texture2D> albedoTexture = material->GetAlbedoMap())
+									{
+										ImGui::Text("Albedo:");
+										if (m_MeshRenderer)
+										{
+											ImTextureID texID = m_MeshRenderer->GetTextureImGuiID(albedoTexture->GetImage());
+											if (texID)
+											{
+												ImGui::Image(texID, ImVec2(64, 64));
+												ImGui::SameLine();
+											}
+										}
+									}
+
+									if (material->IsUsingNormalMap())
+									{
+										if (Ref<Texture2D> normalTexture = material->GetNormalMap())
+										{
+											ImGui::Text("Normal:");
+											if (m_MeshRenderer)
+											{
+												ImTextureID texID = m_MeshRenderer->GetTextureImGuiID(normalTexture->GetImage());
+												if (texID)
+												{
+													ImGui::Image(texID, ImVec2(64, 64));
+												}
+											}
+										}
+									}
+								}
+							}
+							else
+							{
+								ImGui::Text("Material Handle: Invalid");
+							}
+						}
+
+						ImGui::TreePop();
+					}
+
+					ImGui::PopID();
+				}
+			}
+
+			if (ImGui::CollapsingHeader("Materials"))
+			{
+				const auto& materials = m_TestMeshSource->GetMaterials();
+				for (size_t i = 0; i < materials.size(); i++)
+				{
+					AssetHandle materialHandle = materials[i];
+
+					ImGui::PushID(static_cast<int>(i));
+
+					std::string materialName = "Material[" + std::to_string(i) + "]";
+					if (ImGui::TreeNode(materialName.c_str()))
+					{
+						ImGui::Text("Handle: %llu", static_cast<uint64_t>(materialHandle));
+
+						if (materialHandle)
+						{
+							if (Ref<MaterialAsset> material = AssetManager::GetAsset<MaterialAsset>(materialHandle))
+							{
+								ImGui::Text("Loaded: Yes");
+								ImGui::Text("Transparent: %s", material->IsTransparent() ? "Yes" : "No");
+
+								glm::vec3 albedoColor = material->GetAlbedoColor();
+								ImGui::Text("Albedo Color: (%.2f, %.2f, %.2f)", albedoColor.x, albedoColor.y, albedoColor.z);
+								ImGui::Text("Metalness: %.2f", material->GetMetalness());
+								ImGui::Text("Roughness: %.2f", material->GetRoughness());
+								ImGui::Text("Emission: %.2f", material->GetEmission());
+
+								ImGui::Text("Textures:");
+								ImGui::Text("  Albedo: %s", material->GetAlbedoMap() ? "Yes" : "No");
+								ImGui::Text("  Normal: %s", material->GetNormalMap() ? "Yes" : "No");
+								ImGui::Text("  Metallic: %s", material->GetMetalnessMap() ? "Yes" : "No");
+								ImGui::Text("  Roughness: %s", material->GetRoughnessMap() ? "Yes" : "No");
+
+								if (Ref<Texture2D> albedoTexture = material->GetAlbedoMap())
+								{
+									ImGui::Text("Albedo Preview:");
+									if (m_MeshRenderer)
+									{
+										ImTextureID texID = m_MeshRenderer->GetTextureImGuiID(albedoTexture->GetImage());
+										if (texID)
+										{
+											ImGui::Image(texID, ImVec2(128, 128));
+										}
+									}
+								}
+							}
+							else
+							{
+								ImGui::Text("Loaded: No (Failed to retrieve from AssetManager)");
+							}
+						}
+						else
+						{
+							ImGui::Text("Loaded: No (Null handle)");
+						}
+
+						ImGui::TreePop();
+					}
+
+					ImGui::PopID();
+				}
+			}
+
+			const auto& nodes = m_TestMeshSource->GetNodes();
+			if (!nodes.empty() && ImGui::CollapsingHeader("Node Hierarchy"))
+			{
+				std::function<void(uint32_t, int)> renderNode = [&](uint32_t nodeIndex, int depth) {
+					if (nodeIndex >= nodes.size())
+						return;
+
+					const auto& node = nodes[nodeIndex];
+
+					ImGui::PushID(static_cast<int>(nodeIndex));
+
+					for (int i = 0; i < depth; i++)
+					{
+						ImGui::Indent();
+					}
+
+					std::string nodeName = node.Name.empty() ? ("Node[" + std::to_string(nodeIndex) + "]") : node.Name;
+					if (ImGui::TreeNode(nodeName.c_str()))
+					{
+						ImGui::Text("Index: %u", nodeIndex);
+						ImGui::Text("Parent: %s", node.IsRoot() ? "Root" : std::to_string(node.Parent).c_str());
+						ImGui::Text("Children: %zu", node.Children.size());
+						ImGui::Text("Submeshes: %zu", node.Submeshes.size());
+
+						if (ImGui::TreeNode("Transform"))
+						{
+							const auto& transform = node.LocalTransform;
+							for (int row = 0; row < 4; row++)
+							{
+								ImGui::Text("[%.2f %.2f %.2f %.2f]",
+									transform[row][0], transform[row][1],
+									transform[row][2], transform[row][3]);
+							}
+							ImGui::TreePop();
+						}
+
+						for (uint32_t childIndex : node.Children)
+						{
+							renderNode(childIndex, depth + 1);
+						}
+
+						ImGui::TreePop();
+					}
+
+					for (int i = 0; i < depth; i++)
+					{
+						ImGui::Unindent();
+					}
+
+					ImGui::PopID();
+					};
+
+				for (size_t nodeIndex = 0; nodeIndex < nodes.size(); nodeIndex++)
+				{
+					const auto& node = nodes[nodeIndex];
+					if (node.IsRoot())
+					{
+						renderNode(static_cast<uint32_t>(nodeIndex), 0);
+					}
+				}
+			}
+		}
+		ImGui::End();
+	}
+
+	void EditorLayer::RenderMaterialInspector()
+	{
+		if (!m_TestMeshSource)
+		{
+			if (ImGui::Begin("Material Inspector"))
+			{
+				ImGui::Text("No mesh source selected");
+			}
+			ImGui::End();
+			return;
+		}
+
+		if (ImGui::Begin("Material Inspector"))
+		{
+			ImGui::Text("Material Inspector");
+			ImGui::Separator();
+
+			const auto& materials = m_TestMeshSource->GetMaterials();
+			const auto& submeshes = m_TestMeshSource->GetSubmeshes();
+
+			if (materials.empty())
+			{
+				ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.2f, 1.0f), "No materials found");
+				ImGui::End();
+				return;
+			}
+
+			static int selectedMaterialIndex = 0;
+
+			ImGui::Text("Select Material:");
+			ImGui::SameLine();
+			std::string comboPreview = "Material " + std::to_string(selectedMaterialIndex);
+			if (ImGui::BeginCombo("##MaterialSelector", comboPreview.c_str()))
+			{
+				for (size_t i = 0; i < materials.size(); i++)
+				{
+					bool isSelected = (selectedMaterialIndex == static_cast<int>(i));
+					std::string label = "Material " + std::to_string(i);
+
+					for (const auto& submesh : submeshes)
+					{
+						if (submesh.MaterialIndex == i && !submesh.MeshName.empty())
+						{
+							label += " (" + submesh.MeshName + ")";
+							break;
+						}
+					}
+
+					if (ImGui::Selectable(label.c_str(), isSelected))
+					{
+						selectedMaterialIndex = static_cast<int>(i);
+					}
+
+					if (isSelected)
+						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+
+			ImGui::Separator();
+
+			if (selectedMaterialIndex >= 0 && selectedMaterialIndex < static_cast<int>(materials.size()))
+			{
+				AssetHandle materialHandle = materials[selectedMaterialIndex];
+
+				if (materialHandle == AssetHandle{ 0 })
+				{
+					ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.2f, 1.0f), "Using Default Material");
+					ImGui::Text("This submesh uses the engine's default material.");
+				}
+				else
+				{
+					Ref<MaterialAsset> material = AssetManager::GetAsset<MaterialAsset>(materialHandle);
+
+					if (material)
+					{
+						ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Material Asset Loaded");
+						ImGui::Text("Handle: %llu", static_cast<uint64_t>(materialHandle));
+
+						ImGui::Separator();
+
+						if (ImGui::CollapsingHeader("Material Properties", ImGuiTreeNodeFlags_DefaultOpen))
+						{
+							bool isTransparent = material->IsTransparent();
+							ImGui::Text("Type: %s", isTransparent ? "Transparent" : "Opaque");
+
+							ImGui::Text("Albedo");
+							glm::vec3 albedoColor = material->GetAlbedoColor();
+							if (ImGui::ColorEdit3("Albedo Color", &albedoColor.x))
+							{
+								material->SetAlbedoColor(albedoColor);
+							}
+
+							if (Ref<Texture2D> albedoTexture = material->GetAlbedoMap())
+							{
+								ImGui::Text("Albedo Texture: %dx%d", albedoTexture->GetWidth(), albedoTexture->GetHeight());
+								if (m_MeshRenderer)
+								{
+									ImTextureID texID = m_MeshRenderer->GetTextureImGuiID(albedoTexture->GetImage());
+									if (texID)
+									{
+										ImGui::Image(texID, ImVec2(128, 128));
+
+										if (ImGui::IsItemHovered())
+										{
+											ImGui::BeginTooltip();
+											ImGui::Text("Size: %dx%d", albedoTexture->GetWidth(), albedoTexture->GetHeight());
+											ImGui::EndTooltip();
+										}
+									}
+								}
+							}
+							else
+							{
+								ImGui::Text("No albedo texture");
+							}
+
+							ImGui::Separator();
+
+							if (!isTransparent)
+							{
+								bool useNormalMap = material->IsUsingNormalMap();
+								if (ImGui::Checkbox("Use Normal Map", &useNormalMap))
+								{
+									material->SetUseNormalMap(useNormalMap);
+								}
+
+								if (useNormalMap)
+								{
+									if (Ref<Texture2D> normalTexture = material->GetNormalMap())
+									{
+										ImGui::Text("Normal Texture: %dx%d", normalTexture->GetWidth(), normalTexture->GetHeight());
+										if (m_MeshRenderer)
+										{
+											ImTextureID texID = m_MeshRenderer->GetTextureImGuiID(normalTexture->GetImage());
+											if (texID)
+											{
+												ImGui::Image(texID, ImVec2(128, 128));
+
+												if (ImGui::IsItemHovered())
+												{
+													ImGui::BeginTooltip();
+													ImGui::Text("Size: %dx%d", normalTexture->GetWidth(), normalTexture->GetHeight());
+													ImGui::EndTooltip();
+												}
+											}
+										}
+									}
+									else
+									{
+										ImGui::Text("No normal texture");
+									}
+								}
+
+								ImGui::Separator();
+							}
+						}
+
+						if (!material->IsTransparent() && ImGui::CollapsingHeader("PBR Properties", ImGuiTreeNodeFlags_DefaultOpen))
+						{
+							float metalness = material->GetMetalness();
+							if (ImGui::SliderFloat("Metalness", &metalness, 0.0f, 1.0f))
+							{
+								material->SetMetalness(metalness);
+							}
+
+							if (Ref<Texture2D> metallicTexture = material->GetMetalnessMap())
+							{
+								ImGui::Text("Metallic Texture: %dx%d", metallicTexture->GetWidth(), metallicTexture->GetHeight());
+								if (m_MeshRenderer)
+								{
+									ImTextureID texID = m_MeshRenderer->GetTextureImGuiID(metallicTexture->GetImage());
+									if (texID)
+									{
+										ImGui::Image(texID, ImVec2(64, 64));
+										ImGui::SameLine();
+
+										if (ImGui::IsItemHovered())
+										{
+											ImGui::BeginTooltip();
+											ImGui::Text("Size: %dx%d", metallicTexture->GetWidth(), metallicTexture->GetHeight());
+											ImGui::Text("Note: GLTF metallic-roughness combined texture");
+											ImGui::EndTooltip();
+										}
+									}
+								}
+							}
+
+							float roughness = material->GetRoughness();
+							if (ImGui::SliderFloat("Roughness", &roughness, 0.0f, 1.0f))
+							{
+								material->SetRoughness(roughness);
+							}
+
+							if (Ref<Texture2D> roughnessTexture = material->GetRoughnessMap())
+							{
+								ImGui::Text("Roughness Texture: %dx%d", roughnessTexture->GetWidth(), roughnessTexture->GetHeight());
+								if (m_MeshRenderer)
+								{
+									ImTextureID texID = m_MeshRenderer->GetTextureImGuiID(roughnessTexture->GetImage());
+									if (texID)
+									{
+										ImGui::Image(texID, ImVec2(64, 64));
+
+										if (ImGui::IsItemHovered())
+										{
+											ImGui::BeginTooltip();
+											ImGui::Text("Size: %dx%d", roughnessTexture->GetWidth(), roughnessTexture->GetHeight());
+											ImGui::Text("Note: GLTF metallic-roughness combined texture");
+											ImGui::EndTooltip();
+										}
+									}
+								}
+							}
+
+							float emission = material->GetEmission();
+							if (ImGui::SliderFloat("Emission", &emission, 0.0f, 2.0f))
+							{
+								material->SetEmission(emission);
+							}
+						}
+						else if (material->IsTransparent())
+						{
+							if (ImGui::CollapsingHeader("Transparency Properties", ImGuiTreeNodeFlags_DefaultOpen))
+							{
+								float transparency = material->GetTransparency();
+								if (ImGui::SliderFloat("Transparency", &transparency, 0.0f, 1.0f))
+								{
+									material->SetTransparency(transparency);
+								}
+
+								float emission = material->GetEmission();
+								if (ImGui::SliderFloat("Emission", &emission, 0.0f, 2.0f))
+								{
+									material->SetEmission(emission);
+								}
+							}
+						}
+
+						if (ImGui::CollapsingHeader("Debug Information"))
+						{
+							ImGui::Text("Material Handle: %llu", static_cast<uint64_t>(material->Handle));
+							ImGui::Text("Is Transparent: %s", material->IsTransparent() ? "Yes" : "No");
+
+							if (auto materialShader = material->GetMaterial())
+							{
+								if (auto shader = materialShader->GetShader())
+								{
+									ImGui::Text("Shader: %s", shader->GetName().c_str());
+								}
+							}
+						}
+
+						ImGui::SeparatorText("Usage");
+						std::vector<std::string> usedBy;
+						for (size_t i = 0; i < submeshes.size(); i++)
+						{
+							if (submeshes[i].MaterialIndex == selectedMaterialIndex)
+							{
+								usedBy.push_back(submeshes[i].MeshName.empty() ?
+									("Submesh " + std::to_string(i)) : submeshes[i].MeshName);
+							}
+						}
+
+						if (!usedBy.empty())
+						{
+							ImGui::Text("Used by submeshes:");
+							for (const auto& name : usedBy)
+							{
+								ImGui::BulletText("%s", name.c_str());
+							}
+						}
+						else
+						{
+							ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.2f, 1.0f), "Not used by any submesh");
+						}
+					}
+					else
+					{
+						ImGui::TextColored(ImVec4(0.8f, 0.2f, 0.2f, 1.0f), "Failed to Load Material Asset");
+						ImGui::Text("Handle: %llu", static_cast<uint64_t>(materialHandle));
+						ImGui::Text("The material asset could not be loaded from the AssetManager.");
+					}
+				}
+			}
+			else
+			{
+				ImGui::TextColored(ImVec4(0.8f, 0.2f, 0.2f, 1.0f), "Invalid material index selected");
 			}
 		}
 		ImGui::End();
@@ -618,6 +1178,8 @@ namespace Zenith {
 
 		RenderMeshTestUI();
 		RenderCameraControlsUI();
+		RenderMeshInspector();
+		RenderMaterialInspector();
 	}
 
 	bool EditorLayer::OnEvent(Event& e)
