@@ -506,6 +506,12 @@ namespace Zenith {
 		VkDevice device = VulkanContext::GetCurrentDevice()->GetVulkanDevice();
 		VK_CHECK_RESULT(vkCreateDescriptorPool(device, &poolInfo, nullptr, &m_DescriptorPool));
 
+		if (m_DescriptorPool == VK_NULL_HANDLE) {
+			ZN_CORE_ERROR_TAG("Renderer", "[DescriptorSetManager] Failed to create descriptor pool for {}",
+							  m_Specification.DebugName);
+			return;
+		}
+
 		auto bufferSets = HasBufferSets();
 		bool perFrameInFlight = !bufferSets.empty();
 		perFrameInFlight = true; // always
@@ -529,6 +535,13 @@ namespace Zenith {
 			{
 				VkDescriptorSetLayout dsl = m_Specification.Shader->GetDescriptorSetLayout(set);
 				VkDescriptorSetAllocateInfo descriptorSetAllocInfo = Vulkan::DescriptorSetAllocInfo(&dsl);
+
+				if (m_DescriptorPool == VK_NULL_HANDLE) {
+					ZN_CORE_ERROR_TAG("Renderer", "[DescriptorSetManager] Descriptor pool is null during allocation! Set: {}, Frame: {}, Debug: {}",
+									  set, frameIndex, m_Specification.DebugName);
+					return;
+				}
+
 				descriptorSetAllocInfo.descriptorPool = m_DescriptorPool;
 				VkDescriptorSet descriptorSet = nullptr;
 				VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &descriptorSetAllocInfo, &descriptorSet));
@@ -562,7 +575,6 @@ namespace Zenith {
 					VkWriteDescriptorSet& writeDescriptor = storedWriteDescriptor.WriteDescriptorSet;
 					writeDescriptor.dstSet = descriptorSet;
 
-					// ... rest of the switch statement remains the same ...
 					switch (input.Type)
 					{
 					case RenderPassResourceType::UniformBuffer:

@@ -875,6 +875,7 @@ namespace Zenith {
 			spec.Width = width;
 			spec.Height = height;
 			spec.Format = format;
+			spec.DebugName = debugName;
 			spec.GenerateMips = true;
 
 			Ref<Texture2D> texture = Texture2D::Create(spec, decoded);

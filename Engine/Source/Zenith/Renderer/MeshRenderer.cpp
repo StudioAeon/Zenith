@@ -30,8 +30,8 @@ namespace Zenith {
 		framebufferSpec.ClearColor = { 0.1f, 0.1f, 0.1f, 1.0f };
 		framebufferSpec.DepthClearValue = 1.0f;
 		framebufferSpec.Attachments = {
-			ImageFormat::RGBA32F,
-			ImageFormat::DEPTH32F
+			ImageFormat::RGBA,
+			ImageFormat::DEPTH24STENCIL8
 		};
 		framebufferSpec.SwapChainTarget = false;
 		framebufferSpec.ClearColorOnLoad = true;
@@ -53,6 +53,7 @@ namespace Zenith {
 	{
 		ClearTextureCache();
 		m_CachedStaticMeshes.clear();
+		m_MaterialCache.clear();
 
 		m_MaterialUniformBuffer = nullptr;
 		m_CameraUniformBuffer = nullptr;
@@ -174,7 +175,7 @@ namespace Zenith {
 			return;
 		}
 
-		Ref<Material> pbrMaterial = CreatePBRMaterial(materialAsset);
+		Ref<Material> pbrMaterial = GetOrCreatePBRMaterial(materialAsset);
 		if (!pbrMaterial)
 		{
 			ZN_CORE_ERROR("Failed to create PBR material for submesh {}", submeshIndex);
@@ -209,9 +210,18 @@ namespace Zenith {
 		return AssetManager::GetAsset<MaterialAsset>(materialHandle);
 	}
 
-	Ref<Material> MeshRenderer::CreatePBRMaterial(Ref<MaterialAsset> materialAsset)
+	Ref<Material> MeshRenderer::GetOrCreatePBRMaterial(Ref<MaterialAsset> materialAsset)
 	{
-		const std::string shaderName = materialAsset->IsTransparent() ? "PBR_TransparentMesh" : "PBR_StaticMesh";
+		AssetHandle materialHandle = materialAsset->Handle;
+		auto it = m_MaterialCache.find(materialHandle);
+		if (it != m_MaterialCache.end())
+		{
+			UpdateMaterialUniforms(it->second, materialAsset);
+			return it->second;
+		}
+
+		const std::string shaderName = "PBR_StaticMesh";
+
 		Ref<Shader> shader = Renderer::GetShaderLibrary()->Get(shaderName);
 		if (!shader)
 		{
@@ -227,6 +237,37 @@ namespace Zenith {
 			return nullptr;
 		}
 
+		if (!m_CameraUniformBuffer)
+		{
+			ZN_CORE_ERROR("Camera uniform buffer is null");
+			return nullptr;
+		}
+
+		vulkanMaterial->m_DescriptorSetManager.SetInput("CameraUniformBuffer", m_CameraUniformBuffer);
+
+		UpdateMaterialUniforms(material, materialAsset);
+
+		if (!vulkanMaterial->m_DescriptorSetManager.HasInput("MaterialUniformBuffer") ||
+			!vulkanMaterial->m_DescriptorSetManager.HasInput("CameraUniformBuffer"))
+		{
+			ZN_CORE_ERROR("Failed to set required uniform buffers for material: {}", materialAsset->GetMaterial()->GetName());
+			return nullptr;
+		}
+
+		SetMaterialTextures(material, materialAsset);
+
+		vulkanMaterial->m_DescriptorSetManager.Bake();
+
+		m_MaterialCache[materialHandle] = material;
+		return material;
+	}
+
+	void MeshRenderer::UpdateMaterialUniforms(Ref<Material> material, Ref<MaterialAsset> materialAsset)
+	{
+		auto vulkanMaterial = material.As<VulkanMaterial>();
+		if (!vulkanMaterial)
+			return;
+
 		MaterialUniforms materialData;
 		materialData.u_AlbedoColor = materialAsset->GetAlbedoColor();
 		materialData.u_Metalness = materialAsset->IsTransparent() ? 0.0f : materialAsset->GetMetalness();
@@ -239,31 +280,11 @@ namespace Zenith {
 		if (!materialUBO)
 		{
 			ZN_CORE_ERROR("Failed to create material uniform buffer");
-			return nullptr;
+			return;
 		}
 
 		materialUBO->SetData(&materialData, sizeof(MaterialUniforms));
-
-		if (!m_CameraUniformBuffer)
-		{
-			ZN_CORE_ERROR("Camera uniform buffer is null");
-			return nullptr;
-		}
-
 		vulkanMaterial->m_DescriptorSetManager.SetInput("MaterialUniformBuffer", materialUBO);
-		vulkanMaterial->m_DescriptorSetManager.SetInput("CameraUniformBuffer", m_CameraUniformBuffer);
-
-		if (!vulkanMaterial->m_DescriptorSetManager.HasInput("MaterialUniformBuffer") ||
-			!vulkanMaterial->m_DescriptorSetManager.HasInput("CameraUniformBuffer"))
-		{
-			ZN_CORE_ERROR("Failed to set required uniform buffers for material: {}", materialAsset->GetMaterial()->GetName());
-			return nullptr;
-		}
-
-		SetMaterialTextures(material, materialAsset);
-
-		vulkanMaterial->m_DescriptorSetManager.Bake();
-		return material;
 	}
 
 	void MeshRenderer::SetMaterialTextures(Ref<Material> material, Ref<MaterialAsset> materialAsset)
