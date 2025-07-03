@@ -1,7 +1,3 @@
-//
-// Updated MeshRenderer.cpp for PBR Shaders
-//
-
 #include "znpch.hpp"
 #include "MeshRenderer.hpp"
 
@@ -12,30 +8,6 @@
 #include "Zenith/Renderer/UniformBuffer.hpp"
 
 namespace Zenith {
-
-	// PBR Shader Uniform Structures
-	struct MaterialUniforms
-	{
-		glm::vec3 u_AlbedoColor;
-		float u_Metalness;
-		float u_Roughness;
-		float u_Emission;
-		bool u_UseNormalMap;
-		float _Padding;
-	};
-
-	struct CameraUniforms
-	{
-		glm::mat4 ViewProjection;
-		glm::vec3 CameraPosition;
-		float _Padding;
-	};
-
-	// Push constants for PBR shaders
-	struct PBRPushConstants
-	{
-		glm::mat4 u_Transform;
-	};
 
 	MeshRenderer::MeshRenderer()
 		: m_SceneActive(false)
@@ -49,10 +21,8 @@ namespace Zenith {
 
 	void MeshRenderer::Initialize()
 	{
-		// Create command buffer
 		m_CommandBuffer = RenderCommandBuffer::Create();
 
-		// Create framebuffer for offscreen rendering
 		FramebufferSpecification framebufferSpec;
 		framebufferSpec.DebugName = "MeshRenderer-Framebuffer";
 		framebufferSpec.Width = 1280;
@@ -60,8 +30,8 @@ namespace Zenith {
 		framebufferSpec.ClearColor = { 0.1f, 0.1f, 0.1f, 1.0f };
 		framebufferSpec.DepthClearValue = 1.0f;
 		framebufferSpec.Attachments = {
-			ImageFormat::RGBA32F,  // Color attachment
-			ImageFormat::DEPTH32F  // Depth attachment
+			ImageFormat::RGBA32F,
+			ImageFormat::DEPTH32F
 		};
 		framebufferSpec.SwapChainTarget = false;
 		framebufferSpec.ClearColorOnLoad = true;
@@ -69,11 +39,9 @@ namespace Zenith {
 
 		m_Framebuffer = Framebuffer::Create(framebufferSpec);
 
-		// Load PBR shader
 		m_MeshShader = Renderer::GetShaderLibrary()->Get("PBR_StaticMesh");
 		ZN_CORE_ASSERT(m_MeshShader, "Failed to load PBR_StaticMesh shader");
 
-		// Create uniform buffers
 		m_MaterialUniformBuffer = UniformBuffer::Create(sizeof(MaterialUniforms));
 		m_CameraUniformBuffer = UniformBuffer::Create(sizeof(CameraUniforms));
 
@@ -97,7 +65,6 @@ namespace Zenith {
 
 	void MeshRenderer::CreatePipeline()
 	{
-		// Vertex layout for PBR meshes
 		VertexBufferLayout vertexLayout = {
 			{ ShaderDataType::Float3, "Position" },
 			{ ShaderDataType::Float3, "Normal" },
@@ -137,17 +104,14 @@ namespace Zenith {
 		m_CameraPosition = cameraPosition;
 		m_SceneActive = true;
 
-		// Update camera uniform buffer
 		CameraUniforms cameraData;
-		cameraData.ViewProjection = viewProjection;
+		cameraData.u_ViewProjection = viewProjection;
 		cameraData.CameraPosition = cameraPosition;
 		cameraData._Padding = 0.0f;
 
 		m_CameraUniformBuffer->SetData(&cameraData, sizeof(CameraUniforms));
 
 		m_CommandBuffer->Begin();
-
-		// Begin our offscreen render pass
 		Renderer::BeginRenderPass(m_CommandBuffer, m_RenderPass, true);
 	}
 
@@ -164,7 +128,6 @@ namespace Zenith {
 		if (nodes.empty())
 			return;
 
-		// Find root nodes and traverse the hierarchy
 		for (uint32_t i = 0; i < nodes.size(); i++)
 		{
 			if (nodes[i].IsRoot())
@@ -180,7 +143,6 @@ namespace Zenith {
 		const MeshNode& node = nodes[nodeIndex];
 		glm::mat4 nodeTransform = parentTransform * node.LocalTransform;
 
-		// Render submeshes for this node
 		const auto& submeshes = meshSource->GetSubmeshes();
 		for (uint32_t submeshIndex : node.Submeshes)
 		{
@@ -190,7 +152,6 @@ namespace Zenith {
 			}
 		}
 
-		// Traverse children
 		for (uint32_t childIndex : node.Children)
 		{
 			TraverseNodeHierarchy(meshSource, staticMesh, nodes, childIndex, nodeTransform);
@@ -206,15 +167,13 @@ namespace Zenith {
 
 		const auto& submesh = submeshes[submeshIndex];
 
-		// Get material for this submesh
 		Ref<MaterialAsset> materialAsset = GetMaterialForSubmesh(meshSource, submesh.MaterialIndex);
 		if (!materialAsset)
 		{
-			ZN_CORE_WARN("No material found for submesh {}, using default", submeshIndex);
+			ZN_CORE_WARN("No material found for submesh {}", submeshIndex);
 			return;
 		}
 
-		// Create PBR material from MaterialAsset
 		Ref<Material> pbrMaterial = CreatePBRMaterial(materialAsset);
 		if (!pbrMaterial)
 		{
@@ -222,16 +181,13 @@ namespace Zenith {
 			return;
 		}
 
-		// Calculate final transform
 		glm::mat4 finalTransform = transform * submesh.Transform;
 
-		// Set push constants
 		PBRPushConstants pushConstants;
 		pushConstants.u_Transform = finalTransform;
 
 		Buffer constantBuffer = Buffer::Copy(&pushConstants, sizeof(pushConstants));
 
-		// Render with PBR material
 		Renderer::RenderStaticMeshWithMaterial(
 			m_CommandBuffer, m_Pipeline, staticMesh, meshSource, submeshIndex,
 			nullptr, 0, 1, pbrMaterial, constantBuffer
@@ -255,7 +211,6 @@ namespace Zenith {
 
 	Ref<Material> MeshRenderer::CreatePBRMaterial(Ref<MaterialAsset> materialAsset)
 	{
-		// Determine which shader to use based on transparency
 		const std::string shaderName = materialAsset->IsTransparent() ? "PBR_TransparentMesh" : "PBR_StaticMesh";
 		Ref<Shader> shader = Renderer::GetShaderLibrary()->Get(shaderName);
 		if (!shader)
@@ -264,80 +219,75 @@ namespace Zenith {
 			return nullptr;
 		}
 
-		// Create material with PBR shader
 		Ref<Material> material = Material::Create(shader, materialAsset->GetMaterial()->GetName());
+		auto vulkanMaterial = material.As<VulkanMaterial>();
+		if (!vulkanMaterial)
+		{
+			ZN_CORE_ERROR("Failed to cast material to VulkanMaterial");
+			return nullptr;
+		}
 
-		// Update material uniform buffer with MaterialAsset properties
 		MaterialUniforms materialData;
 		materialData.u_AlbedoColor = materialAsset->GetAlbedoColor();
 		materialData.u_Metalness = materialAsset->IsTransparent() ? 0.0f : materialAsset->GetMetalness();
 		materialData.u_Roughness = materialAsset->IsTransparent() ? 1.0f : materialAsset->GetRoughness();
 		materialData.u_Emission = materialAsset->GetEmission();
-		materialData.u_UseNormalMap = materialAsset->IsUsingNormalMap();
-		materialData._Padding = 0.0f;
+		materialData.u_UseNormalMap = materialAsset->IsUsingNormalMap() ? 1 : 0;
+		materialData._Padding2 = 0.0f;
 
-		m_MaterialUniformBuffer->SetData(&materialData, sizeof(MaterialUniforms));
-
-		// Update uniform buffers through material's descriptor set manager
-		auto vulkanMaterial = material.As<VulkanMaterial>();
-		if (vulkanMaterial)
+		Ref<UniformBuffer> materialUBO = UniformBuffer::Create(sizeof(MaterialUniforms));
+		if (!materialUBO)
 		{
-			Ref<UniformBuffer> materialUBO = UniformBuffer::Create(sizeof(MaterialUniforms));
-			materialUBO->SetData(&materialData, sizeof(MaterialUniforms));
-
-			vulkanMaterial->m_DescriptorSetManager.SetInput("MaterialUniformBuffer", materialUBO);
-			vulkanMaterial->m_DescriptorSetManager.SetInput("CameraUniformBuffer", m_CameraUniformBuffer);
+			ZN_CORE_ERROR("Failed to create material uniform buffer");
+			return nullptr;
 		}
 
-		// Set textures with fallbacks
+		materialUBO->SetData(&materialData, sizeof(MaterialUniforms));
+
+		if (!m_CameraUniformBuffer)
+		{
+			ZN_CORE_ERROR("Camera uniform buffer is null");
+			return nullptr;
+		}
+
+		vulkanMaterial->m_DescriptorSetManager.SetInput("MaterialUniformBuffer", materialUBO);
+		vulkanMaterial->m_DescriptorSetManager.SetInput("CameraUniformBuffer", m_CameraUniformBuffer);
+
+		if (!vulkanMaterial->m_DescriptorSetManager.HasInput("MaterialUniformBuffer") ||
+			!vulkanMaterial->m_DescriptorSetManager.HasInput("CameraUniformBuffer"))
+		{
+			ZN_CORE_ERROR("Failed to set required uniform buffers for material: {}", materialAsset->GetMaterial()->GetName());
+			return nullptr;
+		}
+
 		SetMaterialTextures(material, materialAsset);
 
+		vulkanMaterial->m_DescriptorSetManager.Bake();
 		return material;
 	}
 
 	void MeshRenderer::SetMaterialTextures(Ref<Material> material, Ref<MaterialAsset> materialAsset)
 	{
-		// Set albedo texture or fallback to white
 		if (Ref<Texture2D> albedoTexture = materialAsset->GetAlbedoMap())
 		{
 			material->Set("u_AlbedoTexture", albedoTexture);
 		}
-		else
-		{
-			material->Set("u_AlbedoTexture", Renderer::GetWhiteTexture());
-		}
 
-		// Set normal texture or fallback to flat normal
 		if (materialAsset->IsUsingNormalMap() && materialAsset->GetNormalMap())
 		{
 			material->Set("u_NormalTexture", materialAsset->GetNormalMap());
 		}
-		else
-		{
-			material->Set("u_NormalTexture", Renderer::GetBlackTexture()); // Flat normal map
-		}
 
-		// For non-transparent materials, set metalness and roughness textures
 		if (!materialAsset->IsTransparent())
 		{
-			// Set metalness texture or fallback to white (full metalness controlled by uniform)
 			if (Ref<Texture2D> metalnessTexture = materialAsset->GetMetalnessMap())
 			{
 				material->Set("u_MetalnessTexture", metalnessTexture);
 			}
-			else
-			{
-				material->Set("u_MetalnessTexture", Renderer::GetWhiteTexture());
-			}
 
-			// Set roughness texture or fallback to white (full roughness controlled by uniform)
 			if (Ref<Texture2D> roughnessTexture = materialAsset->GetRoughnessMap())
 			{
 				material->Set("u_RoughnessTexture", roughnessTexture);
-			}
-			else
-			{
-				material->Set("u_RoughnessTexture", Renderer::GetWhiteTexture());
 			}
 		}
 	}

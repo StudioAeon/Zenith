@@ -13,11 +13,6 @@
 
 namespace Zenith {
 
-	// TODO:
-	// - Move these enums/structs to a non-API specific place
-	// - Maybe rename from RenderPassXXX to DescriptorXXX or something more
-	//   generic, because these are also used for compute & materials
-
 	enum class RenderPassResourceType : uint16_t
 	{
 		None = 0,
@@ -37,7 +32,7 @@ namespace Zenith {
 		StorageBuffer,
 		ImageSampler1D,
 		ImageSampler2D,
-		ImageSampler3D, // NOTE(Yan): 3D vs Cube?
+		ImageSampler3D,
 		StorageImage1D,
 		StorageImage2D,
 		StorageImage3D
@@ -139,29 +134,32 @@ namespace Zenith {
 	{
 		switch (descriptorType)
 		{
-			case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-			case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-			{
-				return input == RenderPassResourceType::Texture2D || input == RenderPassResourceType::TextureCube || input == RenderPassResourceType::Image2D;
-			}
-			case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-			{
-				return input == RenderPassResourceType::Image2D;
-			}
-			case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
-			{
-				return input == RenderPassResourceType::UniformBuffer || input == RenderPassResourceType::UniformBufferSet;
-			}
-			case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-			{
-				return input == RenderPassResourceType::StorageBuffer || input == RenderPassResourceType::StorageBufferSet;
-			}
-			case VK_DESCRIPTOR_TYPE_SAMPLER:
-			{
-				return input == RenderPassResourceType::Texture2D || input == RenderPassResourceType::TextureCube || input == RenderPassResourceType::Image2D;
-			}
+		case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+			return input == RenderPassResourceType::Texture2D ||
+				input == RenderPassResourceType::TextureCube ||
+				input == RenderPassResourceType::Image2D;
+		case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+			return input == RenderPassResourceType::Texture2D ||
+				input == RenderPassResourceType::TextureCube ||
+				input == RenderPassResourceType::Image2D;
+		case VK_DESCRIPTOR_TYPE_SAMPLER:
+			return input == RenderPassResourceType::Texture2D ||
+				input == RenderPassResourceType::TextureCube;
+		case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+			return input == RenderPassResourceType::Image2D;
+		case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+			return input == RenderPassResourceType::UniformBuffer ||
+				input == RenderPassResourceType::UniformBufferSet;
+		case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+			return input == RenderPassResourceType::StorageBuffer ||
+				input == RenderPassResourceType::StorageBufferSet;
+		case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+		case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+			return input == RenderPassResourceType::Texture2D;
+		default:
+			ZN_CORE_WARN("Unknown VkDescriptorType {} in IsCompatibleInput", static_cast<int>(descriptorType));
+			return false;
 		}
-		return false;
 	}
 
 	inline RenderPassInputType RenderPassInputTypeFromVulkanDescriptorType(VkDescriptorType descriptorType)
@@ -178,7 +176,6 @@ namespace Zenith {
 			case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
 				return RenderPassInputType::StorageBuffer;
 			case VK_DESCRIPTOR_TYPE_SAMPLER:
-				// Standalone sampler - treat as ImageSampler2D for now
 				return RenderPassInputType::ImageSampler2D;
 		}
 
@@ -200,7 +197,6 @@ namespace Zenith {
 		Ref<VulkanShader> Shader;
 		std::string DebugName;
 
-		// Which descriptor sets should be managed
 		uint32_t StartSet = 0, EndSet = 3;
 
 		bool DefaultResources = false;
@@ -208,17 +204,10 @@ namespace Zenith {
 
 	struct DescriptorSetManager
 	{
-		//
-		// Input Resources (map of set->binding->resource)
-		// 
-		// Invalidated input resources will attempt to be assigned on Renderer::BeginRenderPass
-		// This is useful for resources that may not exist at RenderPass creation but will be
-		// present during actual rendering
 		std::map<uint32_t, std::map<uint32_t, RenderPassInput>> InputResources;
 		std::map<uint32_t, std::map<uint32_t, RenderPassInput>> InvalidatedInputResources;
 		std::map<std::string, RenderPassInputDeclaration> InputDeclarations;
 
-		// Per-frame in flight
 		std::vector<std::vector<VkDescriptorSet>> m_DescriptorSets;
 
 		struct WriteDescriptor
@@ -252,11 +241,31 @@ namespace Zenith {
 				if (setIt != InputResources.end())
 				{
 					auto resourceIt = setIt->second.find(decl->Binding);
-					if (resourceIt != setIt->second.end())
+					if (resourceIt != setIt->second.end() && !resourceIt->second.Input.empty())
+					{
 						return resourceIt->second.Input[0].As<T>();
+					}
 				}
 			}
 			return nullptr;
+		}
+
+		bool HasInput(std::string_view name) const
+		{
+			const RenderPassInputDeclaration* decl = GetInputDeclaration(name);
+			if (decl)
+			{
+				auto setIt = InputResources.find(decl->Set);
+				if (setIt != InputResources.end())
+				{
+					auto resourceIt = setIt->second.find(decl->Binding);
+					if (resourceIt != setIt->second.end() && !resourceIt->second.Input.empty())
+					{
+						return resourceIt->second.Input[0] != nullptr;
+					}
+				}
+			}
+			return false;
 		}
 
 		bool IsInvalidated(uint32_t set, uint32_t binding) const;

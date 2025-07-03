@@ -74,8 +74,6 @@ namespace Zenith {
 			const auto& shaderDescriptor = shaderDescriptorSets[set];
 			for (auto&& [bname, wd] : shaderDescriptor.WriteDescriptorSets)
 			{
-				// NOTE(Emily): This is a hack to fix a bad input decl name
-				//				Coming from somewhere.
 				const char* broken = strrchr(bname.c_str(), '.');
 				std::string name = broken ? broken + 1 : bname;
 
@@ -87,26 +85,25 @@ namespace Zenith {
 				inputDecl.Name = name;
 				inputDecl.Count = wd.descriptorCount;
 
-				// Insert default resources (useful for materials)
-				if (m_Specification.DefaultResources || true)
-				{
-					// Create RenderPassInput
-					RenderPassInput& input = InputResources[set][binding];
-					input.Input.resize(wd.descriptorCount);
-					input.Type = Utils::GetDefaultResourceType(wd.descriptorType);
+				RenderPassInput& input = InputResources[set][binding];
+				input.Input.resize(wd.descriptorCount);
+				input.Type = Utils::GetDefaultResourceType(wd.descriptorType);
 
-					// Set default textures
-					if (inputDecl.Type == RenderPassInputType::ImageSampler2D)
+				if (m_Specification.DefaultResources)
+				{
+					if (wd.descriptorType != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER &&
+						wd.descriptorType != VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
 					{
-						for (size_t i = 0; i < input.Input.size(); i++)
+						if (inputDecl.Type == RenderPassInputType::ImageSampler2D)
 						{
-							input.Input[i] = Renderer::GetWhiteTexture();
+							for (size_t i = 0; i < input.Input.size(); i++)
+								input.Input[i] = Renderer::GetWhiteTexture();
 						}
-					}
-					else if (inputDecl.Type == RenderPassInputType::ImageSampler3D)
-					{
-						for (size_t i = 0; i < input.Input.size(); i++)
-							input.Input[i] = Renderer::GetBlackCubeTexture();
+						else if (inputDecl.Type == RenderPassInputType::ImageSampler3D)
+						{
+							for (size_t i = 0; i < input.Input.size(); i++)
+								input.Input[i] = Renderer::GetBlackCubeTexture();
+						}
 					}
 				}
 
@@ -121,32 +118,31 @@ namespace Zenith {
 					{
 						switch (dimension)
 						{
-							case 1:
-								inputDecl.Type = RenderPassInputType::ImageSampler1D;
-								break;
-							case 2:
-								inputDecl.Type = RenderPassInputType::ImageSampler2D;
-								break;
-							case 3:
-								inputDecl.Type = RenderPassInputType::ImageSampler3D;
-								break;
+						case 1:
+							inputDecl.Type = RenderPassInputType::ImageSampler1D;
+							break;
+						case 2:
+							inputDecl.Type = RenderPassInputType::ImageSampler2D;
+							break;
+						case 3:
+							inputDecl.Type = RenderPassInputType::ImageSampler3D;
+							break;
 						}
 					}
 					else if (wd.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 					{
 						switch (dimension)
 						{
-							case 1:
-								inputDecl.Type = RenderPassInputType::StorageImage1D;
-								break;
-							case 2:
-								inputDecl.Type = RenderPassInputType::StorageImage2D;
-								break;
-							case 3:
-								inputDecl.Type = RenderPassInputType::StorageImage3D;
-								break;
+						case 1:
+							inputDecl.Type = RenderPassInputType::StorageImage1D;
+							break;
+						case 2:
+							inputDecl.Type = RenderPassInputType::StorageImage2D;
+							break;
+						case 3:
+							inputDecl.Type = RenderPassInputType::StorageImage3D;
+							break;
 						}
-
 					}
 				}
 			}
@@ -157,7 +153,26 @@ namespace Zenith {
 	{
 		const RenderPassInputDeclaration* decl = GetInputDeclaration(name);
 		if (decl)
-			InputResources.at(decl->Set).at(decl->Binding).Set(uniformBufferSet);
+		{
+			// Ensure the set exists
+			if (InputResources.find(decl->Set) == InputResources.end())
+			{
+				ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Set {} not found for input {}",
+					m_Specification.DebugName, decl->Set, name);
+				return;
+			}
+
+			// Ensure the binding exists
+			auto& setResources = InputResources[decl->Set];
+			if (setResources.find(decl->Binding) == setResources.end())
+			{
+				ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Binding {} not found in set {} for input {}",
+					m_Specification.DebugName, decl->Binding, decl->Set, name);
+				return;
+			}
+
+			setResources[decl->Binding].Set(uniformBufferSet);
+		}
 		else
 			ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Input {} not found", m_Specification.DebugName, name);
 	}
@@ -166,7 +181,26 @@ namespace Zenith {
 	{
 		const RenderPassInputDeclaration* decl = GetInputDeclaration(name);
 		if (decl)
-			InputResources.at(decl->Set).at(decl->Binding).Set(uniformBuffer);
+		{
+			// Ensure the set exists
+			if (InputResources.find(decl->Set) == InputResources.end())
+			{
+				ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Set {} not found for input {}",
+					m_Specification.DebugName, decl->Set, name);
+				return;
+			}
+
+			// Ensure the binding exists
+			auto& setResources = InputResources[decl->Set];
+			if (setResources.find(decl->Binding) == setResources.end())
+			{
+				ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Binding {} not found in set {} for input {}",
+					m_Specification.DebugName, decl->Binding, decl->Set, name);
+				return;
+			}
+
+			setResources[decl->Binding].Set(uniformBuffer);
+		}
 		else
 			ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Input {} not found", m_Specification.DebugName, name);
 	}
@@ -175,7 +209,26 @@ namespace Zenith {
 	{
 		const RenderPassInputDeclaration* decl = GetInputDeclaration(name);
 		if (decl)
-			InputResources.at(decl->Set).at(decl->Binding).Set(storageBufferSet);
+		{
+			// Ensure the set exists
+			if (InputResources.find(decl->Set) == InputResources.end())
+			{
+				ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Set {} not found for input {}",
+					m_Specification.DebugName, decl->Set, name);
+				return;
+			}
+
+			// Ensure the binding exists
+			auto& setResources = InputResources[decl->Set];
+			if (setResources.find(decl->Binding) == setResources.end())
+			{
+				ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Binding {} not found in set {} for input {}",
+					m_Specification.DebugName, decl->Binding, decl->Set, name);
+				return;
+			}
+
+			setResources[decl->Binding].Set(storageBufferSet);
+		}
 		else
 			ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Input {} not found", m_Specification.DebugName, name);
 	}
@@ -184,7 +237,26 @@ namespace Zenith {
 	{
 		const RenderPassInputDeclaration* decl = GetInputDeclaration(name);
 		if (decl)
-			InputResources.at(decl->Set).at(decl->Binding).Set(storageBuffer);
+		{
+			// Ensure the set exists
+			if (InputResources.find(decl->Set) == InputResources.end())
+			{
+				ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Set {} not found for input {}",
+					m_Specification.DebugName, decl->Set, name);
+				return;
+			}
+
+			// Ensure the binding exists
+			auto& setResources = InputResources[decl->Set];
+			if (setResources.find(decl->Binding) == setResources.end())
+			{
+				ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Binding {} not found in set {} for input {}",
+					m_Specification.DebugName, decl->Binding, decl->Set, name);
+				return;
+			}
+
+			setResources[decl->Binding].Set(storageBuffer);
+		}
 		else
 			ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Input {} not found", m_Specification.DebugName, name);
 	}
@@ -192,9 +264,34 @@ namespace Zenith {
 	void DescriptorSetManager::SetInput(std::string_view name, Ref<Texture2D> texture, uint32_t index)
 	{
 		const RenderPassInputDeclaration* decl = GetInputDeclaration(name);
-		ZN_CORE_VERIFY(index < decl->Count);
 		if (decl)
-			InputResources.at(decl->Set).at(decl->Binding).Set(texture, index);
+		{
+			if (index >= decl->Count)
+			{
+				ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Index {} out of range for input {} (max: {})",
+					m_Specification.DebugName, index, name, decl->Count - 1);
+				return;
+			}
+
+			// Ensure the set exists
+			if (InputResources.find(decl->Set) == InputResources.end())
+			{
+				ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Set {} not found for input {}",
+					m_Specification.DebugName, decl->Set, name);
+				return;
+			}
+
+			// Ensure the binding exists
+			auto& setResources = InputResources[decl->Set];
+			if (setResources.find(decl->Binding) == setResources.end())
+			{
+				ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Binding {} not found in set {} for input {}",
+					m_Specification.DebugName, decl->Binding, decl->Set, name);
+				return;
+			}
+
+			setResources[decl->Binding].Set(texture, index);
+		}
 		else
 			ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Input {} not found", m_Specification.DebugName, name);
 	}
@@ -203,7 +300,26 @@ namespace Zenith {
 	{
 		const RenderPassInputDeclaration* decl = GetInputDeclaration(name);
 		if (decl)
-			InputResources.at(decl->Set).at(decl->Binding).Set(textureCube);
+		{
+			// Ensure the set exists
+			if (InputResources.find(decl->Set) == InputResources.end())
+			{
+				ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Set {} not found for input {}",
+					m_Specification.DebugName, decl->Set, name);
+				return;
+			}
+
+			// Ensure the binding exists
+			auto& setResources = InputResources[decl->Set];
+			if (setResources.find(decl->Binding) == setResources.end())
+			{
+				ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Binding {} not found in set {} for input {}",
+					m_Specification.DebugName, decl->Binding, decl->Set, name);
+				return;
+			}
+
+			setResources[decl->Binding].Set(textureCube);
+		}
 		else
 			ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Input {} not found", m_Specification.DebugName, name);
 	}
@@ -212,7 +328,26 @@ namespace Zenith {
 	{
 		const RenderPassInputDeclaration* decl = GetInputDeclaration(name);
 		if (decl)
-			InputResources.at(decl->Set).at(decl->Binding).Set(image);
+		{
+			// Ensure the set exists
+			if (InputResources.find(decl->Set) == InputResources.end())
+			{
+				ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Set {} not found for input {}",
+					m_Specification.DebugName, decl->Set, name);
+				return;
+			}
+
+			// Ensure the binding exists
+			auto& setResources = InputResources[decl->Set];
+			if (setResources.find(decl->Binding) == setResources.end())
+			{
+				ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Binding {} not found in set {} for input {}",
+					m_Specification.DebugName, decl->Binding, decl->Set, name);
+				return;
+			}
+
+			setResources[decl->Binding].Set(image);
+		}
 		else
 			ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Input {} not found", m_Specification.DebugName, name);
 	}
@@ -220,10 +355,30 @@ namespace Zenith {
 	void DescriptorSetManager::SetInput(std::string_view name, Ref<ImageView> image)
 	{
 		const RenderPassInputDeclaration* decl = GetInputDeclaration(name);
-		if (decl)
-			InputResources.at(decl->Set).at(decl->Binding).Set(image);
-		else
+		if (!decl)
+		{
 			ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Input {} not found", m_Specification.DebugName, name);
+			return;
+		}
+
+		// Ensure the set exists
+		if (InputResources.find(decl->Set) == InputResources.end())
+		{
+			ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Set {} not found for input {}",
+				m_Specification.DebugName, decl->Set, name);
+			return;
+		}
+
+		// Ensure the binding exists
+		auto& setResources = InputResources[decl->Set];
+		if (setResources.find(decl->Binding) == setResources.end())
+		{
+			ZN_CORE_WARN_TAG("Renderer", "[RenderPass ({})] Binding {} not found in set {} for input {}",
+				m_Specification.DebugName, decl->Binding, decl->Set, name);
+			return;
+		}
+
+		setResources[decl->Binding].Set(image);
 	}
 
 	bool DescriptorSetManager::IsInvalidated(uint32_t set, uint32_t binding) const
@@ -233,17 +388,12 @@ namespace Zenith {
 			const auto& resources = InvalidatedInputResources.at(set);
 			return resources.find(binding) != resources.end();
 		}
-
 		return false;
 	}
 
-	
-
 	std::set<uint32_t> DescriptorSetManager::HasBufferSets() const
 	{
-		// Find all descriptor sets that have either UniformBufferSet or StorageBufferSet descriptors
 		std::set<uint32_t> sets;
-
 		for (const auto& [set, resources] : InputResources)
 		{
 			for (const auto& [binding, input] : resources)
@@ -261,31 +411,27 @@ namespace Zenith {
 
 	bool DescriptorSetManager::Validate()
 	{
-		// Go through pipeline requirements to make sure we have all required resource
 		const auto& shaderDescriptorSets = m_Specification.Shader->GetShaderDescriptorSets();
-
-		// Nothing to validate, pipeline only contains material inputs
-		//if (shaderDescriptorSets.size() < 2)
-		//	return true;
+		bool allValid = true;
 
 		for (uint32_t set = m_Specification.StartSet; set <= m_Specification.EndSet; set++)
 		{
 			if (set >= shaderDescriptorSets.size())
 				break;
 
-			// No descriptors in this set
 			if (!shaderDescriptorSets[set])
 				continue;
 
 			if (InputResources.find(set) == InputResources.end())
 			{
 				ZN_CORE_ERROR_TAG("Renderer", "[RenderPass ({})] No input resources for Set {}", m_Specification.DebugName, set);
-				return false;
+				allValid = false;
+				continue;
 			}
 
 			const auto& setInputResources = InputResources.at(set);
-
 			const auto& shaderDescriptor = shaderDescriptorSets[set];
+
 			for (auto&& [name, wd] : shaderDescriptor.WriteDescriptorSets)
 			{
 				uint32_t binding = wd.dstBinding;
@@ -293,37 +439,45 @@ namespace Zenith {
 				{
 					ZN_CORE_ERROR_TAG("Renderer", "[RenderPass ({})] No input resource for {}.{}", m_Specification.DebugName, set, binding);
 					ZN_CORE_ERROR_TAG("Renderer", "[RenderPass ({})] Required resource is {} ({})", m_Specification.DebugName, name, (int)wd.descriptorType);
-					return false;
+					allValid = false;
+					continue;
 				}
 
 				const auto& resource = setInputResources.at(binding);
+
 				if (!IsCompatibleInput(resource.Type, wd.descriptorType))
 				{
-					ZN_CORE_ERROR_TAG("Renderer", "[RenderPass ({})] Required resource is wrong type! {} but needs {}", m_Specification.DebugName, (uint16_t)resource.Type, (int)wd.descriptorType);
-					return false;
+					ZN_CORE_ERROR_TAG("Renderer", "[RenderPass ({})] Type mismatch for '{}': Got {} but shader expects {}",
+						m_Specification.DebugName, name,
+						static_cast<int>(resource.Type), static_cast<int>(wd.descriptorType));
+					allValid = false;
+					continue;
 				}
 
-				if (resource.Type != RenderPassResourceType::Image2D && resource.Input[0] == nullptr)
+				if (resource.Type != RenderPassResourceType::Image2D &&
+					(resource.Input.empty() || resource.Input[0] == nullptr))
 				{
-					ZN_CORE_ERROR_TAG("Renderer", "[RenderPass ({})] Resource is null! {} ({}.{})", m_Specification.DebugName, name, set, binding);
-					return false;
+					ZN_CORE_ERROR_TAG("Renderer", "[RenderPass ({})] Resource '{}' is null! ({}.{})",
+						m_Specification.DebugName, name, set, binding);
+					allValid = false;
 				}
 			}
 		}
 
-		// All resources present
-		return true;
+		if (!allValid)
+			ZN_CORE_ERROR("Validation failed for {}", m_Specification.DebugName);
+
+		return allValid;
 	}
 
 	void DescriptorSetManager::Bake()
 	{
-		// Make sure all resources are present and we can properly bake
 		if (!Validate())
 		{
 			ZN_CORE_ERROR_TAG("Renderer", "[RenderPass] Bake - Validate failed! {}", m_Specification.DebugName);
 			return;
 		}
-		
+
 		// If valid, we can create descriptor sets
 
 		// Create Descriptor Pool
@@ -387,135 +541,155 @@ namespace Zenith {
 
 				for (const auto& [binding, input] : setData)
 				{
-					auto& storedWriteDescriptor = writeDescriptorMap.at(binding);
+					// Safely check if the binding exists in the write descriptor map
+					auto writeDescriptorMapIt = WriteDescriptorMap[frameIndex].find(set);
+					if (writeDescriptorMapIt == WriteDescriptorMap[frameIndex].end())
+					{
+						ZN_CORE_ERROR_TAG("Renderer", "[RenderPass] Bake - Set {} not found in WriteDescriptorMap", set);
+						continue;
+					}
+
+					auto& writeDescriptorMap = writeDescriptorMapIt->second;
+					auto storedWriteDescriptorIt = writeDescriptorMap.find(binding);
+					if (storedWriteDescriptorIt == writeDescriptorMap.end())
+					{
+						ZN_CORE_ERROR_TAG("Renderer", "[RenderPass] Bake - Binding {} not found in WriteDescriptorMap", binding);
+						continue;
+					}
+
+					auto& storedWriteDescriptor = storedWriteDescriptorIt->second;
 
 					VkWriteDescriptorSet& writeDescriptor = storedWriteDescriptor.WriteDescriptorSet;
 					writeDescriptor.dstSet = descriptorSet;
 
+					// ... rest of the switch statement remains the same ...
 					switch (input.Type)
 					{
-						case RenderPassResourceType::UniformBuffer:
+					case RenderPassResourceType::UniformBuffer:
+					{
+						Ref<VulkanUniformBuffer> buffer = input.Input[0].As<VulkanUniformBuffer>();
+						writeDescriptor.pBufferInfo = &buffer->GetDescriptorBufferInfo();
+						storedWriteDescriptor.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
+
+						// Defer if resource doesn't exist
+						if (writeDescriptor.pBufferInfo->buffer == nullptr)
+							InvalidatedInputResources[set][binding] = input;
+
+						break;
+					}
+					case RenderPassResourceType::UniformBufferSet:
+					{
+						Ref<UniformBufferSet> buffer = input.Input[0].As<UniformBufferSet>();
+						// TODO: replace 0 with current frame in flight (i.e. create bindings for all frames)
+						writeDescriptor.pBufferInfo = &buffer->Get(frameIndex).As<VulkanUniformBuffer>()->GetDescriptorBufferInfo();
+						storedWriteDescriptor.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
+
+						// Defer if resource doesn't exist
+						if (writeDescriptor.pBufferInfo->buffer == nullptr)
+							InvalidatedInputResources[set][binding] = input;
+
+						break;
+					}
+					case RenderPassResourceType::StorageBuffer:
+					{
+						Ref<VulkanStorageBuffer> buffer = input.Input[0].As<VulkanStorageBuffer>();
+						writeDescriptor.pBufferInfo = &buffer->GetDescriptorBufferInfo();
+						storedWriteDescriptor.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
+
+						// Defer if resource doesn't exist
+						if (writeDescriptor.pBufferInfo->buffer == nullptr)
+							InvalidatedInputResources[set][binding] = input;
+
+						break;
+					}
+					case RenderPassResourceType::StorageBufferSet:
+					{
+						Ref<StorageBufferSet> buffer = input.Input[0].As<StorageBufferSet>();
+						// TODO: replace 0 with current frame in flight (i.e. create bindings for all frames)
+						writeDescriptor.pBufferInfo = &buffer->Get(frameIndex).As<VulkanStorageBuffer>()->GetDescriptorBufferInfo();
+						storedWriteDescriptor.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
+
+						// Defer if resource doesn't exist
+						if (writeDescriptor.pBufferInfo->buffer == nullptr)
+							InvalidatedInputResources[set][binding] = input;
+
+						break;
+					}
+					case RenderPassResourceType::Texture2D:
+					{
+						if (input.Input.size() > 1)
 						{
-							Ref<VulkanUniformBuffer> buffer = input.Input[0].As<VulkanUniformBuffer>();
-							writeDescriptor.pBufferInfo = &buffer->GetDescriptorBufferInfo();
-							storedWriteDescriptor.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
-
-							// Defer if resource doesn't exist
-							if (writeDescriptor.pBufferInfo->buffer == nullptr)
-								InvalidatedInputResources[set][binding] = input;
-
-							break;
-						}
-						case RenderPassResourceType::UniformBufferSet:
-						{
-							Ref<UniformBufferSet> buffer = input.Input[0].As<UniformBufferSet>();
-							// TODO: replace 0 with current frame in flight (i.e. create bindings for all frames)
-							writeDescriptor.pBufferInfo = &buffer->Get(frameIndex).As<VulkanUniformBuffer>()->GetDescriptorBufferInfo();
-							storedWriteDescriptor.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
-
-							// Defer if resource doesn't exist
-							if (writeDescriptor.pBufferInfo->buffer == nullptr)
-								InvalidatedInputResources[set][binding] = input;
-
-							break;
-						}
-						case RenderPassResourceType::StorageBuffer:
-						{
-							Ref<VulkanStorageBuffer> buffer = input.Input[0].As<VulkanStorageBuffer>();
-							writeDescriptor.pBufferInfo = &buffer->GetDescriptorBufferInfo();
-							storedWriteDescriptor.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
-
-							// Defer if resource doesn't exist
-							if (writeDescriptor.pBufferInfo->buffer == nullptr)
-								InvalidatedInputResources[set][binding] = input;
-
-							break;
-						}
-						case RenderPassResourceType::StorageBufferSet:
-						{
-							Ref<StorageBufferSet> buffer = input.Input[0].As<StorageBufferSet>();
-							// TODO: replace 0 with current frame in flight (i.e. create bindings for all frames)
-							writeDescriptor.pBufferInfo = &buffer->Get(frameIndex).As<VulkanStorageBuffer>()->GetDescriptorBufferInfo();
-							storedWriteDescriptor.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
-
-							// Defer if resource doesn't exist
-							if (writeDescriptor.pBufferInfo->buffer == nullptr)
-								InvalidatedInputResources[set][binding] = input;
-
-							break;
-						}
-						case RenderPassResourceType::Texture2D:
-						{
-							if (input.Input.size() > 1)
+							imageInfoStorage.emplace_back(input.Input.size());
+							for (size_t i = 0; i < input.Input.size(); i++)
 							{
-								imageInfoStorage.emplace_back(input.Input.size());
-								for (size_t i = 0; i < input.Input.size(); i++)
-								{
-									Ref<VulkanTexture2D> texture = input.Input[i].As<VulkanTexture2D>();
-									imageInfoStorage[imageInfoStorageIndex][i] = texture->GetDescriptorInfoVulkan();
+								Ref<VulkanTexture2D> texture = input.Input[i].As<VulkanTexture2D>();
+								imageInfoStorage[imageInfoStorageIndex][i] = texture->GetDescriptorInfoVulkan();
 
-								}
-								writeDescriptor.pImageInfo = imageInfoStorage[imageInfoStorageIndex].data();
-								imageInfoStorageIndex++;
 							}
-							else
-							{
-								Ref<VulkanTexture2D> texture = input.Input[0].As<VulkanTexture2D>();
-								writeDescriptor.pImageInfo = &texture->GetDescriptorInfoVulkan();
-							}
-							storedWriteDescriptor.ResourceHandles[0] = writeDescriptor.pImageInfo->imageView;
-
-							// Defer if resource doesn't exist
-							if (writeDescriptor.pImageInfo->imageView == nullptr)
-								InvalidatedInputResources[set][binding] = input;
-
-							break;
+							writeDescriptor.pImageInfo = imageInfoStorage[imageInfoStorageIndex].data();
+							imageInfoStorageIndex++;
 						}
-						case RenderPassResourceType::TextureCube:
+						else
 						{
-							Ref<VulkanTextureCube> texture = input.Input[0].As<VulkanTextureCube>();
+							Ref<VulkanTexture2D> texture = input.Input[0].As<VulkanTexture2D>();
 							writeDescriptor.pImageInfo = &texture->GetDescriptorInfoVulkan();
-							storedWriteDescriptor.ResourceHandles[0] = writeDescriptor.pImageInfo->imageView;
-
-							// Defer if resource doesn't exist
-							if (writeDescriptor.pImageInfo->imageView == nullptr)
-								InvalidatedInputResources[set][binding] = input;
-
-							break;
 						}
-						case RenderPassResourceType::Image2D:
+						storedWriteDescriptor.ResourceHandles[0] = writeDescriptor.pImageInfo->imageView;
+
+						// Defer if resource doesn't exist
+						if (writeDescriptor.pImageInfo->imageView == nullptr)
+							InvalidatedInputResources[set][binding] = input;
+
+						break;
+					}
+					case RenderPassResourceType::TextureCube:
+					{
+						Ref<VulkanTextureCube> texture = input.Input[0].As<VulkanTextureCube>();
+						writeDescriptor.pImageInfo = &texture->GetDescriptorInfoVulkan();
+						storedWriteDescriptor.ResourceHandles[0] = writeDescriptor.pImageInfo->imageView;
+
+						// Defer if resource doesn't exist
+						if (writeDescriptor.pImageInfo->imageView == nullptr)
+							InvalidatedInputResources[set][binding] = input;
+
+						break;
+					}
+					case RenderPassResourceType::Image2D:
+					{
+						Ref<RendererResource> image = input.Input[0].As<RendererResource>();
+						// Defer if resource doesn't exist
+						if (image == nullptr)
 						{
-							Ref<RendererResource> image = input.Input[0].As<RendererResource>();
-							// Defer if resource doesn't exist
-							if (image == nullptr)
-							{
-								InvalidatedInputResources[set][binding] = input;
-								break;
-							}
-
-							writeDescriptor.pImageInfo = (VkDescriptorImageInfo*)image->GetDescriptorInfo();
-							storedWriteDescriptor.ResourceHandles[0] = writeDescriptor.pImageInfo->imageView;
-
-							// Defer if resource doesn't exist
-							if (writeDescriptor.pImageInfo->imageView == nullptr)
-								InvalidatedInputResources[set][binding] = input;
-
+							InvalidatedInputResources[set][binding] = input;
 							break;
 						}
+
+						writeDescriptor.pImageInfo = (VkDescriptorImageInfo*)image->GetDescriptorInfo();
+						storedWriteDescriptor.ResourceHandles[0] = writeDescriptor.pImageInfo->imageView;
+
+						// Defer if resource doesn't exist
+						if (writeDescriptor.pImageInfo->imageView == nullptr)
+							InvalidatedInputResources[set][binding] = input;
+
+						break;
+					}
 					}
 				}
 
 				std::vector<VkWriteDescriptorSet> writeDescriptors;
-				for (auto&& [binding, writeDescriptor] : writeDescriptorMap)
+				auto writeDescriptorMapIt = WriteDescriptorMap[frameIndex].find(set);
+				if (writeDescriptorMapIt != WriteDescriptorMap[frameIndex].end())
 				{
-					// Include if valid, otherwise defer (these will be resolved if possible at Prepare stage)
-					if (!IsInvalidated(set, binding))
-						writeDescriptors.emplace_back(writeDescriptor.WriteDescriptorSet);
+					for (auto&& [binding, writeDescriptor] : writeDescriptorMapIt->second)
+					{
+						// Include if valid, otherwise defer (these will be resolved if possible at Prepare stage)
+						if (!IsInvalidated(set, binding))
+							writeDescriptors.emplace_back(writeDescriptor.WriteDescriptorSet);
+					}
 				}
 
 				if (!writeDescriptors.empty())
 				{
-					ZN_CORE_INFO_TAG("Renderer", "Render pass update {} descriptors in set {}", writeDescriptors.size(), set);
 					vkUpdateDescriptorSets(device, (uint32_t)writeDescriptors.size(), writeDescriptors.data(), 0, nullptr);
 				}
 			}
@@ -530,218 +704,196 @@ namespace Zenith {
 
 		uint32_t currentFrameIndex = Renderer::RT_GetCurrentFrameIndex();
 
-		// Check for invalidated resources
 		for (const auto& [set, inputs] : InputResources)
 		{
 			for (const auto& [binding, input] : inputs)
 			{
+				if (currentFrameIndex >= WriteDescriptorMap.size())
+					continue;
+
+				auto frameMapIt = WriteDescriptorMap[currentFrameIndex].find(set);
+				if (frameMapIt == WriteDescriptorMap[currentFrameIndex].end())
+					continue;
+
+				auto bindingMapIt = frameMapIt->second.find(binding);
+				if (bindingMapIt == frameMapIt->second.end())
+					continue;
+
 				switch (input.Type)
 				{
-					case RenderPassResourceType::UniformBuffer:
+				case RenderPassResourceType::UniformBuffer:
+				{
+					const VkDescriptorBufferInfo& bufferInfo = input.Input[0].As<VulkanUniformBuffer>()->GetDescriptorBufferInfo();
+					if (bufferInfo.buffer != bindingMapIt->second.ResourceHandles[0])
+						InvalidatedInputResources[set][binding] = input;
+					break;
+				}
+				case RenderPassResourceType::UniformBufferSet:
+				{
+					const VkDescriptorBufferInfo& bufferInfo = input.Input[0].As<VulkanUniformBufferSet>()->Get(currentFrameIndex).As<VulkanUniformBuffer>()->GetDescriptorBufferInfo();
+					if (bufferInfo.buffer != bindingMapIt->second.ResourceHandles[0])
+						InvalidatedInputResources[set][binding] = input;
+					break;
+				}
+				case RenderPassResourceType::StorageBuffer:
+				{
+					const VkDescriptorBufferInfo& bufferInfo = input.Input[0].As<VulkanStorageBuffer>()->GetDescriptorBufferInfo();
+					if (bufferInfo.buffer != bindingMapIt->second.ResourceHandles[0])
+						InvalidatedInputResources[set][binding] = input;
+					break;
+				}
+				case RenderPassResourceType::StorageBufferSet:
+				{
+					const VkDescriptorBufferInfo& bufferInfo = input.Input[0].As<VulkanStorageBufferSet>()->Get(currentFrameIndex).As<VulkanStorageBuffer>()->GetDescriptorBufferInfo();
+					if (bufferInfo.buffer != bindingMapIt->second.ResourceHandles[0])
+						InvalidatedInputResources[set][binding] = input;
+					break;
+				}
+				case RenderPassResourceType::Texture2D:
+				{
+					for (size_t i = 0; i < input.Input.size(); i++)
 					{
-						//for (uint32_t frameIndex = 0; frameIndex < (uint32_t)WriteDescriptorMap.size(); frameIndex++)
-						{
-							const VkDescriptorBufferInfo& bufferInfo = input.Input[0].As<VulkanUniformBuffer>()->GetDescriptorBufferInfo();
-							if (bufferInfo.buffer != WriteDescriptorMap[currentFrameIndex].at(set).at(binding).ResourceHandles[0])
-							{
-								InvalidatedInputResources[set][binding] = input;
-								break;
-							}
-						}
-						break;
-					}
-					case RenderPassResourceType::UniformBufferSet:
-					{
-						//for (uint32_t frameIndex = 0; frameIndex < (uint32_t)WriteDescriptorMap.size(); frameIndex++)
-						{
-							const VkDescriptorBufferInfo& bufferInfo = input.Input[0].As<VulkanUniformBufferSet>()->Get(currentFrameIndex).As<VulkanUniformBuffer>()->GetDescriptorBufferInfo();
-							if (bufferInfo.buffer != WriteDescriptorMap[currentFrameIndex].at(set).at(binding).ResourceHandles[0])
-							{
-								InvalidatedInputResources[set][binding] = input;
-								break;
-							}
-						}
-						break;
-					}
-					case RenderPassResourceType::StorageBuffer:
-					{
+						Ref<VulkanTexture2D> vulkanTexture = input.Input[i].As<VulkanTexture2D>();
+						if (!vulkanTexture)
+							vulkanTexture = Renderer::GetWhiteTexture().As<VulkanTexture2D>();
 
-						//for (uint32_t frameIndex = 0; frameIndex < (uint32_t)WriteDescriptorMap.size(); frameIndex++)
+						const VkDescriptorImageInfo& imageInfo = vulkanTexture->GetDescriptorInfoVulkan();
+						if (i < bindingMapIt->second.ResourceHandles.size() &&
+							imageInfo.imageView != bindingMapIt->second.ResourceHandles[i])
 						{
-							const VkDescriptorBufferInfo& bufferInfo = input.Input[0].As<VulkanStorageBuffer>()->GetDescriptorBufferInfo();
-							if (bufferInfo.buffer != WriteDescriptorMap[currentFrameIndex].at(set).at(binding).ResourceHandles[0])
-							{
-								InvalidatedInputResources[set][binding] = input;
-								break;
-							}
+							InvalidatedInputResources[set][binding] = input;
+							break;
 						}
-						break;
 					}
-					case RenderPassResourceType::StorageBufferSet:
-					{
-						//for (uint32_t frameIndex = 0; frameIndex < (uint32_t)WriteDescriptorMap.size(); frameIndex++)
-						{
-							const VkDescriptorBufferInfo& bufferInfo = input.Input[0].As<VulkanStorageBufferSet>()->Get(currentFrameIndex).As<VulkanStorageBuffer>()->GetDescriptorBufferInfo();
-							if (bufferInfo.buffer != WriteDescriptorMap[currentFrameIndex].at(set).at(binding).ResourceHandles[0])
-							{
-								InvalidatedInputResources[set][binding] = input;
-								break;
-							}
-						}
-						break;
-					}
-					case RenderPassResourceType::Texture2D:
-					{
-						for (size_t i = 0; i < input.Input.size(); i++)
-						{
-							Ref<VulkanTexture2D> vulkanTexture = input.Input[i].As<VulkanTexture2D>();
-							if (vulkanTexture == nullptr)
-								vulkanTexture = Renderer::GetWhiteTexture().As<VulkanTexture2D>(); // TODO: error texture
-
-							const VkDescriptorImageInfo& imageInfo = vulkanTexture->GetDescriptorInfoVulkan();
-							if (imageInfo.imageView != WriteDescriptorMap[currentFrameIndex].at(set).at(binding).ResourceHandles[i])
-							{
-								InvalidatedInputResources[set][binding] = input;
-								break;
-							}
-						}
-						break;
-					}
-					case RenderPassResourceType::TextureCube:
-					{
-						//for (uint32_t frameIndex = 0; frameIndex < (uint32_t)WriteDescriptorMap.size(); frameIndex++)
-						{
-							const VkDescriptorImageInfo& imageInfo = input.Input[0].As<VulkanTextureCube>()->GetDescriptorInfoVulkan();
-							if (imageInfo.imageView != WriteDescriptorMap[currentFrameIndex].at(set).at(binding).ResourceHandles[0])
-							{
-								InvalidatedInputResources[set][binding] = input;
-								break;
-							}
-						}
-						break;
-					}
-					case RenderPassResourceType::Image2D:
-					{
-						//for (uint32_t frameIndex = 0; frameIndex < (uint32_t)WriteDescriptorMap.size(); frameIndex++)
-						{
-							const VkDescriptorImageInfo& imageInfo = *(VkDescriptorImageInfo*)input.Input[0].As<RendererResource>()->GetDescriptorInfo();
-							if (imageInfo.imageView != WriteDescriptorMap[currentFrameIndex].at(set).at(binding).ResourceHandles[0])
-							{
-								InvalidatedInputResources[set][binding] = input;
-								break;
-							}
-						}
-						break;
-					}
+					break;
+				}
+				case RenderPassResourceType::TextureCube:
+				{
+					const VkDescriptorImageInfo& imageInfo = input.Input[0].As<VulkanTextureCube>()->GetDescriptorInfoVulkan();
+					if (imageInfo.imageView != bindingMapIt->second.ResourceHandles[0])
+						InvalidatedInputResources[set][binding] = input;
+					break;
+				}
+				case RenderPassResourceType::Image2D:
+				{
+					const VkDescriptorImageInfo& imageInfo = *(VkDescriptorImageInfo*)input.Input[0].As<RendererResource>()->GetDescriptorInfo();
+					if (imageInfo.imageView != bindingMapIt->second.ResourceHandles[0])
+						InvalidatedInputResources[set][binding] = input;
+					break;
+				}
 				}
 			}
 		}
 
-		// Nothing to do
 		if (InvalidatedInputResources.empty())
 			return;
 
 		auto bufferSets = HasBufferSets();
 		bool perFrameInFlight = !bufferSets.empty();
-		perFrameInFlight = true; // always
+		perFrameInFlight = true; // always true anyway
 		uint32_t descriptorSetCount = Renderer::GetConfig().FramesInFlight;
 		if (!perFrameInFlight)
 			descriptorSetCount = 1;
 
-
-		// TODO: handle these if they fail (although Vulkan will probably give us a validation error if they do anyway)
 		for (const auto& [set, setData] : InvalidatedInputResources)
 		{
-			uint32_t descriptorCountInSet = bufferSets.find(set) != bufferSets.end() ? descriptorSetCount : 1;
-			//for (uint32_t frameIndex = currentFrameIndex; frameIndex < descriptorSetCount; frameIndex++)
 			uint32_t frameIndex = perFrameInFlight ? currentFrameIndex : 0;
+
+			if (frameIndex >= WriteDescriptorMap.size())
+				continue;
+
+			auto frameMapIt = WriteDescriptorMap[frameIndex].find(set);
+			if (frameMapIt == WriteDescriptorMap[frameIndex].end())
+				continue;
+
+			std::vector<VkWriteDescriptorSet> writeDescriptorsToUpdate;
+			std::vector<std::vector<VkDescriptorImageInfo>> imageInfoStorage;
+			uint32_t imageInfoStorageIndex = 0;
+
+			for (const auto& [binding, input] : setData)
 			{
-				// Go through every resource here and call vkUpdateDescriptorSets with write descriptors
-				// If we don't have valid buffers/images to bind to here, that's an error and needs to be
-				// probably handled by putting in some error resources, otherwise we'll crash
-				std::vector<VkWriteDescriptorSet> writeDescriptorsToUpdate;
-				writeDescriptorsToUpdate.reserve(setData.size());
-				std::vector<std::vector<VkDescriptorImageInfo>> imageInfoStorage;
-				uint32_t imageInfoStorageIndex = 0;
-				for (const auto& [binding, input] : setData)
+				auto bindingMapIt = frameMapIt->second.find(binding);
+				if (bindingMapIt == frameMapIt->second.end())
+					continue;
+
+				auto& wd = bindingMapIt->second;
+				VkWriteDescriptorSet& writeDescriptor = wd.WriteDescriptorSet;
+
+				switch (input.Type)
 				{
-					// Update stored write descriptor
-					auto& wd = WriteDescriptorMap[frameIndex].at(set).at(binding);
-					VkWriteDescriptorSet& writeDescriptor = wd.WriteDescriptorSet;
-					switch (input.Type)
-					{
-						case RenderPassResourceType::UniformBuffer:
-						{
-							Ref<VulkanUniformBuffer> buffer = input.Input[0].As<VulkanUniformBuffer>();
-							writeDescriptor.pBufferInfo = &buffer->GetDescriptorBufferInfo();
-							wd.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
-							break;
-						}
-						case RenderPassResourceType::UniformBufferSet:
-						{
-							Ref<UniformBufferSet> buffer = input.Input[0].As<UniformBufferSet>();
-							writeDescriptor.pBufferInfo = &buffer->Get(frameIndex).As<VulkanUniformBuffer>()->GetDescriptorBufferInfo();
-							wd.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
-							break;
-						}
-						case RenderPassResourceType::StorageBuffer:
-						{
-							Ref<VulkanStorageBuffer> buffer = input.Input[0].As<VulkanStorageBuffer>();
-							writeDescriptor.pBufferInfo = &buffer->GetDescriptorBufferInfo();
-							wd.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
-							break;
-						}
-						case RenderPassResourceType::StorageBufferSet:
-						{
-							Ref<StorageBufferSet> buffer = input.Input[0].As<StorageBufferSet>();
-							writeDescriptor.pBufferInfo = &buffer->Get(frameIndex).As<VulkanStorageBuffer>()->GetDescriptorBufferInfo();
-							wd.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
-							break;
-						}
-						case RenderPassResourceType::Texture2D:
-						{
-
-							if (input.Input.size() > 1)
-							{
-								imageInfoStorage.emplace_back(input.Input.size());
-								for (size_t i = 0; i < input.Input.size(); i++)
-								{
-									Ref<VulkanTexture2D> texture = input.Input[i].As<VulkanTexture2D>();
-									imageInfoStorage[imageInfoStorageIndex][i] = texture->GetDescriptorInfoVulkan();
-									wd.ResourceHandles[i] = imageInfoStorage[imageInfoStorageIndex][i].imageView;
-								}
-								writeDescriptor.pImageInfo = imageInfoStorage[imageInfoStorageIndex].data();
-								imageInfoStorageIndex++;
-							}
-							else
-							{
-								Ref<VulkanTexture2D> texture = input.Input[0].As<VulkanTexture2D>();
-								writeDescriptor.pImageInfo = &texture->GetDescriptorInfoVulkan();
-								wd.ResourceHandles[0] = writeDescriptor.pImageInfo->imageView;
-							}
-
-							break;
-						}
-						case RenderPassResourceType::TextureCube:
-						{
-							Ref<VulkanTextureCube> texture = input.Input[0].As<VulkanTextureCube>();
-							writeDescriptor.pImageInfo = &texture->GetDescriptorInfoVulkan();
-							wd.ResourceHandles[0] = writeDescriptor.pImageInfo->imageView;
-							break;
-						}
-						case RenderPassResourceType::Image2D:
-						{
-							Ref<RendererResource> image = input.Input[0].As<RendererResource>();
-							writeDescriptor.pImageInfo = (VkDescriptorImageInfo*)image->GetDescriptorInfo();
-							ZN_CORE_VERIFY(writeDescriptor.pImageInfo->imageView);
-							wd.ResourceHandles[0] = writeDescriptor.pImageInfo->imageView;
-							break;
-						}
-					}
-					writeDescriptorsToUpdate.emplace_back(writeDescriptor);
+				case RenderPassResourceType::UniformBuffer:
+				{
+					Ref<VulkanUniformBuffer> buffer = input.Input[0].As<VulkanUniformBuffer>();
+					writeDescriptor.pBufferInfo = &buffer->GetDescriptorBufferInfo();
+					wd.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
+					break;
 				}
-				// ZN_CORE_INFO_TAG("Renderer", "RenderPass::Prepare ({}) - updating {} descriptors in set {} (frameIndex={})", m_Specification.DebugName, writeDescriptorsToUpdate.size(), set, frameIndex);
-				ZN_CORE_INFO_TAG("Renderer", "DescriptorSetManager::InvalidateAndUpdate ({}) - updating {} descriptors in set {} (frameIndex={})", m_Specification.DebugName, writeDescriptorsToUpdate.size(), set, frameIndex);
+				case RenderPassResourceType::UniformBufferSet:
+				{
+					Ref<UniformBufferSet> buffer = input.Input[0].As<UniformBufferSet>();
+					writeDescriptor.pBufferInfo = &buffer->Get(frameIndex).As<VulkanUniformBuffer>()->GetDescriptorBufferInfo();
+					wd.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
+					break;
+				}
+				case RenderPassResourceType::StorageBuffer:
+				{
+					Ref<VulkanStorageBuffer> buffer = input.Input[0].As<VulkanStorageBuffer>();
+					writeDescriptor.pBufferInfo = &buffer->GetDescriptorBufferInfo();
+					wd.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
+					break;
+				}
+				case RenderPassResourceType::StorageBufferSet:
+				{
+					Ref<StorageBufferSet> buffer = input.Input[0].As<StorageBufferSet>();
+					writeDescriptor.pBufferInfo = &buffer->Get(frameIndex).As<VulkanStorageBuffer>()->GetDescriptorBufferInfo();
+					wd.ResourceHandles[0] = writeDescriptor.pBufferInfo->buffer;
+					break;
+				}
+				case RenderPassResourceType::Texture2D:
+				{
+					if (input.Input.size() > 1)
+					{
+						imageInfoStorage.emplace_back(input.Input.size());
+						for (size_t i = 0; i < input.Input.size(); i++)
+						{
+							Ref<VulkanTexture2D> texture = input.Input[i].As<VulkanTexture2D>();
+							imageInfoStorage[imageInfoStorageIndex][i] = texture->GetDescriptorInfoVulkan();
+							if (i < wd.ResourceHandles.size())
+								wd.ResourceHandles[i] = imageInfoStorage[imageInfoStorageIndex][i].imageView;
+						}
+						writeDescriptor.pImageInfo = imageInfoStorage[imageInfoStorageIndex].data();
+						imageInfoStorageIndex++;
+					}
+					else
+					{
+						Ref<VulkanTexture2D> texture = input.Input[0].As<VulkanTexture2D>();
+						writeDescriptor.pImageInfo = &texture->GetDescriptorInfoVulkan();
+						wd.ResourceHandles[0] = writeDescriptor.pImageInfo->imageView;
+					}
+					break;
+				}
+				case RenderPassResourceType::TextureCube:
+				{
+					Ref<VulkanTextureCube> texture = input.Input[0].As<VulkanTextureCube>();
+					writeDescriptor.pImageInfo = &texture->GetDescriptorInfoVulkan();
+					wd.ResourceHandles[0] = writeDescriptor.pImageInfo->imageView;
+					break;
+				}
+				case RenderPassResourceType::Image2D:
+				{
+					Ref<RendererResource> image = input.Input[0].As<RendererResource>();
+					writeDescriptor.pImageInfo = (VkDescriptorImageInfo*)image->GetDescriptorInfo();
+					ZN_CORE_VERIFY(writeDescriptor.pImageInfo->imageView);
+					wd.ResourceHandles[0] = writeDescriptor.pImageInfo->imageView;
+					break;
+				}
+				}
+
+				writeDescriptorsToUpdate.emplace_back(writeDescriptor);
+			}
+
+			if (!writeDescriptorsToUpdate.empty())
+			{
 				VkDevice device = VulkanContext::GetCurrentDevice()->GetVulkanDevice();
 				vkUpdateDescriptorSets(device, (uint32_t)writeDescriptorsToUpdate.size(), writeDescriptorsToUpdate.data(), 0, nullptr);
 			}
@@ -789,7 +941,5 @@ namespace Zenith {
 		const RenderPassInputDeclaration& decl = InputDeclarations.at(nameStr);
 		return &decl;
 	}
-
-
 
 }

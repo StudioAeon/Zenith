@@ -24,19 +24,19 @@ struct FragmentOutput
 	float4 Color : SV_Target0;
 };
 
-cbuffer PushConstants : register(b0, space0)
+[[vk::push_constant]] struct PushConstants
 {
     float4x4 u_Transform;
-};
+} pc;
 
-cbuffer CameraUniformBuffer : register(b1, space0)
+[[vk::binding(0, 0)]] cbuffer CameraUniformBuffer : register(b0, space0)
 {
     float4x4 u_ViewProjection;
     float3 CameraPosition;
     float _Padding;
 };
 
-cbuffer MaterialUniformBuffer : register(b2, space0)
+[[vk::binding(1, 0)]] cbuffer MaterialUniformBuffer : register(b1, space0)
 {
     float3 u_AlbedoColor;
     float u_Metalness;
@@ -46,12 +46,12 @@ cbuffer MaterialUniformBuffer : register(b2, space0)
     float _Padding2;
 };
 
-Texture2D u_AlbedoTexture       : register(t0, space0);
-Texture2D u_NormalTexture       : register(t1, space0);
-Texture2D u_MetalnessTexture    : register(t2, space0);
-Texture2D u_RoughnessTexture    : register(t3, space0);
+[[vk::binding(2, 0)]] SamplerState u_Sampler : register(s0, space0);
 
-SamplerState u_Sampler          : register(s0, space0);
+[[vk::binding(3, 0)]] Texture2D u_AlbedoTexture : register(t0, space0);
+[[vk::binding(4, 0)]] Texture2D u_NormalTexture : register(t1, space0);
+[[vk::binding(5, 0)]] Texture2D u_MetalnessTexture : register(t2, space0);
+[[vk::binding(6, 0)]] Texture2D u_RoughnessTexture : register(t3, space0);
 
 #pragma stage : vert
 VertexOutput main(VertexInput input)
@@ -59,9 +59,9 @@ VertexOutput main(VertexInput input)
 	VertexOutput output;
 
 	float4 worldPos = float4(input.Position, 1.0);
-	output.Position = mul(u_ViewProjection, mul(u_Transform, worldPos));
+	output.Position = mul(u_ViewProjection, mul(pc.u_Transform, worldPos));
 
-	output.WorldPos = mul(u_Transform, worldPos).xyz;
+	output.WorldPos = mul(pc.u_Transform, worldPos).xyz;
 	output.Normal   = normalize(input.Normal);
 	output.Tangent  = normalize(input.Tangent);
 	output.Binormal = normalize(input.Binormal);

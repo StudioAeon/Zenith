@@ -22,6 +22,28 @@ struct DirectionalLight
 static const float PI = 3.14159265359;
 static const float MIN_ROUGHNESS = 0.04;
 
+float3x3 CreateTBN(float3 normal, float3 tangent, float3 bitangent)
+{
+    normal = normalize(normal);
+    tangent = normalize(tangent);
+    bitangent = normalize(bitangent);
+    
+    tangent = normalize(tangent - dot(tangent, normal) * normal);
+    
+    bitangent = cross(normal, tangent);
+    
+    return float3x3(tangent, bitangent, normal);
+}
+
+float3 SampleNormalMap(Texture2D normalTexture, SamplerState sampler, float2 uv, float3x3 TBN)
+{
+    float3 normalSample = normalTexture.Sample(sampler, uv).xyz;
+    
+    normalSample = normalSample * 2.0 - 1.0;
+    
+    return normalize(mul(normalSample, TBN));
+}
+
 float DistributionGGX(float3 N, float3 H, float roughness)
 {
     float a = roughness * roughness;
@@ -94,45 +116,23 @@ float3 CalculateSimplifiedPBR(float3 albedo, float metalness, float roughness, f
     float NdotV = saturate(dot(N, V));
     float NdotH = saturate(dot(N, H));
     float VdotH = saturate(dot(V, H));
-
-    float3 diffuse = albedo * (1.0 - metalness) * NdotL;
-
-    float alpha = roughness * roughness;
-    float alpha2 = alpha * alpha;
     
-    // Simplified D term
-    float denom = NdotH * NdotH * (alpha2 - 1.0) + 1.0;
-    float D = alpha2 / (PI * denom * denom);
-    
-    // Simplified G term
-    float k = alpha / 2.0;
-    float G1L = NdotL / (NdotL * (1.0 - k) + k);
-    float G1V = NdotV / (NdotV * (1.0 - k) + k);
-    float G = G1L * G1V;
-    
-    // Simplified F term
     float3 F0 = lerp(float3(0.04, 0.04, 0.04), albedo, metalness);
-    float3 F = F0 + (1.0 - F0) * pow(1.0 - VdotH, 5.0);
+    float3 F = FresnelSchlick(VdotH, F0);
     
-    float3 specular = (D * G * F) / (4.0 * NdotL * NdotV + 0.001);
+    float D = DistributionGGX(N, H, roughness);
     
-    return (diffuse + specular) * lightColor * NdotL;
-}
-
-float3 SampleNormalMap(Texture2D normalMap, SamplerState sampler, float2 uv, float3x3 TBN)
-{
-    float3 normalSample = normalMap.Sample(sampler, uv).rgb * 2.0 - 1.0;
-    return normalize(mul(normalSample, TBN));
-}
-
-// Create TBN matrix
-float3x3 CreateTBN(float3 normal, float3 tangent, float3 binormal)
-{
-    return float3x3(
-        normalize(tangent),
-        normalize(binormal),
-        normalize(normal)
-    );
+    float G = GeometrySmith(N, V, L, roughness);
+    
+    float3 numerator = D * G * F;
+    float denominator = 4.0 * NdotV * NdotL + 0.001;
+    float3 specular = numerator / denominator;
+    
+    float3 kS = F;
+    float3 kD = float3(1.0, 1.0, 1.0) - kS;
+    kD *= 1.0 - metalness;
+    
+    return (kD * albedo / PI + specular) * lightColor * NdotL;
 }
 
 #endif

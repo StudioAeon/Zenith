@@ -282,35 +282,6 @@ namespace Zenith {
 				ss << "Max(" << boundingBox.Max.x << ", " << boundingBox.Max.y << ", " << boundingBox.Max.z << ")";
 				m_MeshTestLog = ss.str();
 
-				ZN_INFO("Material loading verification:");
-				const auto& materials = m_TestMeshSource->GetMaterials();
-				for (size_t i = 0; i < materials.size(); i++)
-				{
-					AssetHandle handle = materials[i];
-					if (handle)
-					{
-						if (Ref<MaterialAsset> mat = AssetManager::GetAsset<MaterialAsset>(handle))
-						{
-							ZN_INFO("Material[{}]: Loaded successfully", i);
-							if (mat->GetAlbedoMap())
-								ZN_INFO("  - Has albedo texture");
-							if (mat->GetNormalMap())
-								ZN_INFO("  - Has normal map");
-							if (mat->GetMetalnessMap())
-								ZN_INFO("  - Has metallic map");
-							if (mat->GetRoughnessMap())
-								ZN_INFO("  - Has roughness map");
-						}
-						else
-						{
-							ZN_WARN("Material[{}]: Handle valid but asset not found", i);
-						}
-					}
-					else
-					{
-						ZN_WARN("Material[{}]: Null handle", i);
-					}
-				}
 			}
 			else
 			{

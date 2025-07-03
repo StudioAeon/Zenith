@@ -1,7 +1,3 @@
-//
-// Updated MeshRenderer.hpp for PBR Shaders
-//
-
 #pragma once
 
 #include "Zenith/Core/Base.hpp"
@@ -40,7 +36,6 @@ namespace Zenith {
 		void Initialize();
 		void Shutdown();
 
-		// Updated BeginScene to include camera position for PBR lighting
 		void BeginScene(const glm::mat4& viewProjection, const glm::vec3& cameraPosition = glm::vec3(0.0f));
 		void DrawMesh(Ref<MeshSource> meshSource, const glm::mat4& transform = glm::mat4(1.0f));
 		void EndScene();
@@ -64,7 +59,6 @@ namespace Zenith {
 		void TraverseNodeHierarchy(Ref<MeshSource> meshSource, Ref<StaticMesh> staticMesh,
 			const std::vector<MeshNode>& nodes, uint32_t nodeIndex, const glm::mat4& parentTransform);
 
-		// PBR-specific methods
 		void RenderSubmesh(Ref<MeshSource> meshSource, Ref<StaticMesh> staticMesh, 
 			uint32_t submeshIndex, const glm::mat4& transform);
 
@@ -79,7 +73,6 @@ namespace Zenith {
 		Ref<Framebuffer> m_Framebuffer;
 		Ref<RenderCommandBuffer> m_CommandBuffer;
 
-		// PBR uniform buffers
 		Ref<UniformBuffer> m_MaterialUniformBuffer;
 		Ref<UniformBuffer> m_CameraUniformBuffer;
 
@@ -88,6 +81,32 @@ namespace Zenith {
 		bool m_SceneActive = false;
 
 		std::unordered_map<MeshSource*, Ref<StaticMesh>> m_CachedStaticMeshes;
+
+		struct MaterialUniforms
+		{
+			glm::vec3 u_AlbedoColor;
+			float u_Metalness;
+			float u_Roughness;
+			float u_Emission;
+			int u_UseNormalMap;
+			float _Padding2;
+		};
+
+		struct CameraUniforms
+		{
+			glm::mat4 u_ViewProjection;
+			glm::vec3 CameraPosition;
+			float _Padding;
+		};
+
+		struct PBRPushConstants
+		{
+			glm::mat4 u_Transform;
+		};
+
+		static_assert(sizeof(MaterialUniforms) == 32, "MaterialUniforms size mismatch with HLSL");
+		static_assert(sizeof(CameraUniforms) == 80, "CameraUniforms size mismatch with HLSL");
+		static_assert(sizeof(PBRPushConstants) == 64, "PBRPushConstants size mismatch with HLSL");
 	};
 
 }

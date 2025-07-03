@@ -60,8 +60,6 @@ namespace Zenith {
 		AssetHandle ProcessGLTFTexture(const fastgltf::Asset& asset, size_t textureIndex, const std::string& semanticName);
 		AssetHandle LoadImageFromGLTF(const fastgltf::Asset& asset, size_t imageIndex, const std::string& debugName);
 
-		void DebugMaterialLoading(const Ref<MeshSource>& meshSource);
-
 		static glm::mat4 ToGLMMat4(const float* matrix);
 		static glm::vec3 ToGLMVec3(const float* vec);
 		static glm::quat ToGLMQuat(const float* quat);
