@@ -41,7 +41,6 @@ namespace Zenith {
 		if (extension == ".fbx") format = MeshFormat::FBX;
 		else if (extension == ".gltf") format = MeshFormat::GLTF;
 		else if (extension == ".glb") format = MeshFormat::GLB;
-		else if (extension == ".obj") format = MeshFormat::OBJ;
 
 		return format;
 	}
@@ -86,23 +85,14 @@ namespace Zenith {
 			case MeshFormat::GLB:
 				result = ImportGLTF();
 				break;
-			case MeshFormat::OBJ:
-				result = ImportOBJ();
-				break;
 			default:
 				ZN_CORE_ERROR_TAG("Mesh", "Unsupported mesh format: {0}", m_Path.string());
 				return nullptr;
 		}
 
-		/*if (result)
-		{
-			DebugMaterialLoading(result);
-		}*/
-
 		return result;
 	}
 
-	// UPDATED: ImportFBX function with decoupled buffer creation
 	Ref<MeshSource> MeshImporter::ImportFBX()
 	{
 		ufbx_load_opts opts = {};
@@ -248,7 +238,6 @@ namespace Zenith {
 		return meshSource;
 	}
 
-	// UPDATED: ImportGLTF function with decoupled buffer creation
 	Ref<MeshSource> MeshImporter::ImportGLTF()
 	{
 		fastgltf::Parser parser;
@@ -529,168 +518,6 @@ namespace Zenith {
 		return meshSource;
 	}
 
-	// UPDATED: ImportOBJ function with decoupled buffer creation
-	Ref<MeshSource> MeshImporter::ImportOBJ()
-	{
-		fastObjMesh* mesh = fast_obj_read(m_Path.string().c_str());
-		if (!mesh)
-		{
-			ZN_CORE_ERROR_TAG("Mesh", "Failed to load OBJ file: {0}", m_Path.string());
-			return nullptr;
-		}
-
-		Ref<MeshSource> meshSource = Ref<MeshSource>::Create();
-		meshSource->m_FilePath = m_Path.string();
-
-		meshSource->m_BoundingBox.Min = { FLT_MAX, FLT_MAX, FLT_MAX };
-		meshSource->m_BoundingBox.Max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
-
-		uint32_t vertexCount = 0;
-		uint32_t indexCount = 0;
-
-		// Map to store unique vertices and their final index
-		std::unordered_map<VertexKey, uint32_t, VertexKeyHash> uniqueVertices;
-
-		for (uint32_t groupIndex = 0; groupIndex < mesh->group_count; groupIndex++)
-		{
-			const fastObjGroup& group = mesh->groups[groupIndex];
-
-			Submesh& submesh = meshSource->m_Submeshes.emplace_back();
-			submesh.BaseVertex = vertexCount;
-			submesh.BaseIndex = indexCount;
-			submesh.MaterialIndex = 0;
-			submesh.MeshName = group.name ? group.name : "Group_" + std::to_string(groupIndex);
-
-			uint32_t groupVertexCount = 0;
-
-			ZN_MESH_LOG("Group {} '{}' has {} faces", groupIndex, submesh.MeshName, group.face_count);
-
-			std::vector<uint32_t> submeshIndices;
-
-			uint32_t groupStartTriangle = group.face_offset;
-			uint32_t groupTriangleCount = group.face_count;
-
-			ZN_MESH_LOG("Group {} triangle range: start={}, count={}", groupIndex, groupStartTriangle, groupTriangleCount);
-
-			for (uint32_t localTriangleIndex = 0; localTriangleIndex < groupTriangleCount; localTriangleIndex++)
-			{
-				uint32_t globalTriangleIndex = groupStartTriangle + localTriangleIndex;
-
-				std::array<uint32_t, 3> triangleIndices;
-
-				for (int i = 0; i < 3; i++)
-				{
-					uint32_t indexPos = globalTriangleIndex * 3 + i;
-					if (indexPos >= mesh->index_count) break;
-
-					fastObjIndex objIndex = mesh->indices[indexPos];
-
-					ZN_MESH_LOG("VertexKey: p={}, n={}, t={}", objIndex.p, objIndex.n, objIndex.t);
-
-					Vertex vertex;
-
-					if (objIndex.p > 0 && objIndex.p <= mesh->position_count)
-					{
-						vertex.Position = {
-							mesh->positions[(objIndex.p - 1) * 3 + 0],
-							mesh->positions[(objIndex.p - 1) * 3 + 1],
-							mesh->positions[(objIndex.p - 1) * 3 + 2]
-						};
-					}
-
-					if (objIndex.n > 0 && objIndex.n <= mesh->normal_count)
-					{
-						vertex.Normal = {
-							mesh->normals[(objIndex.n - 1) * 3 + 0],
-							mesh->normals[(objIndex.n - 1) * 3 + 1],
-							mesh->normals[(objIndex.n - 1) * 3 + 2]
-						};
-					}
-
-					if (objIndex.t > 0 && objIndex.t <= mesh->texcoord_count)
-					{
-						vertex.Texcoord = {
-							mesh->texcoords[(objIndex.t - 1) * 2 + 0],
-							1.0f - mesh->texcoords[(objIndex.t - 1) * 2 + 1]
-						};
-					}
-
-					ZN_MESH_LOG("New Vertex: Pos=({}, {}, {}), Normal=({}, {}, {}), Tex=({}, {})",
-						vertex.Position.x, vertex.Position.y, vertex.Position.z,
-						vertex.Normal.x, vertex.Normal.y, vertex.Normal.z,
-						vertex.Texcoord.x, vertex.Texcoord.y);
-
-					meshSource->m_Vertices.push_back(vertex);
-					triangleIndices[i] = static_cast<uint32_t>(meshSource->m_Vertices.size()) - 1;
-					groupVertexCount++;
-
-					meshSource->m_BoundingBox.Min = glm::min(meshSource->m_BoundingBox.Min, vertex.Position);
-					meshSource->m_BoundingBox.Max = glm::max(meshSource->m_BoundingBox.Max, vertex.Position);
-				}
-
-				uint32_t i0 = triangleIndices[0];
-				uint32_t i1 = triangleIndices[1];
-				uint32_t i2 = triangleIndices[2];
-
-				if (i0 != i1 && i1 != i2 && i0 != i2)
-				{
-					submeshIndices.push_back(i0);
-					submeshIndices.push_back(i1);
-					submeshIndices.push_back(i2);
-				}
-				else
-				{
-					ZN_MESH_LOG("Skipping degenerate triangle: {}, {}, {}", i0, i1, i2);
-				}
-			}
-
-			if (!ValidateIndices(submeshIndices, static_cast<uint32_t>(meshSource->m_Vertices.size()), submesh.MeshName))
-			{
-				ZN_MESH_ERROR("Skipping submesh '{}' due to invalid indices", submesh.MeshName);
-				meshSource->m_Submeshes.pop_back();
-				continue;
-			}
-
-			meshSource->m_Indices.insert(meshSource->m_Indices.end(), submeshIndices.begin(), submeshIndices.end());
-
-			submesh.VertexCount = static_cast<uint32_t>(meshSource->m_Vertices.size()) - submesh.BaseVertex;
-			submesh.IndexCount = static_cast<uint32_t>(submeshIndices.size());
-
-			vertexCount += submesh.VertexCount;
-			indexCount += submesh.IndexCount;
-
-			submesh.BoundingBox.Min = { FLT_MAX, FLT_MAX, FLT_MAX };
-			submesh.BoundingBox.Max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
-
-			for (uint32_t vi = submesh.BaseVertex; vi < submesh.BaseVertex + submesh.VertexCount; vi++)
-			{
-				const auto& pos = meshSource->m_Vertices[vi].Position;
-				submesh.BoundingBox.Min = glm::min(submesh.BoundingBox.Min, pos);
-				submesh.BoundingBox.Max = glm::max(submesh.BoundingBox.Max, pos);
-			}
-
-			ZN_MESH_LOG("OBJ Submesh '{}': {} vertices, {} indices", submesh.MeshName, submesh.VertexCount, submesh.IndexCount);
-		}
-
-		ProcessMaterials(meshSource, mesh, MeshFormat::OBJ);
-
-		CreateMeshBuffers(meshSource);
-
-		ZN_MESH_LOG("OBJ Import complete: {} vertices, {} indices, {} submeshes",
-			meshSource->m_Vertices.size(), meshSource->m_Indices.size(), meshSource->m_Submeshes.size());
-
-		const auto& bb = meshSource->m_BoundingBox;
-		ZN_MESH_LOG("Mesh '{}' Bounds:\n  Min: ({}, {}, {})\n  Max: ({}, {}, {})\n  Size: ({}, {}, {})",
-			meshSource->m_FilePath,
-			bb.Min.x, bb.Min.y, bb.Min.z,
-			bb.Max.x, bb.Max.y, bb.Max.z,
-			bb.Max.x - bb.Min.x, bb.Max.y - bb.Min.y, bb.Max.z - bb.Min.z
-		);
-
-		fast_obj_destroy(mesh);
-		return meshSource;
-	}
-
 	void MeshImporter::ProcessMaterials(Ref<MeshSource> meshSource, void* scene, MeshFormat format)
 	{
 		switch (format)
@@ -728,17 +555,6 @@ namespace Zenith {
 				}
 				break;
 			}
-
-			case MeshFormat::OBJ:
-			{
-				fastObjMesh* objMesh = static_cast<fastObjMesh*>(scene);
-				meshSource->m_Materials.resize(objMesh->material_count);
-
-				for (uint32_t i = 0; i < objMesh->material_count; i++)
-					meshSource->m_Materials[i] = AssetHandle{ 0 };
-				break;
-			}
-
 			case MeshFormat::Unknown:
 			default:
 				ZN_CORE_WARN_TAG("Mesh", "Unknown mesh format for material processing");

@@ -2,7 +2,7 @@
 
 #include "Zenith/Renderer/Mesh.hpp"
 #include "Zenith/Renderer/MaterialAsset.hpp"
-#include "Zenith/Asset/TextureImporter.hpp" // UPDATED: Now includes TextureData
+#include "Zenith/Asset/TextureImporter.hpp"
 
 #include <filesystem>
 #include <functional>
@@ -32,8 +32,7 @@ namespace Zenith {
 		Unknown,
 		FBX,
 		GLTF,
-		GLB,
-		OBJ
+		GLB
 	};
 
 	class MeshImporter
@@ -48,7 +47,6 @@ namespace Zenith {
 
 		Ref<MeshSource> ImportFBX();
 		Ref<MeshSource> ImportGLTF();
-		Ref<MeshSource> ImportOBJ();
 
 		void ProcessNode(Ref<MeshSource> meshSource, void* node, uint32_t nodeIndex,
 			const glm::mat4& parentTransform = glm::mat4(1.0f), uint32_t level = 0);
