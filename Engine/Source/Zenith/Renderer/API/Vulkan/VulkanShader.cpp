@@ -534,26 +534,6 @@ namespace Zenith {
 	void VulkanShader::SetReflectionData(const ReflectionData& reflectionData)
 	{
 		m_ReflectionData = reflectionData;
-
-		auto it = m_ReflectionData.ConstantBuffers.find("MaterialUniformBuffer");
-		if (it != m_ReflectionData.ConstantBuffers.end())
-		{
-			auto& matBuffer = it->second;
-			ZN_CORE_INFO_TAG("Renderer", "Uniforms in MaterialUniformBuffer:");
-			for (auto& [name, uniform] : matBuffer.Uniforms)
-				ZN_CORE_INFO_TAG("Renderer", " - {}", name);
-
-			// Now check for u_UseNormalMap explicitly
-			if (matBuffer.Uniforms.find("u_UseNormalMap") == matBuffer.Uniforms.end())
-			{
-				ZN_CORE_ERROR_TAG("Renderer", "Uniform 'u_UseNormalMap' missing!");
-				// Handle error...
-			}
-		}
-		else
-		{
-			ZN_CORE_WARN_TAG("Renderer", "MaterialUniformBuffer not found!");
-		}
 	}
 
 }

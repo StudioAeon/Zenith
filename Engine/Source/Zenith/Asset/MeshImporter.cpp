@@ -500,7 +500,7 @@ namespace Zenith {
 			ZN_MESH_LOG("Found {} root nodes", rootCount);
 		}
 
-		ProcessMaterials(meshSource, &asset, MeshFormat::GLTF);
+		//ProcessMaterials(meshSource, &asset, MeshFormat::GLTF);
 
 		CreateMeshBuffers(meshSource);
 

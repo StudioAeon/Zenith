@@ -14,7 +14,7 @@ enum VkShaderStageFlagBits;
 
 namespace Zenith {
 	namespace PreprocessUtils {
-		template<bool RemoveHeaderGuard = true>
+		template<bool RemoveHeaderGuard = false>
 		bool ContainsHeaderGuard(std::string& header)
 		{
 			size_t pos = header.find('#');
@@ -125,11 +125,14 @@ namespace Zenith {
 	class ShaderPreprocessor
 	{
 	public:
+		template<ShaderUtils::SourceLang Lang>
 		static VkShaderStageFlagBits PreprocessHeader(std::string& contents, bool& isGuarded, std::unordered_set<std::string>& specialMacros, const std::unordered_set<IncludeData>& includeData, const std::filesystem::path& fullPath);
+		template<ShaderUtils::SourceLang Lang>
 		static std::map<VkShaderStageFlagBits, std::string> PreprocessShader(const std::string& source, std::unordered_set<std::string>& specialMacros);
 	};
 
-	inline VkShaderStageFlagBits ShaderPreprocessor::PreprocessHeader(std::string& contents, bool& isGuarded, std::unordered_set<std::string>& specialMacros, const std::unordered_set<IncludeData>& includeData, const std::filesystem::path& fullPath)
+	template<ShaderUtils::SourceLang Lang>
+	VkShaderStageFlagBits ShaderPreprocessor::PreprocessHeader(std::string& contents, bool& isGuarded, std::unordered_set<std::string>& specialMacros, const std::unordered_set<IncludeData>& includeData, const std::filesystem::path& fullPath)
 	{
 		std::stringstream sourceStream;
 		PreprocessUtils::CopyWithoutComments(contents.begin(), contents.end(), std::ostream_iterator<char>(sourceStream));
@@ -137,8 +140,8 @@ namespace Zenith {
 
 		VkShaderStageFlagBits stagesInHeader = {};
 
-		// Header guards are handled differently in HLSL
-		isGuarded = PreprocessUtils::ContainsHeaderGuard<true>(contents);
+		//Removes header guard in GLSL only.
+		isGuarded = PreprocessUtils::ContainsHeaderGuard<Lang == ShaderUtils::SourceLang::GLSL>(contents);
 
 		uint32_t stageCount = 0;
 		size_t startOfShaderStage = contents.find('#', 0);
@@ -154,9 +157,11 @@ namespace Zenith {
 			if (tokens[index] == "#")
 			{
 				++index;
+				// Pragmas
 				if (tokens[index] == "pragma")
 				{
 					++index;
+					// Stages
 					if (tokens[index] == "stage")
 					{
 						ZN_CORE_VERIFY(tokens[++index] == ":", "Stage pragma is invalid");
@@ -165,6 +170,7 @@ namespace Zenith {
 						const std::string_view stage(tokens[++index]);
 						ZN_CORE_VERIFY(stage == "vert" || stage == "frag" || stage == "comp", "Invalid shader type specified");
 						VkShaderStageFlagBits foundStage = ShaderUtils::StageToVKShaderStage(stage);
+
 
 						const bool alreadyIncluded = std::find_if(includeData.begin(), includeData.end(), [fullPath, foundStage](const IncludeData& data)
 						{
@@ -176,7 +182,7 @@ namespace Zenith {
 						else if (!isGuarded && alreadyIncluded)
 							ZN_CORE_WARN("\"{}\" Header does not contain a header guard (#pragma once).", fullPath);
 
-						// Add #endif for HLSL
+						// Add #endif
 						if (stageCount == 0)
 							contents.replace(startOfShaderStage, endOfLine - startOfShaderStage, std::format("#ifdef {}\r\n", ShaderUtils::StageToShaderMacro(stage)));
 						else // Add stage macro instead of stage pragma, both #endif and #ifdef must be in the same line, hence no '\n'
@@ -194,7 +200,7 @@ namespace Zenith {
 						specialMacros.emplace(tokens[index]);
 					}
 				}
-				else if (tokens[index] == "if" || tokens[index] == "define")
+				else if (tokens[index] == "if" || tokens[index] == "define") // Consider "#if defined()" too?
 				{
 					++index;
 					for (size_t i = index; i < tokens.size(); ++i)
@@ -223,10 +229,12 @@ namespace Zenith {
 				ZN_CORE_WARN("\"{}\" Header does not contain a header guard (#pragma once)", fullPath);
 		}
 
+
 		return stagesInHeader;
 	}
 
-	inline std::map<VkShaderStageFlagBits, std::string> ShaderPreprocessor::PreprocessShader(const std::string& source, std::unordered_set<std::string>& specialMacros)
+	template <ShaderUtils::SourceLang Lang>
+	std::map<VkShaderStageFlagBits, std::string> ShaderPreprocessor::PreprocessShader(const std::string& source, std::unordered_set<std::string>& specialMacros)
 	{
 		std::stringstream sourceStream;
 		PreprocessUtils::CopyWithoutComments(source.begin(), source.end(), std::ostream_iterator<char>(sourceStream));
@@ -236,45 +244,53 @@ namespace Zenith {
 		std::vector<std::pair<VkShaderStageFlagBits, size_t>> stagePositions;
 		ZN_CORE_ASSERT(newSource.size(), "Shader is empty!");
 
+		size_t startOfStage = 0;
 		size_t pos = newSource.find('#');
+
+		//Check first #version
+		if constexpr (Lang == ShaderUtils::SourceLang::GLSL)
+		{
+			const size_t endOfLine = newSource.find_first_of("\r\n", pos) + 1;
+			const std::vector<std::string> tokens = Utils::SplitStringAndKeepDelims(newSource.substr(pos, endOfLine - pos));
+			ZN_CORE_VERIFY(tokens.size() >= 3 && tokens[1] == "version", "Invalid #version encountered or #version is NOT encounted first.");
+			pos = newSource.find('#', pos + 1);
+		}
 
 		while (pos != std::string::npos)
 		{
+
 			const size_t endOfLine = newSource.find_first_of("\r\n", pos) + 1;
 			std::vector<std::string> tokens = Utils::SplitStringAndKeepDelims(newSource.substr(pos, endOfLine - pos));
 
 			size_t index = 1; // Skip #
 
-			if (index < tokens.size() && tokens[index] == "pragma") // Parse stage. example: #pragma stage : vert
+
+			if (tokens[index] == "pragma") // Parse stage. example: #pragma stage : vert
 			{
 				++index;
-				if (index < tokens.size() && tokens[index] == "stage")
+				if (tokens[index] == "stage")
 				{
 					++index;
 					// Jump over ':'
-					ZN_CORE_VERIFY(index < tokens.size() && tokens[index] == ":", "Stage pragma is invalid");
+					ZN_CORE_VERIFY(tokens[index] == ":", "Stage pragma is invalid");
 					++index;
 
-					if (index < tokens.size())
-					{
-						const std::string_view stage = tokens[index];
-						ZN_CORE_VERIFY(stage == "vert" || stage == "frag" || stage == "comp", "Invalid shader type specified");
-						auto shaderStage = ShaderUtils::ShaderTypeFromString(stage);
+					const std::string_view stage = tokens[index];
+					ZN_CORE_VERIFY(stage == "vert" || stage == "frag" || stage == "comp", "Invalid shader type specified");
+					auto shaderStage = ShaderUtils::ShaderTypeFromString(stage);
 
-						// Use the position of this pragma as the start of the stage
-						stagePositions.emplace_back(shaderStage, pos);
-					}
+					stagePositions.emplace_back(shaderStage, startOfStage);
 				}
 			}
-			else if (index < tokens.size() && tokens[index] == "ifdef")
+			else if (tokens[index] == "ifdef")
 			{
 				++index;
-				if (index < tokens.size() && tokens[index].rfind("__ZN_", 0) == 0) // Zenith special macros start with "__ZN_"
+				if (tokens[index].rfind("__ZN_", 0) == 0) // Zenith special macros start with "__ZN_"
 				{
 					specialMacros.emplace(tokens[index]);
 				}
 			}
-			else if (index < tokens.size() && (tokens[index] == "if" || tokens[index] == "define"))
+			else if (tokens[index] == "if" || tokens[index] == "define")
 			{
 				++index;
 				for (size_t i = index; i < tokens.size(); ++i)
@@ -285,42 +301,49 @@ namespace Zenith {
 					}
 				}
 			}
+			else if constexpr (Lang == ShaderUtils::SourceLang::GLSL)
+			{
+				if (tokens[index] == "version")
+				{
+					++index;
+					startOfStage = pos;
+				}
+			}
 
 			pos = newSource.find('#', pos + 1);
 		}
 
 		ZN_CORE_VERIFY(stagePositions.size(), "Could not pre-process shader! There are no known stages defined in file.");
-
-		// Extract common section (everything before first pragma)
-		std::string commonSection;
-		if (!stagePositions.empty())
+		auto& [firstStage, firstStagePos] = stagePositions[0];
+		if (stagePositions.size() > 1)
 		{
-			commonSection = newSource.substr(0, stagePositions[0].second);
+			//Get first stage
+			const std::string firstStageStr = newSource.substr(0, stagePositions[1].second);
+			size_t lineCount = std::count(firstStageStr.begin(), firstStageStr.end(), '\n') + 1;
+			shaderSources[firstStage] = firstStageStr;
+
+
+			//Get stages in the middle
+			for (size_t i = 1; i < stagePositions.size() - 1; ++i)
+			{
+				auto& [stage, stagePos] = stagePositions[i];
+				std::string stageStr = newSource.substr(stagePos, stagePositions[i + 1].second - stagePos);
+				const size_t secondLinePos = stageStr.find_first_of('\n', 1) + 1;
+				stageStr.insert(secondLinePos, std::format("#line {}\n", lineCount));
+				shaderSources[stage] = stageStr;
+				lineCount += std::count(stageStr.begin(), stageStr.end(), '\n') + 1;
+			}
+
+			//Get last stage
+			auto& [stage, stagePos] = stagePositions[stagePositions.size() - 1];
+			std::string lastStageStr = newSource.substr(stagePos);
+			const size_t secondLinePos = lastStageStr.find_first_of('\n', 1) + 1;
+			lastStageStr.insert(secondLinePos, std::format("#line {}\n", lineCount + 1));
+			shaderSources[stage] = lastStageStr;
 		}
-
-		for (size_t i = 0; i < stagePositions.size(); ++i)
+		else
 		{
-			auto& [stage, stagePos] = stagePositions[i];
-
-			std::string stageSpecificSource;
-			if (i == stagePositions.size() - 1)
-			{
-				stageSpecificSource = newSource.substr(stagePos);
-			}
-			else
-			{
-				size_t nextStagePos = stagePositions[i + 1].second;
-				stageSpecificSource = newSource.substr(stagePos, nextStagePos - stagePos);
-			}
-
-			size_t firstNewline = stageSpecificSource.find('\n');
-			if (firstNewline != std::string::npos)
-			{
-				stageSpecificSource = stageSpecificSource.substr(firstNewline + 1);
-			}
-
-			std::string fullStageSource = commonSection + stageSpecificSource;
-			shaderSources[stage] = fullStageSource;
+			shaderSources[firstStage] = newSource;
 		}
 
 		return shaderSources;

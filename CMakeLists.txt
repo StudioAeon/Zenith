@@ -63,38 +63,15 @@ endif()
 # ==== CMake Utilities ====
 include(BuildSystem/CMake/CMakeUtils/znUtilsTarget.cmake)
 
-find_package(Vulkan REQUIRED)
+# ==== Vulkan ====
+find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
+
+message(STATUS "Found Vulkan: ${Vulkan_VERSION}")
+message(STATUS "Using Vulkan includes: ${Vulkan_INCLUDE_DIRS}")
 
 # ==== Distribution Options ====
 option(ZENITH_TRACK_MEMORY "Enable memory tracking" ON)
 option(ZENITH_TESTS "Build Zenith tests" ON)
-
-# ==== Coverage Support (GCC/Clang only) ====
-option(ZENITH_ENABLE_COVERAGE "Enable code coverage for GCC/Clang" OFF)
-
-# Create coverage flags variables
-set(ZENITH_COVERAGE_COMPILE_FLAGS "")
-set(ZENITH_COVERAGE_LINK_FLAGS "")
-
-if(ZENITH_ENABLE_COVERAGE)
-	message(STATUS "Code coverage enabled for compatible compilers")
-
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-		set(ZENITH_COVERAGE_COMPILE_FLAGS "--coverage;-fprofile-arcs;-ftest-coverage")
-		set(ZENITH_COVERAGE_LINK_FLAGS "--coverage")
-		message(STATUS "Prepared GCC coverage flags")
-	endif()
-
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		set(ZENITH_COVERAGE_COMPILE_FLAGS "-fprofile-instr-generate;-fcoverage-mapping")
-		set(ZENITH_COVERAGE_LINK_FLAGS "-fprofile-instr-generate")
-		message(STATUS "Prepared Clang coverage flags")
-	endif()
-
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-		message(WARNING "Coverage is not configured for MSVC. Use OpenCppCoverage or similar tools.")
-	endif()
-endif()
 
 add_compile_options(
 		$<$<CXX_COMPILER_ID:MSVC>:/Gy>

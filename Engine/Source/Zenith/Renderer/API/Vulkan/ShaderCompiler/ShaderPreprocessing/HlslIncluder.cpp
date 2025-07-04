@@ -35,7 +35,7 @@ namespace Zenith
 			sourceHash = Hash::GenerateFNVHash(source.c_str());
 
 			// Can clear "source" in case it has already been included in this stage.
-			stages = ShaderPreprocessor::PreprocessHeader(source, isGuarded, m_ParsedSpecialMacros, m_includeData, filePath);
+			stages = ShaderPreprocessor::PreprocessHeader<ShaderUtils::SourceLang::HLSL>(source, isGuarded, m_ParsedSpecialMacros, m_includeData, filePath);
 		}
 		else if (isGuarded)
 		{

@@ -28,6 +28,7 @@ set(VULKAN_SOURCES
 		ShaderCompiler/VulkanShaderCompiler.cpp
 
 		ShaderCompiler/ShaderPreprocessing/HlslIncluder.cpp
+		ShaderCompiler/ShaderPreprocessing/GlslIncluder.cpp
 		ShaderCompiler/ShaderPreprocessing/ShaderPreprocessor.cpp
 )
 
@@ -63,6 +64,8 @@ set(VULKAN_HEADERS
 		ShaderCompiler/VulkanShaderCompiler.hpp
 
 		ShaderCompiler/ShaderPreprocessing/HlslIncluder.hpp
+		ShaderCompiler/ShaderPreprocessing/GlslIncluder.hpp
+		ShaderCompiler/ShaderPreprocessing/IncludePathManager.hpp
 		ShaderCompiler/ShaderPreprocessing/ShaderPreprocessor.hpp
 )
 

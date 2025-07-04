@@ -1,8 +1,8 @@
 #pragma once
 
 #include <vulkan/vulkan_core.h>
+#include <shaderc/shaderc.hpp>
 #include "Zenith/Renderer/Shader.hpp"
-
 
 namespace Zenith {
 	namespace ShaderUtils {
@@ -57,6 +57,7 @@ namespace Zenith {
 
 		inline static SourceLang ShaderLangFromExtension(const std::string_view type)
 		{
+			if (type == ".glsl")	return SourceLang::GLSL;
 			if (type == ".hlsl")	return SourceLang::HLSL;
 
 			ZN_CORE_ASSERT(false);
@@ -64,16 +65,16 @@ namespace Zenith {
 			return SourceLang::NONE;
 		}
 
-		inline static const char* ShaderStageToDXCProfile(const VkShaderStageFlagBits stage)
+		inline static shaderc_shader_kind ShaderStageToShaderC(const VkShaderStageFlagBits stage)
 		{
 			switch (stage)
 			{
-				case VK_SHADER_STAGE_VERTEX_BIT:    return "vs_6_0";
-				case VK_SHADER_STAGE_FRAGMENT_BIT:  return "ps_6_0";
-				case VK_SHADER_STAGE_COMPUTE_BIT:   return "cs_6_0";
+				case VK_SHADER_STAGE_VERTEX_BIT:    return shaderc_vertex_shader;
+				case VK_SHADER_STAGE_FRAGMENT_BIT:  return shaderc_fragment_shader;
+				case VK_SHADER_STAGE_COMPUTE_BIT:   return shaderc_compute_shader;
 			}
 			ZN_CORE_ASSERT(false);
-			return "";
+			return {};
 		}
 
 		inline static const char* ShaderStageCachedFileExtension(const VkShaderStageFlagBits stage, bool debug)

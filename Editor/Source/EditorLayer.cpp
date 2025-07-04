@@ -327,9 +327,8 @@ namespace Zenith {
 			m_MeshTransform = glm::scale(glm::mat4(1.0f), glm::vec3(2.0f));
 
 			glm::mat4 viewProjection = m_EditorCamera->GetUnReversedViewProjection();
-			glm::vec3 cameraPosition = m_EditorCamera->GetPosition();
 
-			m_MeshRenderer->BeginScene(viewProjection, cameraPosition);
+			m_MeshRenderer->BeginScene(viewProjection);
 			m_MeshRenderer->DrawMesh(m_TestMeshSource, m_MeshTransform);
 			m_MeshRenderer->EndScene();
 		}

@@ -65,6 +65,7 @@ target_link_libraries(Zenith
 
 		# ==== Graphics & Rendering ====
 		Vulkan::Vulkan
+		Vulkan::shaderc_combined
 		VulkanMemoryAllocator
 		imgui
 		Tracy::TracyClient

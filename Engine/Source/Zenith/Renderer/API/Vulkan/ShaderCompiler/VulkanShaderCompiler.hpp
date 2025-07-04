@@ -27,7 +27,6 @@ namespace Zenith {
 		inline static IDxcCompiler3* Compiler = nullptr;
 		inline static IDxcUtils* Utils = nullptr;
 	};
-
 	struct StageData
 	{
 		std::unordered_set<IncludeData> Headers;
@@ -52,9 +51,10 @@ namespace Zenith {
 
 		static Ref<VulkanShader> Compile(const std::filesystem::path& shaderSourcePath, bool forceCompile = false, bool disableOptimization = false);
 		static bool TryRecompile(Ref<VulkanShader> shader);
-
 	private:
 		std::map<VkShaderStageFlagBits, std::string> PreProcess(const std::string& source);
+		std::map<VkShaderStageFlagBits, std::string> PreProcessGLSL(const std::string& source);
+		std::map<VkShaderStageFlagBits, std::string> PreProcessHLSL(const std::string& source);
 
 		struct CompilationOptions
 		{
@@ -74,13 +74,7 @@ namespace Zenith {
 		void SerializeReflectionData(StreamWriter* serializer);
 
 		void ReflectAllShaderStages(const std::map<VkShaderStageFlagBits, std::vector<uint32_t>>& shaderData);
-		void LogReflectionUniforms();
 		void Reflect(VkShaderStageFlagBits shaderStage, const std::vector<uint32_t>& shaderData);
-
-		void ProcessDescriptorBinding(const SpvReflectDescriptorBinding* binding, VkShaderStageFlagBits shaderStage);
-		void ProcessPushConstant(const SpvReflectBlockVariable* pushConstant, VkShaderStageFlagBits shaderStage);
-		ShaderUniformType SPIRVTypeToShaderUniformType(const SpvReflectTypeDescription* typeDesc);
-
 	private:
 		std::filesystem::path m_ShaderSourcePath;
 		bool m_DisableOptimization = false;
@@ -94,12 +88,12 @@ namespace Zenith {
 		// Names of macros that are parsed from shader.
 		// These are used to reliably get informattion about what shaders need what macros
 		std::unordered_set<std::string> m_AcknowledgedMacros;
+		ShaderUtils::SourceLang m_Language;
 
 		std::map<VkShaderStageFlagBits, StageData> m_StagesMetadata;
 
 		friend class VulkanShader;
 		friend class VulkanShaderCache;
-		friend class ShaderPack;
 	};
 
 }

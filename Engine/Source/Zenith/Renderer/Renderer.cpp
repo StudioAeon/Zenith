@@ -143,9 +143,8 @@ namespace Zenith {
 
 		s_Data->m_ShaderLibrary = Ref<ShaderLibrary>::Create();
 
-		//Renderer::GetShaderLibrary()->Load("Resources/Shaders/BasicMesh.hlsl");
-		Renderer::GetShaderLibrary()->Load("Resources/Shaders/PBR_StaticMesh.hlsl");
-		Renderer::GetShaderLibrary()->Load("Resources/Shaders/PBR_TransparentMesh.hlsl");
+		Renderer::GetShaderLibrary()->Load("Resources/Shaders/BasicMesh.glsl");
+		Renderer::GetShaderLibrary()->Load("Resources/Shaders/Color.glsl");
 
 		Renderer::GetApplication()->GetRenderThread().Pump();
 

@@ -19,7 +19,7 @@ namespace Zenith
 	namespace ShaderUtils {
 		enum class SourceLang
 		{
-			NONE, HLSL
+			NONE, GLSL, HLSL,
 		};
 	}
 
@@ -132,8 +132,6 @@ namespace Zenith
 			return "Resources/Shaders/";
 		}
 	};
-
-	class ShaderPack;
 
 	// This should be eventually handled by the Asset Manager
 	class ShaderLibrary : public RefCounted

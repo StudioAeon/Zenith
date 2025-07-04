@@ -98,7 +98,6 @@ namespace Zenith {
 		std::unordered_map<uint32_t, std::vector<VkDescriptorPoolSize>> m_TypeCounts;
 	private:
 		friend class ShaderCache;
-		friend class ShaderPack;
 		friend class VulkanShaderCompiler;
 	};
 
