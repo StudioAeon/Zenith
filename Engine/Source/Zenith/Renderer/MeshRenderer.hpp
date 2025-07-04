@@ -34,7 +34,7 @@ namespace Zenith {
 		void Initialize();
 		void Shutdown();
 
-		void BeginScene(const glm::mat4& viewProjection);
+		void BeginScene(const glm::mat4& viewProjection, const glm::vec3& cameraPosition);
 		void DrawMesh(Ref<MeshSource> meshSource, const glm::mat4& transform = glm::mat4(1.0f));
 		void EndScene();
 
@@ -66,6 +66,7 @@ namespace Zenith {
 		Ref<VertexBuffer> m_TransformBuffer;
 
 		glm::mat4 m_ViewProjectionMatrix;
+		glm::vec3 m_CameraPosition;
 		bool m_SceneActive = false;
 
 		std::unordered_map<MeshSource*, Ref<StaticMesh>> m_CachedStaticMeshes;

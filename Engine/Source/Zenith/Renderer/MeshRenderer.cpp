@@ -6,6 +6,8 @@
 #include "Zenith/Core/Application.hpp"
 #include "Zenith/Asset/AssetManager.hpp"
 
+#include <glm/gtc/matrix_inverse.hpp>
+
 namespace Zenith {
 
 	MeshRenderer::MeshRenderer()
@@ -26,7 +28,7 @@ namespace Zenith {
 		fbSpec.Width = 1920;
 		fbSpec.Height = 1080;
 		fbSpec.ClearColor = { 0.1f, 0.1f, 0.1f, 1.0f };
-		fbSpec.DepthClearValue = 0.0f;
+		fbSpec.DepthClearValue = 1.0f;
 		fbSpec.ClearColorOnLoad = true;
 		fbSpec.ClearDepthOnLoad = true;
 		fbSpec.DebugName = "MeshRenderer-SwapChain";
@@ -78,7 +80,7 @@ namespace Zenith {
 		pipelineSpec.DepthTest = true;
 		pipelineSpec.DepthWrite = true;
 		pipelineSpec.Wireframe = false;
-		pipelineSpec.DepthOperator = DepthCompareOperator::GreaterOrEqual;
+		pipelineSpec.DepthOperator = DepthCompareOperator::LessOrEqual;
 		pipelineSpec.Topology = PrimitiveTopology::Triangles;
 
 		m_Pipeline = Pipeline::Create(pipelineSpec);
@@ -94,9 +96,10 @@ namespace Zenith {
 		m_RenderPass = RenderPass::Create(renderPassSpec);
 	}
 
-	void MeshRenderer::BeginScene(const glm::mat4& viewProjection)
+	void MeshRenderer::BeginScene(const glm::mat4& viewProjection, const glm::vec3& cameraPosition)
 	{
 		m_ViewProjectionMatrix = viewProjection;
+		m_CameraPosition = cameraPosition;
 		m_SceneActive = true;
 
 		m_CommandBuffer->Begin();
@@ -144,8 +147,21 @@ namespace Zenith {
 			for (uint32_t i = 0; i < submeshes.size(); i++) {
 				const auto& submesh = submeshes[i];
 
-				glm::mat4 mvpMatrix = m_ViewProjectionMatrix * transform * submesh.Transform;
-				Buffer ConstantBuffer = Buffer::Copy(&mvpMatrix, sizeof(glm::mat4));
+				struct MeshPushConstants {
+					alignas(16) glm::mat4 model;
+					alignas(16) glm::mat4 viewProjection;
+					alignas(16) glm::mat4 normalMatrix;
+					alignas(16) glm::vec4 cameraPosition;
+				};
+
+				glm::mat4 modelMatrix = transform * submesh.Transform;
+				MeshPushConstants pushConstants;
+				pushConstants.model = modelMatrix;
+				pushConstants.viewProjection = m_ViewProjectionMatrix;
+				pushConstants.normalMatrix = glm::transpose(glm::inverse(modelMatrix));
+				pushConstants.cameraPosition = glm::vec4(m_CameraPosition, 1.0f);
+
+				Buffer ConstantBuffer = Buffer::Copy(&pushConstants, sizeof(MeshPushConstants));
 
 				Renderer::RenderStaticMeshWithMaterial(
 					m_CommandBuffer, m_Pipeline, staticMesh, meshSource, i,
@@ -171,9 +187,21 @@ namespace Zenith {
 			if (submeshIndex < submeshes.size()) {
 				const auto& submesh = submeshes[submeshIndex];
 
-				glm::mat4 finalTransform = nodeTransform * submesh.Transform;
-				glm::mat4 mvpMatrix = m_ViewProjectionMatrix * finalTransform;
-				Buffer ConstantBuffer = Buffer::Copy(&mvpMatrix, sizeof(glm::mat4));
+				struct MeshPushConstants {
+					alignas(16) glm::mat4 model;
+					alignas(16) glm::mat4 viewProjection;
+					alignas(16) glm::mat4 normalMatrix;
+					alignas(16) glm::vec4 cameraPosition;
+				};
+
+				glm::mat4 modelMatrix = nodeTransform * submesh.Transform;
+				MeshPushConstants pushConstants;
+				pushConstants.model = modelMatrix;
+				pushConstants.viewProjection = m_ViewProjectionMatrix;
+				pushConstants.normalMatrix = glm::transpose(glm::inverse(modelMatrix));
+				pushConstants.cameraPosition = glm::vec4(m_CameraPosition, 1.0f);
+
+				Buffer ConstantBuffer = Buffer::Copy(&pushConstants, sizeof(MeshPushConstants));
 
 				Renderer::RenderStaticMeshWithMaterial(
 					m_CommandBuffer, m_Pipeline, staticMesh, meshSource, submeshIndex,

@@ -16,11 +16,11 @@ namespace Zenith {
 
 	struct Vertex
 	{
-		glm::vec3 Position;
-		glm::vec3 Normal;
-		glm::vec3 Tangent;
-		glm::vec3 Binormal;
-		glm::vec2 Texcoord;
+		glm::vec3 Position = {0.0f, 0.0f, 0.0f};
+		glm::vec3 Normal = {0.0f, 0.0f, 1.0f};
+		glm::vec3 Tangent = {1.0f, 0.0f, 0.0f};
+		glm::vec3 Binormal = {0.0f, 1.0f, 0.0f};
+		glm::vec2 Texcoord = {0.0f, 0.0f};
 	};
 
 	static const int NumAttributes = 5;

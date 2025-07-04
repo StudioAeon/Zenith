@@ -14,8 +14,10 @@
 #include <fstream>
 #include <future>
 #include <sstream>
+#include <iomanip>
 
 #include "Zenith/Renderer/MeshRenderer.hpp"
+
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -57,8 +59,8 @@ namespace Zenith {
 		m_EditorCamera = Ref<EditorCamera>::Create(45.0f, 1920.0f, 1080.0f, 0.1f, 1000.0f);
 		m_EditorCamera->SetActive(false);
 
-		m_EditorCamera->Focus(glm::vec3(0.0f, 8.0f, 0.0f));
-		m_EditorCamera->SetDistance(5.0f);
+		m_EditorCamera->Focus(glm::vec3(0.0f, 0.35f, 0.0f));
+		m_EditorCamera->SetDistance(2.0f);
 
 		TestLoadMesh();
 		if (m_MeshLoadSuccess)
@@ -278,6 +280,8 @@ namespace Zenith {
 				ss << "- Indices: " << m_LoadedIndexCount << "\n";
 				ss << "- Submeshes: " << m_LoadedSubmeshCount << "\n";
 				ss << "- Materials: " << m_TestMeshSource->GetMaterials().size() << "\n";
+
+				ss << std::fixed << std::setprecision(3);
 				ss << "- Bounding Box: Min(" << boundingBox.Min.x << ", " << boundingBox.Min.y << ", " << boundingBox.Min.z << ") ";
 				ss << "Max(" << boundingBox.Max.x << ", " << boundingBox.Max.y << ", " << boundingBox.Max.z << ")";
 				m_MeshTestLog = ss.str();
@@ -324,11 +328,12 @@ namespace Zenith {
 
 		if (m_EnableMeshRendering && m_TestMeshSource && m_MeshRenderer && m_EditorCamera)
 		{
-			m_MeshTransform = glm::scale(glm::mat4(1.0f), glm::vec3(2.0f));
+			m_MeshTransform = glm::mat4(1.0f);
 
 			glm::mat4 viewProjection = m_EditorCamera->GetUnReversedViewProjection();
+			glm::vec3 cameraPos = m_EditorCamera->GetPosition();
 
-			m_MeshRenderer->BeginScene(viewProjection);
+			m_MeshRenderer->BeginScene(viewProjection, cameraPos);
 			m_MeshRenderer->DrawMesh(m_TestMeshSource, m_MeshTransform);
 			m_MeshRenderer->EndScene();
 		}
