@@ -46,8 +46,7 @@ namespace Zenith
 		submesh.Transform = transform;
 		submesh.MeshName = "Default";
 
-		m_VertexBuffer = VertexBuffer::Create(m_Vertices.data(), static_cast<uint32_t>(m_Vertices.size() * sizeof(Vertex)));
-		m_IndexBuffer = IndexBuffer::Create(m_Indices.data(), static_cast<uint32_t>(m_Indices.size() * sizeof(uint32_t)));
+		CreateBuffers();
 
 		m_BoundingBox.Min = { FLT_MAX, FLT_MAX, FLT_MAX };
 		m_BoundingBox.Max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
@@ -71,8 +70,7 @@ namespace Zenith
 		// Generate a new asset handle
 		Handle = {};
 
-		m_VertexBuffer = VertexBuffer::Create(m_Vertices.data(), static_cast<uint32_t>(m_Vertices.size() * sizeof(Vertex)));
-		m_IndexBuffer = IndexBuffer::Create(m_Indices.data(), static_cast<uint32_t>(m_Indices.size() * sizeof(uint32_t)));
+		CreateBuffers();
 
 		m_BoundingBox.Min = { FLT_MAX, FLT_MAX, FLT_MAX };
 		m_BoundingBox.Max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
@@ -86,6 +84,37 @@ namespace Zenith
 		{
 			ZN_CORE_WARN_TAG("Mesh", "MeshSource created with invalid indices");
 		}
+	}
+
+	void MeshSource::CreateBuffers()
+	{
+		if (!m_Vertices.empty())
+			m_VertexBuffer = VertexBuffer::Create(m_Vertices.data(),
+				static_cast<uint32_t>(m_Vertices.size() * sizeof(Vertex)));
+
+		if (!m_Indices.empty())
+			m_IndexBuffer = IndexBuffer::Create(m_Indices.data(),
+				static_cast<uint32_t>(m_Indices.size() * sizeof(uint32_t)));
+	}
+
+	bool MeshSource::ValidateIndices() const
+	{
+		if (m_Indices.empty() || m_Vertices.empty())
+			return true; // Empty is valid
+
+		uint32_t vertexCount = static_cast<uint32_t>(m_Vertices.size());
+
+		for (size_t i = 0; i < m_Indices.size(); ++i)
+		{
+			if (m_Indices[i] >= vertexCount)
+			{
+				ZN_MESH_ERROR("Invalid index {} at position {} in mesh '{}' (vertex count: {})",
+					m_Indices[i], i, m_FilePath, vertexCount);
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	MeshSource::~MeshSource()

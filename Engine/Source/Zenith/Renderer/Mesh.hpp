@@ -115,68 +115,53 @@ namespace Zenith {
 	{
 	public:
 		MeshSource() = default;
-		MeshSource(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, const glm::mat4& transform);
+		MeshSource(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, const glm::mat4& transform = glm::mat4(1.0f));
 		MeshSource(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, const std::vector<Submesh>& submeshes);
 		virtual ~MeshSource();
 
-		void DumpVertexBuffer();
-
-		std::vector<Submesh>& GetSubmeshes() { return m_Submeshes; }
-		const std::vector<Submesh>& GetSubmeshes() const { return m_Submeshes; }
-
 		const std::vector<Vertex>& GetVertices() const { return m_Vertices; }
 		const std::vector<uint32_t>& GetIndices() const { return m_Indices; }
+		const std::vector<Submesh>& GetSubmeshes() const { return m_Submeshes; }
 
-		std::vector<AssetHandle>& GetMaterials() { return m_Materials; }
+		std::vector<Vertex>& GetVertices() { return m_Vertices; }
+		std::vector<uint32_t>& GetIndices() { return m_Indices; }
+		std::vector<Submesh>& GetSubmeshes() { return m_Submeshes; }
+
+		Ref<VertexBuffer> GetVertexBuffer() const { return m_VertexBuffer; }
+		Ref<IndexBuffer> GetIndexBuffer() const { return m_IndexBuffer; }
+
+		const std::vector<MeshNode>& GetNodes() const { return m_Nodes; }
+		const std::vector<uint32_t>& GetRootNodes() const { return m_RootNodes; }
+
 		const std::vector<AssetHandle>& GetMaterials() const { return m_Materials; }
-		const std::string& GetFilePath() const { return m_FilePath; }
+		const AABB& GetBoundingBox() const { return m_BoundingBox; }
 
-		Ref<VertexBuffer> GetVertexBuffer() { return m_VertexBuffer; }
-		Ref<IndexBuffer> GetIndexBuffer() { return m_IndexBuffer; }
+		const std::string& GetFilePath() const { return m_FilePath; }
 
 		static AssetType GetStaticType() { return AssetType::MeshSource; }
 		virtual AssetType GetAssetType() const override { return GetStaticType(); }
 
-		const AABB& GetBoundingBox() const { return m_BoundingBox; }
-
-		const MeshNode& GetRootNode() const { return m_Nodes[0]; }
-		const std::vector<MeshNode>& GetNodes() const { return m_Nodes; }
-
-		bool ValidateIndices() const
-		{
-			for (size_t i = 0; i < m_Indices.size(); ++i)
-			{
-				if (m_Indices[i] >= m_Vertices.size())
-				{
-					ZN_CORE_ERROR_TAG("Mesh", "Invalid index {} at position {} (vertex count: {})",
-						m_Indices[i], i, m_Vertices.size());
-					return false;
-				}
-			}
-			return true;
-		}
-
-		uint32_t GetTriangleCount() const { return static_cast<uint32_t>(m_Indices.size() / 3); }
+		void DumpVertexBuffer();
 
 	private:
+		std::vector<Vertex> m_Vertices;
+		std::vector<uint32_t> m_Indices;
 		std::vector<Submesh> m_Submeshes;
 
 		Ref<VertexBuffer> m_VertexBuffer;
 		Ref<IndexBuffer> m_IndexBuffer;
 
-		std::vector<Vertex> m_Vertices;
-		std::vector<uint32_t> m_Indices;
+		std::vector<MeshNode> m_Nodes;
+		std::vector<uint32_t> m_RootNodes;
 
 		std::vector<AssetHandle> m_Materials;
-
 		AABB m_BoundingBox;
 
 		std::string m_FilePath;
 
-		std::vector<MeshNode> m_Nodes;
+		void CreateBuffers();
 
-		friend class Renderer;
-		friend class VulkanRenderer;
+		bool ValidateIndices() const;
 
 		friend class MeshImporter;
 	};

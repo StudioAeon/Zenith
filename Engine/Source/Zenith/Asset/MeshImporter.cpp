@@ -13,8 +13,7 @@
 #include <fast_obj.h>
 
 #include <glm/detail/type_quat.hpp>
-
-#include "glm/gtc/quaternion.hpp"
+#include <glm/gtc/quaternion.hpp>
 
 namespace Zenith {
 
@@ -61,6 +60,17 @@ namespace Zenith {
 		return true;
 	}
 
+	void MeshImporter::CreateMeshBuffers(Ref<MeshSource> meshSource)
+	{
+		if (!meshSource->m_Vertices.empty())
+			meshSource->m_VertexBuffer = VertexBuffer::Create(meshSource->m_Vertices.data(),
+				static_cast<uint32_t>(meshSource->m_Vertices.size() * sizeof(Vertex)));
+
+		if (!meshSource->m_Indices.empty())
+			meshSource->m_IndexBuffer = IndexBuffer::Create(meshSource->m_Indices.data(),
+				static_cast<uint32_t>(meshSource->m_Indices.size() * sizeof(uint32_t)));
+	}
+
 	Ref<MeshSource> MeshImporter::ImportToMeshSource()
 	{
 		Ref<MeshSource> result = nullptr;
@@ -92,6 +102,7 @@ namespace Zenith {
 		return result;
 	}
 
+	// UPDATED: ImportFBX function with decoupled buffer creation
 	Ref<MeshSource> MeshImporter::ImportFBX()
 	{
 		ufbx_load_opts opts = {};
@@ -220,13 +231,7 @@ namespace Zenith {
 
 		ProcessMaterials(meshSource, scene, MeshFormat::FBX);
 
-		if (!meshSource->m_Vertices.empty())
-			meshSource->m_VertexBuffer = VertexBuffer::Create(meshSource->m_Vertices.data(),
-				static_cast<uint32_t>(meshSource->m_Vertices.size() * sizeof(Vertex)));
-
-		if (!meshSource->m_Indices.empty())
-			meshSource->m_IndexBuffer = IndexBuffer::Create(meshSource->m_Indices.data(),
-				static_cast<uint32_t>(meshSource->m_Indices.size() * sizeof(uint32_t)));
+		CreateMeshBuffers(meshSource);
 
 		ZN_MESH_LOG("FBX Import complete: {} vertices, {} indices, {} submeshes",
 			meshSource->m_Vertices.size(), meshSource->m_Indices.size(), meshSource->m_Submeshes.size());
@@ -243,6 +248,7 @@ namespace Zenith {
 		return meshSource;
 	}
 
+	// UPDATED: ImportGLTF function with decoupled buffer creation
 	Ref<MeshSource> MeshImporter::ImportGLTF()
 	{
 		fastgltf::Parser parser;
@@ -325,7 +331,7 @@ namespace Zenith {
 				{
 					const auto& accessor = asset.accessors[it->accessorIndex];
 					fastgltf::iterateAccessor<fastgltf::math::fvec2>(asset, accessor, [&](fastgltf::math::fvec2 uv) {
-						texCoords.emplace_back(uv.x(), uv.y());
+						texCoords.emplace_back(uv.x(), 1.0f - uv.y());
 					});
 				}
 
@@ -359,7 +365,8 @@ namespace Zenith {
 						vertex.Tangent = glm::vec3(tangents[i]);
 						if (glm::length(vertex.Normal) > 0.0f)
 						{
-							vertex.Binormal = glm::cross(vertex.Normal, vertex.Tangent) * tangents[i].w;
+							float handedness = tangents[i].w;
+							vertex.Binormal = glm::cross(vertex.Normal, vertex.Tangent) * handedness;
 						}
 					}
 
@@ -506,13 +513,7 @@ namespace Zenith {
 
 		ProcessMaterials(meshSource, &asset, MeshFormat::GLTF);
 
-		if (!meshSource->m_Vertices.empty())
-			meshSource->m_VertexBuffer = VertexBuffer::Create(meshSource->m_Vertices.data(),
-				static_cast<uint32_t>(meshSource->m_Vertices.size() * sizeof(Vertex)));
-
-		if (!meshSource->m_Indices.empty())
-			meshSource->m_IndexBuffer = IndexBuffer::Create(meshSource->m_Indices.data(),
-				static_cast<uint32_t>(meshSource->m_Indices.size() * sizeof(uint32_t)));
+		CreateMeshBuffers(meshSource);
 
 		ZN_MESH_LOG("glTF Import complete: {} vertices, {} indices, {} submeshes, {} nodes",
 			meshSource->m_Vertices.size(), meshSource->m_Indices.size(), meshSource->m_Submeshes.size(), meshSource->m_Nodes.size());
@@ -528,6 +529,7 @@ namespace Zenith {
 		return meshSource;
 	}
 
+	// UPDATED: ImportOBJ function with decoupled buffer creation
 	Ref<MeshSource> MeshImporter::ImportOBJ()
 	{
 		fastObjMesh* mesh = fast_obj_read(m_Path.string().c_str());
@@ -672,13 +674,7 @@ namespace Zenith {
 
 		ProcessMaterials(meshSource, mesh, MeshFormat::OBJ);
 
-		if (!meshSource->m_Vertices.empty())
-			meshSource->m_VertexBuffer = VertexBuffer::Create(meshSource->m_Vertices.data(),
-				static_cast<uint32_t>(meshSource->m_Vertices.size() * sizeof(Vertex)));
-
-		if (!meshSource->m_Indices.empty())
-			meshSource->m_IndexBuffer = IndexBuffer::Create(meshSource->m_Indices.data(),
-				static_cast<uint32_t>(meshSource->m_Indices.size() * sizeof(uint32_t)));
+		CreateMeshBuffers(meshSource);
 
 		ZN_MESH_LOG("OBJ Import complete: {} vertices, {} indices, {} submeshes",
 			meshSource->m_Vertices.size(), meshSource->m_Indices.size(), meshSource->m_Submeshes.size());
@@ -843,42 +839,24 @@ namespace Zenith {
 		const auto& gltfImage = asset.images[imageIndex];
 		AssetHandle resultHandle{ 0 };
 
-		auto DecodeAndCreateTexture = [&](const uint8_t* data, size_t size) -> Ref<Texture2D> {
-			ImageFormat format = ImageFormat::SRGBA;
-			uint32_t width = 0, height = 0;
-			Buffer decoded = TextureImporter::ToBufferFromMemory(Buffer::Copy(data, (uint32_t)size), format, width, height);
-			if (!decoded)
+		ImageFormat textureFormat = (debugName == "Normal") ? ImageFormat::RGBA : ImageFormat::SRGBA;
+
+		auto CreateTextureFromData = [&](const TextureData& textureData) -> Ref<Texture2D> {
+			if (!textureData.IsValid())
 			{
 				ZN_CORE_ERROR_TAG("Mesh", "Failed to decode {} texture", debugName);
 				return nullptr;
 			}
 
-			TextureSpecification spec;
-			spec.Width = width;
-			spec.Height = height;
-			spec.Format = format;
-			spec.GenerateMips = true;
-
-			return Texture2D::Create(spec, decoded);
+			return TextureImporter::CreateTexture(textureData, debugName);
 		};
 
 		if (auto uri = std::get_if<fastgltf::sources::URI>(&gltfImage.data))
 		{
 			std::filesystem::path imagePath = m_Path.parent_path() / uri->uri.path();
-			ImageFormat format = ImageFormat::SRGBA;
-			uint32_t width = 0, height = 0;
-			Buffer decoded = TextureImporter::ToBufferFromFile(imagePath, format, width, height);
-			if (!decoded)
-				return AssetHandle{ 0 };
+			TextureData textureData = TextureImporter::LoadTextureData(imagePath, textureFormat);
 
-			TextureSpecification spec;
-			spec.Width = width;
-			spec.Height = height;
-			spec.Format = format;
-			spec.DebugName = debugName;
-			spec.GenerateMips = true;
-
-			Ref<Texture2D> texture = Texture2D::Create(spec, decoded);
+			Ref<Texture2D> texture = CreateTextureFromData(textureData);
 			if (!texture)
 				return AssetHandle{ 0 };
 
@@ -886,14 +864,22 @@ namespace Zenith {
 		}
 		else if (auto vector = std::get_if<fastgltf::sources::Vector>(&gltfImage.data))
 		{
-			Ref<Texture2D> texture = DecodeAndCreateTexture(reinterpret_cast<const uint8_t*>(vector->bytes.data()), vector->bytes.size());
+			Buffer buffer = Buffer::Copy(vector->bytes.data(), vector->bytes.size());
+			TextureData textureData = TextureImporter::LoadTextureData(buffer, textureFormat);
+
+			Ref<Texture2D> texture = CreateTextureFromData(textureData);
 			if (!texture) return AssetHandle{ 0 };
+
 			resultHandle = AssetManager::AddMemoryOnlyAsset(texture);
 		}
 		else if (auto array = std::get_if<fastgltf::sources::Array>(&gltfImage.data))
 		{
-			Ref<Texture2D> texture = DecodeAndCreateTexture(reinterpret_cast<const uint8_t*>(array->bytes.data()), array->bytes.size());
+			Buffer buffer = Buffer::Copy(array->bytes.data(), array->bytes.size());
+			TextureData textureData = TextureImporter::LoadTextureData(buffer, textureFormat);
+
+			Ref<Texture2D> texture = CreateTextureFromData(textureData);
 			if (!texture) return AssetHandle{ 0 };
+
 			resultHandle = AssetManager::AddMemoryOnlyAsset(texture);
 		}
 		else if (auto bufferView = std::get_if<fastgltf::sources::BufferView>(&gltfImage.data))
@@ -902,26 +888,22 @@ namespace Zenith {
 				return AssetHandle{ 0 };
 
 			const auto& view = asset.bufferViews[bufferView->bufferViewIndex];
+			if (view.bufferIndex >= asset.buffers.size())
+				return AssetHandle{ 0 };
+
 			const auto& buffer = asset.buffers[view.bufferIndex];
 
-			if (auto array = std::get_if<fastgltf::sources::Array>(&buffer.data))
+			if (auto data = std::get_if<fastgltf::sources::Array>(&buffer.data))
 			{
-				const uint8_t* data = reinterpret_cast<const uint8_t*>(array->bytes.data()) + view.byteOffset;
-				size_t size = view.byteLength;
-				Ref<Texture2D> texture = DecodeAndCreateTexture(data, size);
+				const uint8_t* bufferData = reinterpret_cast<const uint8_t*>(data->bytes.data()) + view.byteOffset;
+				Buffer imageBuffer = Buffer::Copy(bufferData, view.byteLength);
+				TextureData textureData = TextureImporter::LoadTextureData(imageBuffer, textureFormat);
+
+				Ref<Texture2D> texture = CreateTextureFromData(textureData);
 				if (!texture) return AssetHandle{ 0 };
+
 				resultHandle = AssetManager::AddMemoryOnlyAsset(texture);
 			}
-			else
-			{
-				ZN_CORE_ERROR_TAG("Mesh", "Unsupported buffer source for texture");
-				return AssetHandle{ 0 };
-			}
-		}
-		else
-		{
-			ZN_CORE_WARN_TAG("Mesh", "Image source not supported or empty for texture {}", debugName);
-			return AssetHandle{ 0 };
 		}
 
 		return resultHandle;

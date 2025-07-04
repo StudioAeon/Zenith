@@ -4,6 +4,7 @@
 #include "SplashScreen.hpp"
 
 #include "Zenith/Renderer/Renderer.hpp"
+#include "Zenith/Renderer/ResourceManager.hpp"
 #include "Zenith/Renderer/Framebuffer.hpp"
 
 #include <SDL3/SDL.h>
@@ -95,6 +96,7 @@ namespace Zenith {
 		ZN_CORE_VERIFY(NFD::Init() == NFD_OKAY);
 
 		m_RenderThread.Run();
+		ResourceManager::Instance().Initialize(RendererAPI::Current());
 		Renderer::Init(this);
 
 		if (m_Specification.EnableImGui)
@@ -117,7 +119,7 @@ namespace Zenith {
 			m_RenderThread.BlockUntilRenderComplete();
 		}
 
-
+		ResourceManager::Instance().Shutdown();
 		m_RenderThread.Terminate();
 
 		Renderer::Shutdown();

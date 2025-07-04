@@ -474,7 +474,7 @@ namespace Zenith {
 											ImTextureID texID = m_MeshRenderer->GetTextureImGuiID(albedoTexture->GetImage());
 											if (texID)
 											{
-												ImGui::Image(texID, ImVec2(64, 64));
+												ImGui::Image(texID, ImVec2(128, 128), ImVec2(0, 1), ImVec2(1, 0));
 												ImGui::SameLine();
 											}
 										}
@@ -490,7 +490,7 @@ namespace Zenith {
 												ImTextureID texID = m_MeshRenderer->GetTextureImGuiID(normalTexture->GetImage());
 												if (texID)
 												{
-													ImGui::Image(texID, ImVec2(64, 64));
+													ImGui::Image(texID, ImVec2(128, 128), ImVec2(0, 1), ImVec2(1, 0));
 												}
 											}
 										}
@@ -551,7 +551,7 @@ namespace Zenith {
 										ImTextureID texID = m_MeshRenderer->GetTextureImGuiID(albedoTexture->GetImage());
 										if (texID)
 										{
-											ImGui::Image(texID, ImVec2(128, 128));
+											ImGui::Image(texID, ImVec2(64, 64), ImVec2(0, 1), ImVec2(1, 0));
 										}
 									}
 								}
@@ -739,7 +739,7 @@ namespace Zenith {
 									ImTextureID texID = m_MeshRenderer->GetTextureImGuiID(albedoTexture->GetImage());
 									if (texID)
 									{
-										ImGui::Image(texID, ImVec2(128, 128));
+										ImGui::Image(texID, ImVec2(128, 128), ImVec2(0, 1), ImVec2(1, 0));
 
 										if (ImGui::IsItemHovered())
 										{
@@ -775,7 +775,7 @@ namespace Zenith {
 											ImTextureID texID = m_MeshRenderer->GetTextureImGuiID(normalTexture->GetImage());
 											if (texID)
 											{
-												ImGui::Image(texID, ImVec2(128, 128));
+												ImGui::Image(texID, ImVec2(128, 128), ImVec2(0, 1), ImVec2(1, 0));
 
 												if (ImGui::IsItemHovered())
 												{
@@ -812,7 +812,7 @@ namespace Zenith {
 									ImTextureID texID = m_MeshRenderer->GetTextureImGuiID(metallicTexture->GetImage());
 									if (texID)
 									{
-										ImGui::Image(texID, ImVec2(64, 64));
+										ImGui::Image(texID, ImVec2(64, 64), ImVec2(0, 1), ImVec2(1, 0));
 										ImGui::SameLine();
 
 										if (ImGui::IsItemHovered())
@@ -840,7 +840,7 @@ namespace Zenith {
 									ImTextureID texID = m_MeshRenderer->GetTextureImGuiID(roughnessTexture->GetImage());
 									if (texID)
 									{
-										ImGui::Image(texID, ImVec2(64, 64));
+										ImGui::Image(texID, ImVec2(64, 64), ImVec2(0, 1), ImVec2(1, 0));
 
 										if (ImGui::IsItemHovered())
 										{

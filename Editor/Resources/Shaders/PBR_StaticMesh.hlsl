@@ -101,10 +101,10 @@ FragmentOutput main(VertexOutput input, bool isFrontFace : SV_IsFrontFace)
 
 	float3 color = CalculateSimplifiedPBR(albedo, metalness, roughness, normal, viewDir, lightDir, mainLight.Color * mainLight.Intensity);
 
-	color += albedo * 0.03;                // Ambient
-	color += albedo * u_Emission;          // Emissive
-	color  = color / (color + 1.0);        // HDR tonemap
-	color  = pow(color, 1.0 / 2.2);        // Gamma correct
+	color += albedo * 0.03;
+	color += albedo * u_Emission;
+	color  = color / (color + 1.0);
+	color  = pow(color, 1.0 / 2.2);
 
 	output.Color = float4(color, 1.0);
 	return output;

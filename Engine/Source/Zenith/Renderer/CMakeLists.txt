@@ -12,6 +12,7 @@ set(RENDERER_SOURCES
 		RenderCommandBuffer.cpp
 		RenderCommandQueue.cpp
 		Renderer.cpp
+		ResourceManager.cpp
 		RendererContext.cpp
 		RendererStats.cpp
 		RenderPass.cpp
@@ -39,6 +40,8 @@ set(RENDERER_HEADERS
 		RenderCommandBuffer.hpp
 		RenderCommandQueue.hpp
 		Renderer.hpp
+		ResourceFactory.hpp
+		ResourceManager.hpp
 		RendererAPI.hpp
 		RendererCapabilities.hpp
 		RendererConfig.hpp

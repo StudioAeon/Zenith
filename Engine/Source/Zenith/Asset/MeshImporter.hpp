@@ -2,6 +2,7 @@
 
 #include "Zenith/Renderer/Mesh.hpp"
 #include "Zenith/Renderer/MaterialAsset.hpp"
+#include "Zenith/Asset/TextureImporter.hpp" // UPDATED: Now includes TextureData
 
 #include <filesystem>
 #include <functional>
@@ -59,6 +60,8 @@ namespace Zenith {
 		Ref<MaterialAsset> CreateMaterialFromGLTF(const fastgltf::Asset& asset, size_t materialIndex);
 		AssetHandle ProcessGLTFTexture(const fastgltf::Asset& asset, size_t textureIndex, const std::string& semanticName);
 		AssetHandle LoadImageFromGLTF(const fastgltf::Asset& asset, size_t imageIndex, const std::string& debugName);
+
+		void CreateMeshBuffers(Ref<MeshSource> meshSource);
 
 		static glm::mat4 ToGLMMat4(const float* matrix);
 		static glm::vec3 ToGLMVec3(const float* vec);

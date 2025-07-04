@@ -27,21 +27,33 @@ float3x3 CreateTBN(float3 normal, float3 tangent, float3 bitangent)
     normal = normalize(normal);
     tangent = normalize(tangent);
     bitangent = normalize(bitangent);
-    
+
     tangent = normalize(tangent - dot(tangent, normal) * normal);
-    
-    bitangent = cross(normal, tangent);
-    
+
+    if (length(bitangent) < 0.001)
+    {
+        bitangent = cross(normal, tangent);
+    }
+    else
+    {
+        bitangent = normalize(bitangent - dot(bitangent, normal) * normal);
+        bitangent = normalize(bitangent - dot(bitangent, tangent) * tangent);
+    }
+
     return float3x3(tangent, bitangent, normal);
 }
 
 float3 SampleNormalMap(Texture2D normalTexture, SamplerState sampler, float2 uv, float3x3 TBN)
 {
     float3 normalSample = normalTexture.Sample(sampler, uv).xyz;
-    
+
     normalSample = normalSample * 2.0 - 1.0;
-    
-    return normalize(mul(normalSample, TBN));
+
+    normalSample = normalize(normalSample);
+
+    float3 worldNormal = normalize(mul(normalSample, TBN));
+
+    return worldNormal;
 }
 
 float DistributionGGX(float3 N, float3 H, float roughness)

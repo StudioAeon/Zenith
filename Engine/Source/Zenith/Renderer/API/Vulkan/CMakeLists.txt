@@ -12,6 +12,7 @@ set(VULKAN_SOURCES
 		VulkanIndexBuffer.cpp
 		VulkanMaterial.cpp
 		VulkanPipeline.cpp
+		VulkanResourceFactory.hpp
 		VulkanRenderCommandBuffer.cpp
 		VulkanRenderer.cpp
 		VulkanRenderPass.cpp
