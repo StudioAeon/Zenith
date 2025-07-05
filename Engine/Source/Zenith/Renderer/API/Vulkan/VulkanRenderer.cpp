@@ -7,7 +7,7 @@
 #include "VulkanFramebuffer.hpp"
 #include "VulkanIndexBuffer.hpp"
 #include "VulkanPipeline.hpp"
-#include "VulkanRenderCommandBuffer.hpp"
+#include "Zenith/Renderer/RenderCommandBuffer.hpp"
 #include "VulkanRenderPass.hpp"
 #include "VulkanShader.hpp"
 #include "VulkanTexture.hpp"
@@ -269,7 +269,7 @@ namespace Zenith {
 				return;
 
 			uint32_t frameIndex = Renderer::RT_GetCurrentFrameIndex();
-			VkCommandBuffer commandBuffer = renderCommandBuffer.As<VulkanRenderCommandBuffer>()->GetActiveCommandBuffer();
+			VkCommandBuffer commandBuffer = renderCommandBuffer->GetActiveCommandBuffer();
 
 			Ref<VulkanVertexBuffer> vulkanMeshVB = meshSource->GetVertexBuffer().As<VulkanVertexBuffer>();
 			VkBuffer vbMeshBuffer = vulkanMeshVB->GetVulkanBuffer();
@@ -336,7 +336,7 @@ namespace Zenith {
 			ZN_SCOPE_PERF("VulkanRenderer::RenderMeshWithMaterial");
 
 			uint32_t frameIndex = Renderer::RT_GetCurrentFrameIndex();
-			VkCommandBuffer commandBuffer = renderCommandBuffer.As<VulkanRenderCommandBuffer>()->GetActiveCommandBuffer();
+			VkCommandBuffer commandBuffer = renderCommandBuffer->GetActiveCommandBuffer();
 
 			auto vulkanMeshVB = meshSource->GetVertexBuffer().As<VulkanVertexBuffer>();
 			VkBuffer vbMeshBuffer = vulkanMeshVB->GetVulkanBuffer();
@@ -392,7 +392,7 @@ namespace Zenith {
 			ZN_PROFILE_FUNC("VulkanRenderer::RenderQuad");
 
 			uint32_t frameIndex = Renderer::RT_GetCurrentFrameIndex();
-			VkCommandBuffer commandBuffer = renderCommandBuffer.As<VulkanRenderCommandBuffer>()->GetActiveCommandBuffer();
+			VkCommandBuffer commandBuffer = renderCommandBuffer->GetActiveCommandBuffer();
 
 			Ref<VulkanPipeline> vulkanPipeline = pipeline.As<VulkanPipeline>();
 
@@ -426,7 +426,7 @@ namespace Zenith {
 			ZN_PROFILE_FUNC("VulkanRenderer::RenderGeometry");
 
 			uint32_t frameIndex = Renderer::RT_GetCurrentFrameIndex();
-			VkCommandBuffer commandBuffer = renderCommandBuffer.As<VulkanRenderCommandBuffer>()->GetActiveCommandBuffer();
+			VkCommandBuffer commandBuffer = renderCommandBuffer->GetActiveCommandBuffer();
 
 			Ref<VulkanPipeline> vulkanPipeline = pipeline.As<VulkanPipeline>();
 
@@ -484,7 +484,7 @@ namespace Zenith {
 	{
 		Renderer::Submit([commandBuffer, image = image.As<VulkanImage2D>(), clearValue, subresourceRange]
 		{
-			const auto vulkanCommandBuffer = commandBuffer.As<VulkanRenderCommandBuffer>()->GetCommandBuffer(Renderer::RT_GetCurrentFrameIndex());
+			const auto vulkanCommandBuffer = commandBuffer->GetCommandBuffer(Renderer::RT_GetCurrentFrameIndex());
 			VkImageSubresourceRange vulkanSubresourceRange{};
 			vulkanSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			vulkanSubresourceRange.baseMipLevel = subresourceRange.BaseMip;
@@ -505,7 +505,7 @@ namespace Zenith {
 
 		Renderer::Submit([commandBuffer, src = sourceImage.As<VulkanImage2D>(), dst = destinationImage.As<VulkanImage2D>()]
 		{
-			const auto vulkanCommandBuffer = commandBuffer.As<VulkanRenderCommandBuffer>()->GetCommandBuffer(Renderer::RT_GetCurrentFrameIndex());
+			const auto vulkanCommandBuffer = commandBuffer->GetCommandBuffer(Renderer::RT_GetCurrentFrameIndex());
 
 			VkDevice device = VulkanContext::GetCurrentDevice()->GetVulkanDevice();
 
@@ -624,7 +624,7 @@ namespace Zenith {
 
 		Renderer::Submit([commandBuffer, src = sourceImage.As<VulkanImage2D>(), dst = destinationImage.As<VulkanImage2D>()]
 		{
-			const auto vulkanCommandBuffer = commandBuffer.As<VulkanRenderCommandBuffer>()->GetActiveCommandBuffer();
+			const auto vulkanCommandBuffer = commandBuffer->GetActiveCommandBuffer();
 
 			VkDevice device = VulkanContext::GetCurrentDevice()->GetVulkanDevice();
 
@@ -762,7 +762,7 @@ namespace Zenith {
 			ZN_PROFILE_FUNC("VulkanRenderer::SubmitFullscreenQuad");
 
 			uint32_t frameIndex = Renderer::RT_GetCurrentFrameIndex();
-			VkCommandBuffer commandBuffer = renderCommandBuffer.As<VulkanRenderCommandBuffer>()->GetActiveCommandBuffer();
+			VkCommandBuffer commandBuffer = renderCommandBuffer->GetActiveCommandBuffer();
 
 			Ref<VulkanPipeline> vulkanPipeline = pipeline.As<VulkanPipeline>();
 
@@ -814,7 +814,7 @@ namespace Zenith {
 			ZN_PROFILE_FUNC("VulkanRenderer::SubmitFullscreenQuad");
 
 			uint32_t frameIndex = Renderer::RT_GetCurrentFrameIndex();
-			VkCommandBuffer commandBuffer = renderCommandBuffer.As<VulkanRenderCommandBuffer>()->GetActiveCommandBuffer();
+			VkCommandBuffer commandBuffer = renderCommandBuffer->GetActiveCommandBuffer();
 
 			Ref<VulkanPipeline> vulkanPipeline = pipeline.As<VulkanPipeline>();
 
@@ -893,7 +893,7 @@ namespace Zenith {
 	void VulkanRenderer::RT_InsertGPUPerfMarker(Ref<RenderCommandBuffer> renderCommandBuffer, const std::string& label, const glm::vec4& color)
 	{
 		const uint32_t bufferIndex = Renderer::RT_GetCurrentFrameIndex();
-		VkCommandBuffer commandBuffer = renderCommandBuffer.As<VulkanRenderCommandBuffer>()->GetCommandBuffer(bufferIndex);
+		VkCommandBuffer commandBuffer = renderCommandBuffer->GetCommandBuffer(bufferIndex);
 		VkDebugUtilsLabelEXT debugLabel{};
 		debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
 		memcpy(&debugLabel.color, glm::value_ptr(color), sizeof(float) * 4);
@@ -904,7 +904,7 @@ namespace Zenith {
 	void VulkanRenderer::RT_BeginGPUPerfMarker(Ref<RenderCommandBuffer> renderCommandBuffer, const std::string& label, const glm::vec4& markerColor)
 	{
 		const uint32_t bufferIndex = Renderer::RT_GetCurrentFrameIndex();
-		VkCommandBuffer commandBuffer = renderCommandBuffer.As<VulkanRenderCommandBuffer>()->GetCommandBuffer(bufferIndex);
+		VkCommandBuffer commandBuffer = renderCommandBuffer->GetCommandBuffer(bufferIndex);
 		VkDebugUtilsLabelEXT debugLabel{};
 		debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
 		memcpy(&debugLabel.color, glm::value_ptr(markerColor), sizeof(float) * 4);
@@ -915,7 +915,7 @@ namespace Zenith {
 	void VulkanRenderer::RT_EndGPUPerfMarker(Ref<RenderCommandBuffer> renderCommandBuffer)
 	{
 		const uint32_t bufferIndex = Renderer::RT_GetCurrentFrameIndex();
-		VkCommandBuffer commandBuffer = renderCommandBuffer.As<VulkanRenderCommandBuffer>()->GetCommandBuffer(bufferIndex);
+		VkCommandBuffer commandBuffer = renderCommandBuffer->GetCommandBuffer(bufferIndex);
 		fpCmdEndDebugUtilsLabelEXT(commandBuffer);
 	}
 
@@ -927,7 +927,7 @@ namespace Zenith {
 			ZN_CORE_TRACE_TAG("Renderer", "BeginRenderPass - {}", renderPass->GetSpecification().DebugName);
 
 			uint32_t frameIndex = Renderer::RT_GetCurrentFrameIndex();
-			VkCommandBuffer commandBuffer = renderCommandBuffer.As<VulkanRenderCommandBuffer>()->GetActiveCommandBuffer();
+			VkCommandBuffer commandBuffer = renderCommandBuffer->GetActiveCommandBuffer();
 
 			VkDebugUtilsLabelEXT debugLabel{};
 			debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -1072,7 +1072,7 @@ namespace Zenith {
 			ZN_PROFILE_FUNC("VulkanRenderer::EndRenderPass");
 
 			uint32_t frameIndex = Renderer::RT_GetCurrentFrameIndex();
-			VkCommandBuffer commandBuffer = renderCommandBuffer.As<VulkanRenderCommandBuffer>()->GetActiveCommandBuffer();
+			VkCommandBuffer commandBuffer = renderCommandBuffer->GetActiveCommandBuffer();
 
 			vkCmdEndRenderPass(commandBuffer);
 			fpCmdEndDebugUtilsLabelEXT(commandBuffer);
