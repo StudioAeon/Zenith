@@ -16,10 +16,18 @@ Zenith Engine is built with modern C++20/C++23 standards and designed for clean,
 - **LayerStack System** - Flexible layer management for game and editor systems
 - **Type-Safe Event System** - Custom event dispatching with compile-time safety
 - **Input Abstraction** - Unified input handling with per-frame state updates
-- **Multi-Backend Rendering** - OpenGL and Vulkan support(OpenGL may be removed)
+- **Vulkan Rendering** - Modern, high-performance Vulkan-only graphics pipeline
 - **Timestep Management** - Consistent delta time system for smooth updates
 - **Memory Tracking** - Optional memory profiling and leak detection
 - **Integrated Profiling** - Built-in Tracy profiler support
+
+### Hardware Requirements
+Vulkan Support Required:
+- **GPU:** Vulkan 1.2+ compatible graphics card
+  - NVIDIA GTX 10 Series (Pascal) or newer
+  - AMD RX 400 Series (Polaris) or newer
+  - Intel Arc or Iris Xe Graphics
+- **Drivers:** Up-to-date graphics drivers with Vulkan 1.2+ supportw
 
 ### Building
 Zenith Engine is designed to be straightforward to build with minimal dependencies. Currently tested on:
@@ -30,8 +38,14 @@ Zenith Engine is designed to be straightforward to build with minimal dependenci
 Make sure you have the following installed:
 - [CMake](https://cmake.org/download/) 3.24 or higher
 - [Git](https://git-scm.com/downloads)
-- [Vulkan SDK](https://vulkan.lunarg.com/) (required for Vulkan backend)
+- [Vulkan SDK](https://vulkan.lunarg.com/) Vulkan SDK 1.3.275+ (REQUIRED)
 - A C++20 compatible compiler
+- Vulkan-compatible graphics drivers
+
+### Vulkan SDK Installation
+1. Download and install the latest Vulkan SDK from [LunarG](https://vulkan.lunarg.com/)
+2. Ensure the ```VULKAN_SDK``` environment variable is set correctly
+3. Verify installation by running ```vulkaninfo``` command
 
 ### Build Steps
 1. **Clone the repository:**

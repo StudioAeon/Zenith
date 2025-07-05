@@ -13,18 +13,7 @@ namespace Zenith {
 
 	std::shared_ptr<ImGuiLayer> ImGuiLayer::Create(ApplicationContext& context)
 	{
-		switch (RendererAPI::Current())
-		{
-			case RendererAPIType::None:
-				ZN_CORE_ASSERT(false, "RendererAPIType::None is currently not supported!");
-				return nullptr;
-
-			case RendererAPIType::Vulkan:
-				return std::make_shared<VulkanImGuiLayer>(context);
-		}
-
-		ZN_CORE_ASSERT(false, "Unknown RendererAPIType!");
-		return nullptr;
+		return std::make_shared<VulkanImGuiLayer>(context);
 	}
 
 	void ImGuiLayer::AllowInputEvents(bool allowEvents)

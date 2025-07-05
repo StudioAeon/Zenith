@@ -66,15 +66,7 @@ namespace Zenith {
 		if (m_Specification.Maximized)
 			windowFlags |= SDL_WINDOW_MAXIMIZED;
 
-		switch (RendererAPI::Current())
-		{
-			case RendererAPIType::Vulkan:
-				windowFlags |= SDL_WINDOW_VULKAN;
-				break;
-			case RendererAPIType::None:
-				ZN_CORE_ASSERT(false, "RendererAPI::None is not supported");
-				break;
-		}
+		windowFlags |= SDL_WINDOW_VULKAN;
 
 		m_Window = SDL_CreateWindow(m_Data.Title.c_str(), m_Data.Width, m_Data.Height, windowFlags);
 

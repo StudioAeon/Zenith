@@ -10,35 +10,17 @@ namespace Zenith {
 
 	Ref<Texture2D> Texture2D::Create(const TextureSpecification& specification)
 	{
-		switch (RendererAPI::Current())
-		{
-			case RendererAPIType::None: return nullptr;
-			case RendererAPIType::Vulkan: return Ref<VulkanTexture2D>::Create(specification);
-		}
-		ZN_CORE_ASSERT(false, "Unknown RendererAPI");
-		return nullptr;
+		return Ref<VulkanTexture2D>::Create(specification);
 	}
 
 	Ref<Texture2D> Texture2D::Create(const TextureSpecification& specification, const std::filesystem::path& filepath)
 	{
-		switch (RendererAPI::Current())
-		{
-			case RendererAPIType::None: return nullptr;
-			case RendererAPIType::Vulkan: return Ref<VulkanTexture2D>::Create(specification, filepath);
-		}
-		ZN_CORE_ASSERT(false, "Unknown RendererAPI");
-		return nullptr;
+		return Ref<VulkanTexture2D>::Create(specification, filepath);
 	}
 
 	Ref<Texture2D> Texture2D::Create(const TextureSpecification& specification, Buffer imageData)
 	{
-		switch (RendererAPI::Current())
-		{
-			case RendererAPIType::None: return nullptr;
-			case RendererAPIType::Vulkan: return Ref<VulkanTexture2D>::Create(specification, imageData);
-		}
-		ZN_CORE_ASSERT(false, "Unknown RendererAPI");
-		return nullptr;
+		return Ref<VulkanTexture2D>::Create(specification, imageData);
 	}
 
 	Ref<Texture2D> Texture2D::CreateFromSRGB(Ref<Texture2D> texture)
@@ -55,13 +37,7 @@ namespace Zenith {
 
 	Ref<TextureCube> TextureCube::Create(const TextureSpecification& specification, Buffer imageData)
 	{
-		switch (RendererAPI::Current())
-		{
-			case RendererAPIType::None: return nullptr;
-			case RendererAPIType::Vulkan: return Ref<VulkanTextureCube>::Create(specification, imageData);
-		}
-		ZN_CORE_ASSERT(false, "Unknown RendererAPI");
-		return nullptr;
+		return Ref<VulkanTextureCube>::Create(specification, imageData);
 	}
 		
 

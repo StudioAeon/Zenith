@@ -11,24 +11,12 @@ namespace Zenith {
 	{
 		ZN_CORE_VERIFY(!buffer);
 
-		switch (RendererAPI::Current())
-		{
-			case RendererAPIType::None: return nullptr;
-			case RendererAPIType::Vulkan: return Ref<VulkanImage2D>::Create(specification);
-		}
-		ZN_CORE_ASSERT(false, "Unknown RendererAPI");
-		return nullptr;
+		return Ref<VulkanImage2D>::Create(specification);
 	}
 
 	Ref<ImageView> ImageView::Create(const ImageViewSpecification& specification)
 	{
-		switch (RendererAPI::Current())
-		{
-			case RendererAPIType::None: return nullptr;
-			case RendererAPIType::Vulkan: return Ref<VulkanImageView>::Create(specification);
-		}
-		ZN_CORE_ASSERT(false, "Unknown RendererAPI");
-		return nullptr;
+		return Ref<VulkanImageView>::Create(specification);
 	}
 
 }

@@ -14,7 +14,6 @@ namespace Zenith {
 
 	enum class RendererAPIType
 	{
-		None,
 		Vulkan
 	};
 
@@ -57,7 +56,6 @@ namespace Zenith {
 		virtual RendererCapabilities& GetCapabilities() = 0;
 
 		static RendererAPIType Current() { return s_CurrentRendererAPI; }
-		static void SetAPI(RendererAPIType api);
 	private:
 		inline static RendererAPIType s_CurrentRendererAPI = RendererAPIType::Vulkan;
 	};

@@ -90,13 +90,6 @@ namespace Zenith {
 		return s_Application->GetCurrentFrameIndex();
 	}
 
-	void RendererAPI::SetAPI(RendererAPIType api)
-	{
-		// TODO: make sure this is called at a valid time
-		ZN_CORE_VERIFY(api == RendererAPIType::Vulkan, "Vulkan is currently the only supported Renderer API");
-		s_CurrentRendererAPI = api;
-	}
-
 	struct RendererData
 	{
 		Ref<ShaderLibrary> m_ShaderLibrary;
@@ -117,16 +110,6 @@ namespace Zenith {
 	static std::atomic<uint32_t> s_RenderCommandQueueSubmissionIndex = 0;
 	static RenderCommandQueue s_ResourceFreeQueue[3];
 
-	static RendererAPI* InitRendererAPI()
-	{
-		switch (RendererAPI::Current())
-		{
-			case RendererAPIType::Vulkan: return znew VulkanRenderer();
-		}
-		ZN_CORE_ASSERT(false, "Unknown RendererAPI");
-		return nullptr;
-	}
-
 	void Renderer::Init(Application* app)
 	{
 		s_Application = app;
@@ -139,7 +122,7 @@ namespace Zenith {
 		// Make sure we don't have more frames in flight than swapchain images
 		s_Config.FramesInFlight = glm::min<uint32_t>(s_Config.FramesInFlight, app->GetWindow().GetSwapChain().GetImageCount());
 
-		s_RendererAPI = InitRendererAPI();
+		s_RendererAPI = znew VulkanRenderer();
 
 		s_Data->m_ShaderLibrary = Ref<ShaderLibrary>::Create();
 

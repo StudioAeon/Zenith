@@ -18,24 +18,13 @@ namespace Zenith {
 	{
 		Ref<Shader> result = nullptr;
 
-		switch (RendererAPI::Current())
-		{
-			case RendererAPIType::None: return nullptr;
-			case RendererAPIType::Vulkan:
-				result = Ref<VulkanShader>::Create(filepath, forceCompile, disableOptimization);
-				break;
-		}
+		result = Ref<VulkanShader>::Create(filepath, forceCompile, disableOptimization);
 		return result;
 	}
 
 	Ref<Shader> Shader::CreateFromString(const std::string& source)
 	{
 		Ref<Shader> result = nullptr;
-
-		switch (RendererAPI::Current())
-		{
-			case RendererAPIType::None: return nullptr;
-		}
 		return result;
 	}
 

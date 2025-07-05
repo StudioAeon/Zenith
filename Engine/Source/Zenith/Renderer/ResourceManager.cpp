@@ -8,18 +8,7 @@ namespace Zenith {
 
 	void ResourceManager::Initialize(RendererAPIType apiType)
 	{
-		switch (apiType)
-		{
-			case RendererAPIType::None:
-				m_ResourceFactory = nullptr;
-				break;
-			case RendererAPIType::Vulkan:
-				m_ResourceFactory = std::make_unique<VulkanResourceFactory>();
-				break;
-			default:
-				ZN_CORE_ASSERT(false, "Unknown RendererAPI");
-				break;
-		}
+		std::make_unique<VulkanResourceFactory>();
 	}
 
 	void ResourceManager::Shutdown()

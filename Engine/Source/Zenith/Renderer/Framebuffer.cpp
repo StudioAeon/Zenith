@@ -11,11 +11,7 @@ namespace Zenith {
 	{
 		Ref<Framebuffer> result = nullptr;
 
-		switch (RendererAPI::Current())
-		{
-			case RendererAPIType::None:		return nullptr;
-			case RendererAPIType::Vulkan:	result = Ref<VulkanFramebuffer>::Create(spec); break;
-		}
+		result = Ref<VulkanFramebuffer>::Create(spec);
 		return result;
 	}
 
