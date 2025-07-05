@@ -17,11 +17,11 @@ namespace Zenith {
 	VulkanRenderPass::VulkanRenderPass(const RenderPassSpecification& spec)
 		: m_Specification(spec)
 	{
-		ZN_CORE_VERIFY(spec.Pipeline);
+		ZN_CORE_VERIFY(spec.TargetPipeline);
 
 		DescriptorSetManagerSpecification dmSpec;
 		dmSpec.DebugName = spec.DebugName;
-		dmSpec.Shader = spec.Pipeline->GetSpecification().Shader.As<VulkanShader>();
+		dmSpec.Shader = spec.TargetPipeline->GetSpecification().Shader.As<VulkanShader>();
 		dmSpec.StartSet = 1;
 		m_DescriptorSetManager = DescriptorSetManager(dmSpec);
 	}
@@ -72,7 +72,7 @@ namespace Zenith {
 
 	Ref<Image2D> VulkanRenderPass::GetOutput(uint32_t index)
 	{
-		Ref<Framebuffer> framebuffer = m_Specification.Pipeline->GetSpecification().TargetFramebuffer;
+		Ref<Framebuffer> framebuffer = m_Specification.TargetPipeline->GetSpecification().TargetFramebuffer;
 		if (index > framebuffer->GetColorAttachmentCount() + 1)
 			return nullptr; // Invalid index
 		if (index < framebuffer->GetColorAttachmentCount())
@@ -81,7 +81,7 @@ namespace Zenith {
 	}
 	Ref<Image2D> VulkanRenderPass::GetDepthOutput()
 	{
-		Ref<Framebuffer> framebuffer = m_Specification.Pipeline->GetSpecification().TargetFramebuffer;
+		Ref<Framebuffer> framebuffer = m_Specification.TargetPipeline->GetSpecification().TargetFramebuffer;
 		if (!framebuffer->HasDepthAttachment())
 			return nullptr; // No depth output
 		return framebuffer->GetDepthImage();
@@ -92,11 +92,11 @@ namespace Zenith {
 	}
 	Ref<Framebuffer> VulkanRenderPass::GetTargetFramebuffer() const
 	{
-		return m_Specification.Pipeline->GetSpecification().TargetFramebuffer;
+		return m_Specification.TargetPipeline->GetSpecification().TargetFramebuffer;
 	}
 	Ref<Pipeline> VulkanRenderPass::GetPipeline() const
 	{
-		return m_Specification.Pipeline;
+		return m_Specification.TargetPipeline;
 	}
 	bool VulkanRenderPass::Validate()
 	{

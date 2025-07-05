@@ -1,130 +1,127 @@
 #pragma once
 
-#include "Zenith/Core/Ref.hpp"
-
-#include "Zenith/Renderer/VertexBuffer.hpp"
+#include "Zenith/Core/Base.hpp"
 #include "Zenith/Renderer/Shader.hpp"
-#include "Zenith/Renderer/UniformBuffer.hpp"
 #include "Zenith/Renderer/Framebuffer.hpp"
+#include "Zenith/Renderer/VertexBuffer.hpp"
+
+#include <map>
+
+typedef struct VkPipeline_T* VkPipeline;
+typedef struct VkPipelineLayout_T* VkPipelineLayout;
+typedef struct VkPipelineCache_T* VkPipelineCache;
 
 namespace Zenith {
 
-	enum class PrimitiveTopology
-	{
-		None = 0,
-		Points,
-		Lines,
-		Triangles,
-		LineStrip,
-		TriangleStrip,
-		TriangleFan
-	};
+    enum class PrimitiveTopology
+    {
+        None = 0,
+        Points,
+        Lines,
+        LineStrip,
+        Triangles,
+        TriangleStrip,
+        TriangleFan
+    };
 
-	enum class DepthCompareOperator
-	{
-	    None = 0,
-		Never,
-		NotEqual,
-	    Less,
-	    LessOrEqual,
-	    Greater,
-	    GreaterOrEqual,
-		Equal,
-	    Always,
-	};
+    enum class DepthCompareOperator
+    {
+        None = 0,
+        Never,
+        NotEqual,
+        Less,
+        LessOrEqual,
+        Greater,
+        GreaterOrEqual,
+        Equal,
+        Always
+    };
 
-	struct PipelineSpecification
-	{
-		Ref<Shader> Shader;
-		Ref<Framebuffer> TargetFramebuffer;
-		VertexBufferLayout Layout;
-		VertexBufferLayout InstanceLayout;
-		VertexBufferLayout BoneInfluenceLayout;
-		PrimitiveTopology Topology = PrimitiveTopology::Triangles;
-		DepthCompareOperator DepthOperator = DepthCompareOperator::GreaterOrEqual;
-		bool BackfaceCulling = true;
-		bool DepthTest = true;
-		bool DepthWrite = true;
-		bool Wireframe = false;
-		float LineWidth = 1.0f;
+    struct PipelineSpecification
+    {
+        Ref<Shader> Shader;
+        VertexBufferLayout Layout;
+        VertexBufferLayout InstanceLayout;
+        VertexBufferLayout BoneInfluenceLayout;
+        Ref<Framebuffer> TargetFramebuffer;
 
-		std::string DebugName;
-	};
+        PrimitiveTopology Topology = PrimitiveTopology::Triangles;
+        DepthCompareOperator DepthOperator = DepthCompareOperator::GreaterOrEqual;
+        bool BackfaceCulling = true;
+        bool DepthTest = true;
+        bool DepthWrite = true;
+        bool Wireframe = false;
+        float LineWidth = 1.0f;
 
-	struct PipelineStatistics
-	{
-		uint64_t InputAssemblyVertices = 0;
-		uint64_t InputAssemblyPrimitives = 0;
-		uint64_t VertexShaderInvocations = 0;
-		uint64_t ClippingInvocations = 0;
-		uint64_t ClippingPrimitives = 0;
-		uint64_t FragmentShaderInvocations = 0;
-		uint64_t ComputeShaderInvocations = 0;
+        FramebufferBlendMode BlendMode = FramebufferBlendMode::SrcAlphaOneMinusSrcAlpha;
 
-		// TODO: tesselation shader stats when we have them
-	};
+        std::string DebugName;
+    };
 
-	// Identical to Vulkan's VkPipelineStageFlagBits
-	// Note: this is a bitfield
-	enum class PipelineStage
-	{
-		None = 0,
-		TopOfPipe = 0x00000001,
-		DrawIndirect = 0x00000002,
-		VertexInput = 0x00000004,
-		VertexShader = 0x00000008,
-		TesselationControlShader = 0x00000010,
-		TesselationEvaluationShader = 0x00000020,
-		GeometryShader = 0x00000040,
-		FragmentShader = 0x00000080,
-		EarlyFragmentTests = 0x00000100,
-		LateFragmentTests = 0x00000200,
-		ColorAttachmentOutput = 0x00000400,
-		ComputeShader = 0x00000800,
-		Transfer = 0x00001000,
-		BottomOfPipe = 0x00002000,
-		Host = 0x00004000,
-		AllGraphics = 0x00008000,
-		AllCommands = 0x00010000
-	};
+    // *** CRITICAL: Add the PipelineStatistics struct that RenderCommandBuffer needs ***
+    struct PipelineStatistics
+    {
+        uint64_t InputAssemblyVertices = 0;
+        uint64_t InputAssemblyPrimitives = 0;
+        uint64_t VertexShaderInvocations = 0;
+        uint64_t ClippingInvocations = 0;
+        uint64_t ClippingPrimitives = 0;
+        uint64_t FragmentShaderInvocations = 0;
+        uint64_t ComputeShaderInvocations = 0;
+    };
 
-	// Identical to Vulkan's VkAccessFlagBits
-	// Note: this is a bitfield
-	enum class ResourceAccessFlags
-	{
-		None = 0,
-		IndirectCommandRead = 0x00000001,
-		IndexRead = 0x00000002,
-		VertexAttributeRead = 0x00000004,
-		UniformRead = 0x00000008,
-		InputAttachmentRead = 0x00000010,
-		ShaderRead = 0x00000020,
-		ShaderWrite = 0x00000040,
-		ColorAttachmentRead = 0x00000080,
-		ColorAttachmentWrite = 0x00000100,
-		DepthStencilAttachmentRead = 0x00000200,
-		DepthStencilAttachmentWrite = 0x00000400,
-		TransferRead = 0x00000800,
-		TransferWrite = 0x00001000,
-		HostRead = 0x00002000,
-		HostWrite = 0x00004000,
-		MemoryRead = 0x00008000,
-		MemoryWrite = 0x00010000,
-	};
+    // Note: ResourceAccessFlags is designed to be bit-compatible and nearly identical to Vulkan's VkAccessFlagBits
+    // Note: this is a bitfield
+    enum class ResourceAccessFlags
+    {
+        None = 0,
+        IndirectCommandRead = 0x00000001,
+        IndexRead = 0x00000002,
+        VertexAttributeRead = 0x00000004,
+        UniformRead = 0x00000008,
+        InputAttachmentRead = 0x00000010,
+        ShaderRead = 0x00000020,
+        ShaderWrite = 0x00000040,
+        ColorAttachmentRead = 0x00000080,
+        ColorAttachmentWrite = 0x00000100,
+        DepthStencilAttachmentRead = 0x00000200,
+        DepthStencilAttachmentWrite = 0x00000400,
+        TransferRead = 0x00000800,
+        TransferWrite = 0x00001000,
+        HostRead = 0x00002000,
+        HostWrite = 0x00004000,
+        MemoryRead = 0x00008000,
+        MemoryWrite = 0x00010000,
+    };
 
-	class Pipeline : public RefCounted
-	{
-	public:
-		virtual ~Pipeline() = default;
+    // *** PROMOTED CLASS: This was VulkanPipeline, now it's the main Pipeline class ***
+    class Pipeline : public RefCounted
+    {
+    public:
+        Pipeline(const PipelineSpecification& spec);
+        ~Pipeline();
 
-		virtual PipelineSpecification& GetSpecification() = 0;
-		virtual const PipelineSpecification& GetSpecification() const = 0;
+        PipelineSpecification& GetSpecification() { return m_Specification; }
+        const PipelineSpecification& GetSpecification() const { return m_Specification; }
 
-		virtual void Invalidate() = 0;
+        void Invalidate();
 
-		virtual Ref<Shader> GetShader() const = 0;
+        Ref<Shader> GetShader() const { return m_Specification.Shader; }
 
-		static Ref<Pipeline> Create(const PipelineSpecification& spec);
-	};
+        bool IsDynamicLineWidth() const;
+
+        // *** DIRECT VULKAN ACCESS: No more .As<VulkanPipeline>() needed ***
+        VkPipeline GetVulkanPipeline() { return m_VulkanPipeline; }
+        VkPipelineLayout GetVulkanPipelineLayout() { return m_PipelineLayout; }
+
+        static Ref<Pipeline> Create(const PipelineSpecification& spec);
+
+    private:
+        PipelineSpecification m_Specification;
+
+        VkPipelineLayout m_PipelineLayout = nullptr;
+        VkPipeline m_VulkanPipeline = nullptr;
+        VkPipelineCache m_PipelineCache = nullptr;
+    };
 
 }

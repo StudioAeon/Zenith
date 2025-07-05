@@ -13,7 +13,7 @@ namespace Zenith {
 
 	struct RenderPassSpecification
 	{
-		Ref<Pipeline> Pipeline;
+		Ref<Pipeline> TargetPipeline;
 		std::string DebugName;
 		glm::vec4 MarkerColor;
 	};

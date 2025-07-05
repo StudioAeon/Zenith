@@ -90,7 +90,7 @@ namespace Zenith {
 	{
 		RenderPassSpecification renderPassSpec;
 		renderPassSpec.DebugName = "MeshRenderer-RenderPass";
-		renderPassSpec.Pipeline = m_Pipeline;
+		renderPassSpec.TargetPipeline = m_Pipeline;
 		renderPassSpec.MarkerColor = { 0.2f, 0.8f, 0.2f, 1.0f };
 
 		m_RenderPass = RenderPass::Create(renderPassSpec);

@@ -6,7 +6,7 @@
 #include "VulkanContext.hpp"
 #include "VulkanFramebuffer.hpp"
 #include "VulkanIndexBuffer.hpp"
-#include "VulkanPipeline.hpp"
+#include "Zenith/Renderer/Pipeline.hpp"
 #include "Zenith/Renderer/RenderCommandBuffer.hpp"
 #include "VulkanRenderPass.hpp"
 #include "VulkanShader.hpp"
@@ -285,8 +285,6 @@ namespace Zenith {
 			VkBuffer ibBuffer = vulkanMeshIB->GetVulkanBuffer();
 			vkCmdBindIndexBuffer(commandBuffer, ibBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-			Ref<VulkanPipeline> vulkanPipeline = pipeline.As<VulkanPipeline>();
-
 			std::vector<std::vector<VkWriteDescriptorSet>> writeDescriptors;
 
 			const auto& submeshes = meshSource->GetSubmeshes();
@@ -302,7 +300,7 @@ namespace Zenith {
 			if (s_Data->SelectedDrawCall != -1 && s_Data->DrawCallCount > s_Data->SelectedDrawCall)
 				return;
 
-			VkPipelineLayout layout = vulkanPipeline->GetVulkanPipelineLayout();
+			VkPipelineLayout layout = pipeline->GetVulkanPipelineLayout();
 			VkDescriptorSet descriptorSet = vulkanMaterial->GetDescriptorSet(frameIndex);
 			if (descriptorSet)
 				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &descriptorSet, 0, nullptr);
@@ -352,8 +350,7 @@ namespace Zenith {
 			VkBuffer ibBuffer = vulkanMeshIB->GetVulkanBuffer();
 			vkCmdBindIndexBuffer(commandBuffer, ibBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-			Ref<VulkanPipeline> vulkanPipeline = pipeline.As<VulkanPipeline>();
-			VkPipelineLayout layout = vulkanPipeline->GetVulkanPipelineLayout();
+			VkPipelineLayout layout = pipeline->GetVulkanPipelineLayout();
 
 			// Bind descriptor sets describing shader binding points
 			// TODO std::vector<VkDescriptorSet> descriptorSets = resourceSets.As<VulkanResourceSets>()->GetDescriptorSets();
@@ -394,9 +391,7 @@ namespace Zenith {
 			uint32_t frameIndex = Renderer::RT_GetCurrentFrameIndex();
 			VkCommandBuffer commandBuffer = renderCommandBuffer->GetActiveCommandBuffer();
 
-			Ref<VulkanPipeline> vulkanPipeline = pipeline.As<VulkanPipeline>();
-
-			VkPipelineLayout layout = vulkanPipeline->GetVulkanPipelineLayout();
+			VkPipelineLayout layout = pipeline->GetVulkanPipelineLayout();
 
 			auto vulkanMeshVB = s_Data->QuadVertexBuffer.As<VulkanVertexBuffer>();
 			VkBuffer vbMeshBuffer = vulkanMeshVB->GetVulkanBuffer();
@@ -428,9 +423,7 @@ namespace Zenith {
 			uint32_t frameIndex = Renderer::RT_GetCurrentFrameIndex();
 			VkCommandBuffer commandBuffer = renderCommandBuffer->GetActiveCommandBuffer();
 
-			Ref<VulkanPipeline> vulkanPipeline = pipeline.As<VulkanPipeline>();
-
-			VkPipelineLayout layout = vulkanPipeline->GetVulkanPipelineLayout();
+			VkPipelineLayout layout = pipeline->GetVulkanPipelineLayout();
 
 			auto vulkanMeshVB = vertexBuffer.As<VulkanVertexBuffer>();
 			VkBuffer vbMeshBuffer = vulkanMeshVB->GetVulkanBuffer();
@@ -764,9 +757,7 @@ namespace Zenith {
 			uint32_t frameIndex = Renderer::RT_GetCurrentFrameIndex();
 			VkCommandBuffer commandBuffer = renderCommandBuffer->GetActiveCommandBuffer();
 
-			Ref<VulkanPipeline> vulkanPipeline = pipeline.As<VulkanPipeline>();
-
-			VkPipelineLayout layout = vulkanPipeline->GetVulkanPipelineLayout();
+			VkPipelineLayout layout = pipeline->GetVulkanPipelineLayout();
 
 			auto vulkanMeshVB = s_Data->QuadVertexBuffer.As<VulkanVertexBuffer>();
 			VkBuffer vbMeshBuffer = vulkanMeshVB->GetVulkanBuffer();
@@ -816,9 +807,7 @@ namespace Zenith {
 			uint32_t frameIndex = Renderer::RT_GetCurrentFrameIndex();
 			VkCommandBuffer commandBuffer = renderCommandBuffer->GetActiveCommandBuffer();
 
-			Ref<VulkanPipeline> vulkanPipeline = pipeline.As<VulkanPipeline>();
-
-			VkPipelineLayout layout = vulkanPipeline->GetVulkanPipelineLayout();
+			VkPipelineLayout layout = pipeline->GetVulkanPipelineLayout();
 
 			auto vulkanMeshVB = s_Data->QuadVertexBuffer.As<VulkanVertexBuffer>();
 			VkBuffer vbMeshBuffer = vulkanMeshVB->GetVulkanBuffer();
@@ -935,7 +924,7 @@ namespace Zenith {
 			debugLabel.pLabelName = renderPass->GetSpecification().DebugName.c_str();
 			fpCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabel);
 
-			auto fb = renderPass->GetSpecification().Pipeline->GetSpecification().TargetFramebuffer;
+			auto fb = renderPass->GetSpecification().TargetPipeline->GetSpecification().TargetFramebuffer;
 			Ref<VulkanFramebuffer> framebuffer = fb.As<VulkanFramebuffer>();
 			const auto& fbSpec = framebuffer->GetSpecification();
 
@@ -1047,12 +1036,12 @@ namespace Zenith {
 			// TODO: automatic layout transitions for input resources
 
 			// Bind Vulkan Pipeline
-			Ref<VulkanPipeline> vulkanPipeline = renderPass->GetSpecification().Pipeline.As<VulkanPipeline>();
-			VkPipeline vPipeline = vulkanPipeline->GetVulkanPipeline();
+			Ref<Pipeline> pipeline = renderPass->GetSpecification().TargetPipeline;
+			VkPipeline vPipeline = pipeline->GetVulkanPipeline();
 			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vPipeline);
 
-			if (vulkanPipeline->IsDynamicLineWidth())
-				vkCmdSetLineWidth(commandBuffer, vulkanPipeline->GetSpecification().LineWidth);
+			if (pipeline->IsDynamicLineWidth())
+				vkCmdSetLineWidth(commandBuffer, pipeline->GetSpecification().LineWidth);
 
 			// Bind input descriptors (starting from set 1, set 0 is for per-draw)
 			Ref<VulkanRenderPass> vulkanRenderPass = renderPass.As<VulkanRenderPass>();
@@ -1060,7 +1049,7 @@ namespace Zenith {
 			if (vulkanRenderPass->HasDescriptorSets())
 			{
 				const auto& descriptorSets = vulkanRenderPass->GetDescriptorSets(frameIndex);
-				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline->GetVulkanPipelineLayout(), vulkanRenderPass->GetFirstSetIndex(), (uint32_t)descriptorSets.size(), descriptorSets.data(), 0, nullptr);
+				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVulkanPipelineLayout(), vulkanRenderPass->GetFirstSetIndex(), (uint32_t)descriptorSets.size(), descriptorSets.data(), 0, nullptr);
 			}
 		});
 	}

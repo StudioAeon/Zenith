@@ -4,7 +4,7 @@
 #include "VulkanAPI.hpp"
 #include "VulkanContext.hpp"
 #include "VulkanImage.hpp"
-#include "VulkanPipeline.hpp"
+#include "Zenith/Renderer/Pipeline.hpp"
 #include "VulkanRenderer.hpp"
 #include "VulkanTexture.hpp"
 #include "VulkanUniformBuffer.hpp"
